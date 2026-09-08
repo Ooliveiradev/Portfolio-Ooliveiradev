@@ -11,6 +11,7 @@ import {
   Check,
   Navigation,
   Globe,
+  Layers,
   FolderGit2,
   Briefcase,
   Cpu,
@@ -197,7 +198,11 @@ export const HUD: React.FC<HUDProps> = ({
               >
                 <Video className="w-3.5 h-3.5 text-sky-400" />
                 <span className="hidden sm:inline font-bold">
-                  {cameraViewMode === 'chase' ? 'Atrás da Nave' : 'Visão 55°'}
+                  {cameraViewMode === 'chase'
+                    ? 'Atrás da Nave'
+                    : cameraViewMode === 'iso'
+                    ? 'Isométrica'
+                    : 'Visão Global'}
                 </span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
@@ -206,7 +211,7 @@ export const HUD: React.FC<HUDProps> = ({
                 />
               </button>
 
-              {/* Descending Dropdown List with 2 Modes */}
+              {/* Descending Dropdown List with 3 Modes */}
               <AnimatePresence>
                 {showCameraDropdown && (
                   <>
@@ -228,11 +233,11 @@ export const HUD: React.FC<HUDProps> = ({
                           Modos de Câmera
                         </span>
                         <span className="text-[9px] font-mono text-sky-400 bg-sky-950/60 px-1.5 py-0.5 rounded border border-sky-500/30">
-                          2 Modos
+                          3 Modos
                         </span>
                       </div>
 
-                      {/* Modo 1: Atrás da Nave (Git City) */}
+                      {/* Modo 1: Atrás da Nave (Terceira Pessoa) */}
                       <button
                         onClick={() => {
                           sounds.playClick();
@@ -259,7 +264,7 @@ export const HUD: React.FC<HUDProps> = ({
                             <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
                               Atrás da Nave
                               <span className="text-[10px] text-sky-400 font-mono font-normal">
-                                (Git City)
+                                (Chase)
                               </span>
                             </span>
                             {cameraViewMode === 'chase' && (
@@ -267,12 +272,52 @@ export const HUD: React.FC<HUDProps> = ({
                             )}
                           </div>
                           <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                            Câmera fixa atrás da nave acompanhando direção e curvas em tempo real.
+                            Câmera em terceira pessoa fixada atrás da nave, acompanhando manobras e curvas em tempo real.
                           </p>
                         </div>
                       </button>
 
-                      {/* Modo 2: Ângulo 55° (Todas as Ilhas no Campo de Visão) */}
+                      {/* Modo 2: Visão Isométrica (Diorama) */}
+                      <button
+                        onClick={() => {
+                          sounds.playClick();
+                          onSelectCameraMode('iso');
+                          setShowCameraDropdown(false);
+                        }}
+                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                          cameraViewMode === 'iso'
+                            ? 'bg-purple-500/15 border-purple-500/60 text-white shadow-[0_0_12px_rgba(168,85,247,0.15)]'
+                            : 'bg-slate-900/60 hover:bg-slate-850 border-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <div
+                          className={`p-2 rounded-lg mt-0.5 ${
+                            cameraViewMode === 'iso'
+                              ? 'bg-purple-500 text-slate-950'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                              Visão Isométrica
+                              <span className="text-[10px] text-purple-400 font-mono font-normal">
+                                (Diorama)
+                              </span>
+                            </span>
+                            {cameraViewMode === 'iso' && (
+                              <Check className="w-3.5 h-3.5 text-purple-400 stroke-[3]" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                            Enquadramento diagonal de maquete com profundidade comprimida estilo Poly Bridge.
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Modo 3: Visão Global 55° */}
                       <button
                         onClick={() => {
                           sounds.playClick();
@@ -307,7 +352,7 @@ export const HUD: React.FC<HUDProps> = ({
                             )}
                           </div>
                           <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                            Ângulo a 55° com todas as ilhas dentro do campo de visão 100% do tempo.
+                            Ângulo tático amplo com todos os planetas do sistema solar visíveis.
                           </p>
                         </div>
                       </button>

@@ -1,7 +1,90 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import RAPIER from '@dimforge/rapier3d-compat';
+import { useRapier } from './physics/RapierPhysicsContext';
 import { sounds } from '../../audio/soundManager';
+
+const NUM_PUFFS = 15;
+const COLOR_YELLOW = new THREE.Color('#fbbf24');
+const COLOR_ORANGE = new THREE.Color('#f97316');
+const COLOR_WHITE = new THREE.Color('#f1f5f9');
+const COLOR_GRAY = new THREE.Color('#94a3b8');
+
+interface ExhaustPuff {
+  active: boolean;
+  pos: THREE.Vector3;
+  vel: THREE.Vector3;
+  rotX: number;
+  rotY: number;
+  rotZ: number;
+  vRotX: number;
+  vRotY: number;
+  vRotZ: number;
+  life: number;
+  maxLife: number;
+  initialScale: number;
+}
+
+const spawnPuff = (
+  puff: ExhaustPuff,
+  rocketGroup: THREE.Group,
+  shipLinVel: THREE.Vector3,
+  turn: number,
+  turnSpeed: number,
+  isBoosting: boolean,
+  thrust: number
+) => {
+  puff.active = true;
+  puff.life = 0;
+  puff.maxLife = (isBoosting ? 0.38 : 0.54) + Math.random() * 0.12;
+
+  // Local nozzle exit position (with slight radial jitter)
+  const localNozzle = new THREE.Vector3(
+    (Math.random() - 0.5) * 0.08,
+    (Math.random() - 0.5) * 0.08,
+    -1.95
+  );
+
+  // Transform nozzle offset to world space
+  const worldNozzleOffset = localNozzle.clone().applyQuaternion(rocketGroup.quaternion);
+  puff.pos.copy(rocketGroup.position).add(worldNozzleOffset);
+
+  // Slightly different ejection direction from center for dispersion
+  const driftAngle = Math.random() * Math.PI * 2;
+  const driftSpeed = (isBoosting ? 0.42 : 0.28) + Math.random() * 0.4;
+  const localVx = Math.cos(driftAngle) * driftSpeed;
+  const localVy = Math.sin(driftAngle) * driftSpeed;
+
+  // Backward ejection velocity along rocket's local -Z
+  const exhaustSpeed = isBoosting ? 13.5 : 7.0 + Math.abs(thrust) * 3.5;
+  const localVz = -exhaustSpeed * (0.85 + Math.random() * 0.3);
+
+  const localVel = new THREE.Vector3(localVx, localVy, localVz);
+  const worldVel = localVel.applyQuaternion(rocketGroup.quaternion);
+
+  // 1. Inherit partial linear velocity from the ship (smooth curve momentum)
+  worldVel.addScaledVector(shipLinVel, 0.35);
+
+  // 2. Realistic tangential velocity from yaw rotation (v = omega x r)
+  // When turning with A/D, the nozzle swings sideways and flings the exhaust into an authentic curved arc
+  const yawRate = turn * turnSpeed;
+  const omega = new THREE.Vector3(0, yawRate, 0);
+  const vTangential = new THREE.Vector3().crossVectors(omega, worldNozzleOffset);
+  worldVel.addScaledVector(vTangential, 0.85);
+
+  puff.vel.copy(worldVel);
+
+  // Random tumbling
+  puff.rotX = Math.random() * Math.PI * 2;
+  puff.rotY = Math.random() * Math.PI * 2;
+  puff.rotZ = Math.random() * Math.PI * 2;
+  puff.vRotX = (Math.random() - 0.5) * 5;
+  puff.vRotY = (Math.random() - 0.5) * 5;
+  puff.vRotZ = (Math.random() - 0.5) * 5;
+
+  puff.initialScale = (isBoosting ? 0.48 : 0.38) + Math.random() * 0.08;
+};
 
 interface SpaceVehicleProps {
   position: [number, number, number];
@@ -21,24 +104,48 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   virtualInput,
   onClearTargetPosition,
 }) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const leftEngineRef = useRef<THREE.Mesh>(null);
-  const rightEngineRef = useRef<THREE.Mesh>(null);
-  const leftInnerFlameRef = useRef<THREE.Mesh>(null);
-  const rightInnerFlameRef = useRef<THREE.Mesh>(null);
-  const centralEngineRef = useRef<THREE.Mesh>(null);
-  const leftStrobeRef = useRef<THREE.MeshBasicMaterial>(null);
-  const rightStrobeRef = useRef<THREE.MeshBasicMaterial>(null);
+  const { rapier, world, isReady } = useRapier();
 
-  // Flight physics state
+  const groupRef = useRef<THREE.Group>(null);
+  
+  // Dynamic 15-puff polygonal exhaust pool (starts idle with 0 emission)
+  const puffsRef = useRef<ExhaustPuff[]>(
+    Array.from({ length: NUM_PUFFS }, () => ({
+      active: false,
+      pos: new THREE.Vector3(0, 0, 0),
+      vel: new THREE.Vector3(0, 0, 0),
+      rotX: 0,
+      rotY: 0,
+      rotZ: 0,
+      vRotX: 1,
+      vRotY: 1,
+      vRotZ: 1,
+      life: 1,
+      maxLife: 0.5,
+      initialScale: 0.40,
+    }))
+  );
+
+  const puffMeshesRef = useRef<(THREE.Mesh | null)[]>([]);
+  const puffMatsRef = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
+  const spawnTimerRef = useRef(0);
+
+  const flameLightRef = useRef<THREE.PointLight>(null);
+  const headlightRef = useRef<THREE.PointLight>(null);
+
+  // RigidBody & Collider
+  const rigidBodyRef = useRef<RAPIER.RigidBody | null>(null);
+  const colliderRef = useRef<RAPIER.Collider | null>(null);
+
+  // Flight dynamics state
   const pos = useRef(new THREE.Vector3(...position));
   const velocity = useRef(new THREE.Vector3(0, 0, 0));
   const rotationY = useRef(0);
-  const targetRotationY = useRef(0);
   const rollZ = useRef(0);
   const pitchX = useRef(0);
   const keys = useRef<{ [key: string]: boolean }>({});
 
+  // Setup Keyboard inputs
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.current[e.key.toLowerCase()] = true;
@@ -66,10 +173,44 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     };
   }, []);
 
+  // Initialize Rapier dynamic RigidBody and Collider
+  useEffect(() => {
+    if (!isReady || !world || !rapier) return;
+
+    // Calibrated cuboid collider encompassing the rocket body and fins
+    const bodyDesc = rapier.RigidBodyDesc.dynamic()
+      .setTranslation(position[0], position[1], position[2])
+      .setLinearDamping(1.9)
+      .setAngularDamping(3.2)
+      .setCanSleep(false);
+
+    // Free yaw rotation around Y, locked X and Z to prevent tumbling upside down
+    bodyDesc.enabledRotations(false, true, false);
+
+    const body = world.createRigidBody(bodyDesc);
+    rigidBodyRef.current = body;
+
+    const colliderDesc = rapier.ColliderDesc.cuboid(0.9, 0.9, 1.8)
+      .setFriction(0.4)
+      .setRestitution(0.25)
+      .setMass(14.0);
+
+    const collider = world.createCollider(colliderDesc, body);
+    colliderRef.current = collider;
+
+    return () => {
+      if (world && body) {
+        world.removeRigidBody(body);
+        rigidBodyRef.current = null;
+        colliderRef.current = null;
+      }
+    };
+  }, [isReady]);
+
+  // Frame animation & physics loop
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
-    // Check keyboard or virtual touch inputs
     const forwardKey = Boolean(keys.current['arrowup'] || keys.current['w'] || virtualInput.y < -0.2);
     const backwardKey = Boolean(keys.current['arrowdown'] || keys.current['s'] || virtualInput.y > 0.2);
     const leftKey = Boolean(keys.current['arrowleft'] || keys.current['a'] || virtualInput.x < -0.2);
@@ -84,404 +225,497 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       Math.abs(virtualInput.x) > 0.1 ||
       Math.abs(virtualInput.y) > 0.1;
 
-    // If player uses manual controls, immediately cancel any auto-navigation target
     if (isManualInput && targetPosition) {
       onClearTargetPosition?.();
     }
 
-    // Responsive flight dynamics scaled for expanded galaxy
-    const baseSpeed = isBoosting ? 44 : 25;
+    const baseSpeed = isBoosting ? 46 : 27;
     const turnSpeed = 3.6;
 
     let thrust = 0;
     let turn = 0;
 
     if (forwardKey) thrust += 1;
-    if (backwardKey) thrust -= 0.7;
+    if (backwardKey) thrust -= 0.75;
     if (leftKey) turn += 1;
     if (rightKey) turn -= 1;
 
-    // Touch joystick analog influence
-    if (Math.abs(virtualInput.x) > 0.1) {
-      turn = -virtualInput.x * 1.6;
-    }
-    if (Math.abs(virtualInput.y) > 0.1) {
-      thrust = -virtualInput.y * 1.4;
-    }
+    if (Math.abs(virtualInput.x) > 0.1) turn = -virtualInput.x * 1.6;
+    if (Math.abs(virtualInput.y) > 0.1) thrust = -virtualInput.y * 1.4;
 
-    // Auto-navigation towards target position
-    if (targetPosition && !isManualInput) {
-      const targetVec = new THREE.Vector3(...targetPosition);
-      const diff = new THREE.Vector3().subVectors(targetVec, pos.current);
-      diff.y = 0;
-      const dist = diff.length();
+    const body = rigidBodyRef.current;
 
-      if (dist > 2.2) {
-        const desiredAngle = Math.atan2(diff.x, diff.z);
-        let angleDiff = desiredAngle - rotationY.current;
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    if (body && isReady) {
+      const currentTranslation = body.translation();
+      const currentRot = body.rotation();
 
-        rotationY.current += angleDiff * Math.min(delta * 4.5, 1);
-        thrust = Math.min(dist * 0.75, 1.3);
+      const q = new THREE.Quaternion(currentRot.x, currentRot.y, currentRot.z, currentRot.w);
+      const euler = new THREE.Euler().setFromQuaternion(q, 'YXZ');
+      let yaw = euler.y;
 
-        // Smooth elevation adjust
-        pos.current.y = THREE.MathUtils.lerp(pos.current.y, targetPosition[1], delta * 2.8);
-      } else {
-        onClearTargetPosition?.();
-        thrust = 0;
+      // Auto-navigation towards target island
+      if (targetPosition && !isManualInput) {
+        const diffX = targetPosition[0] - currentTranslation.x;
+        const diffZ = targetPosition[2] - currentTranslation.z;
+        const dist = Math.hypot(diffX, diffZ);
+
+        if (dist > 2.5) {
+          const desiredAngle = Math.atan2(diffX, diffZ);
+          let angleDiff = desiredAngle - yaw;
+          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+          yaw += angleDiff * Math.min(delta * 4.5, 1);
+          thrust = Math.min(dist * 0.8, 1.3);
+
+          // Smooth elevation matching
+          const newY = THREE.MathUtils.lerp(currentTranslation.y, targetPosition[1] + 0.4, delta * 3.0);
+          body.setTranslation({ x: currentTranslation.x, y: newY, z: currentTranslation.z }, true);
+        } else {
+          onClearTargetPosition?.();
+          thrust = 0;
+        }
       }
-    }
 
-    // Update yaw rotation
-    targetRotationY.current += turn * turnSpeed * delta;
-    rotationY.current = THREE.MathUtils.lerp(rotationY.current, targetRotationY.current, delta * 9);
+      // Update yaw steering
+      yaw += turn * turnSpeed * delta;
 
-    // Dynamic flight banking (roll Z) when turning
-    const targetRoll = -turn * 0.52;
-    rollZ.current = THREE.MathUtils.lerp(rollZ.current, targetRoll, delta * 9);
+      // Directional vector
+      const forwardX = Math.sin(yaw);
+      const forwardZ = Math.cos(yaw);
 
-    // Dynamic pitch (pitch X) when accelerating/braking
-    const targetPitch = thrust * 0.18;
-    pitchX.current = THREE.MathUtils.lerp(pitchX.current, targetPitch, delta * 7);
+      // Apply forward / reverse impulse
+      if (thrust !== 0) {
+        const forceMagnitude = thrust * baseSpeed * 35;
+        body.applyImpulse(
+          {
+            x: forwardX * forceMagnitude * delta,
+            y: 0,
+            z: forwardZ * forceMagnitude * delta,
+          },
+          true
+        );
+      }
 
-    // Apply thrust along forward vector
-    const forward = new THREE.Vector3(
-      Math.sin(rotationY.current),
-      0,
-      Math.cos(rotationY.current)
-    );
+      // Gentle zero-G celestial elevation stabilization
+      const targetElevation = targetPosition ? targetPosition[1] : 0.5;
+      const elevDiff = targetElevation - currentTranslation.y;
+      body.applyImpulse({ x: 0, y: elevDiff * 8.5 * delta, z: 0 }, true);
 
-    if (thrust !== 0) {
-      velocity.current.addScaledVector(forward, thrust * baseSpeed * delta);
+      // Update orientation
+      const targetQuat = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(0, yaw, 0, 'YXZ')
+      );
+      body.setRotation(
+        {
+          x: targetQuat.x,
+          y: targetQuat.y,
+          z: targetQuat.z,
+          w: targetQuat.w,
+        },
+        true
+      );
+
+      // Aerodynamic banking roll and pitch
+      const targetRoll = -turn * 0.45;
+      rollZ.current = THREE.MathUtils.lerp(rollZ.current, targetRoll, delta * 9);
+      const targetPitch = thrust * 0.16;
+      pitchX.current = THREE.MathUtils.lerp(pitchX.current, targetPitch, delta * 7);
+
+      const finalPos = body.translation();
+      const hoverY = Math.sin(Date.now() * 0.0035) * 0.18;
+
+      groupRef.current.position.set(finalPos.x, finalPos.y + hoverY, finalPos.z);
+      groupRef.current.rotation.set(pitchX.current, yaw, rollZ.current);
+      groupRef.current.updateMatrixWorld();
+
+      pos.current.set(finalPos.x, finalPos.y, finalPos.z);
+      rotationY.current = yaw;
+
+      onPositionChange([finalPos.x, finalPos.y, finalPos.z]);
+      onRotationChange?.(yaw);
     } else {
-      // Firm braking when throttle released
-      velocity.current.multiplyScalar(Math.pow(0.52, delta * 30));
-      if (velocity.current.lengthSq() < 0.005) {
-        velocity.current.set(0, 0, 0);
+      // Kinematic fallback
+      rotationY.current += turn * turnSpeed * delta;
+      rollZ.current = THREE.MathUtils.lerp(rollZ.current, -turn * 0.45, delta * 9);
+      pitchX.current = THREE.MathUtils.lerp(pitchX.current, thrust * 0.16, delta * 7);
+
+      const forward = new THREE.Vector3(
+        Math.sin(rotationY.current),
+        0,
+        Math.cos(rotationY.current)
+      );
+
+      if (thrust !== 0) {
+        velocity.current.addScaledVector(forward, thrust * baseSpeed * delta);
+      } else {
+        velocity.current.multiplyScalar(Math.pow(0.5, delta * 30));
+      }
+      velocity.current.multiplyScalar(Math.pow(0.9, delta * 30));
+      pos.current.addScaledVector(velocity.current, delta);
+
+      const hoverY = Math.sin(Date.now() * 0.0035) * 0.18;
+      groupRef.current.position.set(pos.current.x, pos.current.y + hoverY, pos.current.z);
+      groupRef.current.rotation.set(pitchX.current, rotationY.current, rollZ.current);
+      groupRef.current.updateMatrixWorld();
+
+      onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
+      onRotationChange?.(rotationY.current);
+    }
+
+    // Determine if rocket is actively moving or thrusting
+    const bodySpeed = body && isReady ? Math.hypot(body.linvel().x, body.linvel().z) : velocity.current.length();
+    const isMoving = isBoosting || Math.abs(thrust) > 0.05 || bodySpeed > 0.35;
+
+    const shipLinVel =
+      body && isReady
+        ? new THREE.Vector3(body.linvel().x, body.linvel().y, body.linvel().z)
+        : velocity.current.clone();
+
+    // Dynamic 15-puff polygonal exhaust jet animation in world space:
+    // When the ship is stopped, NOTHING comes out.
+    // When accelerating or moving, separate polygons shoot out in world space,
+    // curving naturally with turn physics when steering with A/D, shrinking gradually, and disappearing (max 15 active).
+    if (isMoving) {
+      const spawnInterval = isBoosting ? 0.024 : 0.038;
+      spawnTimerRef.current += delta;
+
+      while (spawnTimerRef.current >= spawnInterval) {
+        spawnTimerRef.current -= spawnInterval;
+
+        // Find an inactive or finished puff in the 15-puff pool
+        const availablePuff = puffsRef.current.find((p) => !p.active || p.life >= 1);
+        if (availablePuff) {
+          spawnPuff(
+            availablePuff,
+            groupRef.current,
+            shipLinVel,
+            turn,
+            turnSpeed,
+            isBoosting,
+            thrust
+          );
+        } else {
+          break; // All 15 currently active
+        }
+      }
+    } else {
+      spawnTimerRef.current = 0;
+    }
+
+    // Update the 15 puffs in world space
+    for (let i = 0; i < NUM_PUFFS; i++) {
+      const puff = puffsRef.current[i];
+      const mesh = puffMeshesRef.current[i];
+      const mat = puffMatsRef.current[i];
+
+      if (!puff.active) {
+        if (mesh) mesh.scale.set(0, 0, 0);
+        continue;
+      }
+
+      puff.life += delta / puff.maxLife;
+
+      // When life ends, deactivate it (won't respawn if stopped!)
+      if (puff.life >= 1) {
+        puff.active = false;
+        if (mesh) mesh.scale.set(0, 0, 0);
+        continue;
+      }
+
+      // Physics integration: drag decelerates puff smoothly in space
+      puff.vel.multiplyScalar(Math.pow(0.86, delta * 25));
+      puff.pos.addScaledVector(puff.vel, delta);
+
+      // Tumbling rotation
+      puff.rotX += puff.vRotX * delta;
+      puff.rotY += puff.vRotY * delta;
+      puff.rotZ += puff.vRotZ * delta;
+
+      if (mesh && mat) {
+        mesh.position.copy(puff.pos);
+        mesh.rotation.set(puff.rotX, puff.rotY, puff.rotZ);
+
+        // Gradually become smaller and disappear
+        const progress = Math.min(Math.max(puff.life, 0), 1);
+        const currentScale = Math.max(0.001, puff.initialScale * (1 - progress));
+        mesh.scale.set(currentScale, currentScale, currentScale);
+
+        // Fade out
+        mat.opacity = Math.max(0, 1 - progress * 0.88);
+
+        // Color transition: yellow -> orange -> white -> gray
+        if (progress < 0.22) {
+          mat.color.lerpColors(COLOR_YELLOW, COLOR_ORANGE, progress / 0.22);
+        } else if (progress < 0.55) {
+          mat.color.lerpColors(COLOR_ORANGE, COLOR_WHITE, (progress - 0.22) / 0.33);
+        } else {
+          mat.color.lerpColors(COLOR_WHITE, COLOR_GRAY, (progress - 0.55) / 0.45);
+        }
       }
     }
 
-    // Space drag
-    velocity.current.multiplyScalar(Math.pow(0.89, delta * 30));
-    pos.current.addScaledVector(velocity.current, delta);
-
-    // Gentle organic floating hover in space
-    const hoverY = Math.sin(Date.now() * 0.0035) * 0.22;
-    groupRef.current.position.set(pos.current.x, pos.current.y + hoverY, pos.current.z);
-    groupRef.current.rotation.y = rotationY.current;
-    groupRef.current.rotation.z = rollZ.current;
-    groupRef.current.rotation.x = pitchX.current;
-
-    // Animate plasma engine flares based on acceleration and boost
-    const activeThrust = Math.abs(thrust) + (isBoosting ? 2.2 : 0.35);
-    const pulseScale = Math.max(0.2, activeThrust * (1 + Math.sin(Date.now() * 0.045) * 0.22));
-
-    if (leftEngineRef.current && rightEngineRef.current && centralEngineRef.current) {
-      leftEngineRef.current.scale.set(pulseScale * 0.9, pulseScale * 0.9, pulseScale * 2.2);
-      rightEngineRef.current.scale.set(pulseScale * 0.9, pulseScale * 0.9, pulseScale * 2.2);
-      centralEngineRef.current.scale.set(pulseScale * 1.25, pulseScale * 1.25, pulseScale * 2.8);
+    // Dynamic Fire Lighting Intensity (fades to 0 when stopped!)
+    if (flameLightRef.current) {
+      const targetIntensity = isMoving ? (isBoosting ? 5.5 : 2.8) : 0;
+      flameLightRef.current.intensity = THREE.MathUtils.lerp(
+        flameLightRef.current.intensity,
+        targetIntensity,
+        delta * 10
+      );
     }
-    if (leftInnerFlameRef.current && rightInnerFlameRef.current) {
-      leftInnerFlameRef.current.scale.set(pulseScale * 0.5, pulseScale * 0.5, pulseScale * 1.6);
-      rightInnerFlameRef.current.scale.set(pulseScale * 0.5, pulseScale * 0.5, pulseScale * 1.6);
-    }
-
-    // Animate wingtip strobe navigation lights
-    const strobeTime = (Math.sin(Date.now() * 0.008) + 1) * 0.5;
-    if (leftStrobeRef.current && rightStrobeRef.current) {
-      leftStrobeRef.current.opacity = strobeTime > 0.6 ? 1.0 : 0.3;
-      rightStrobeRef.current.opacity = strobeTime > 0.6 ? 1.0 : 0.3;
-    }
-
-    // Propagate position and rotation heading to parent
-    onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
-    onRotationChange?.(rotationY.current);
   });
 
+  // Custom Fin Geometry matching the reference image:
+  // Starts on fuselage near mid-body, sweeps OUTWARD and BACKWARD, with rearmost swept tip past the nozzle
+  const finShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    // Coordinates: (radial distance X from center axis, axial position Y along rocket Z)
+    shape.moveTo(0.80, 0.25);   // Front root on mid fuselage
+    shape.lineTo(1.42, -1.55);  // Swept outer leading edge flaring out and back
+    shape.lineTo(1.35, -1.80);  // Sharp swept fin tip extending past the nozzle
+    shape.lineTo(0.95, -1.65);  // Cutout notch on trailing edge
+    shape.lineTo(0.44, -1.45);  // Lower root attaching to nozzle collar
+    shape.lineTo(0.68, -0.60);  // Tapering along lower fuselage
+    shape.closePath();
+    return shape;
+  }, []);
+
+  const finExtrudeSettings = useMemo(
+    () => ({
+      depth: 0.08,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.02,
+      bevelSegments: 1, // 1 segment bevel produces a crisp low-poly chamfer!
+    }),
+    []
+  );
+
+  // 4 Symmetrical Fin Angles: Top (0.5 PI), Right (0), Bottom (-0.5 PI), Left (PI)
+  const finAngles = useMemo(() => [Math.PI / 2, 0, -Math.PI / 2, Math.PI], []);
+
   return (
-    <group ref={groupRef} position={position} dispose={null}>
-      {/* ==========================================================
-          BRUNO SIMON STYLE HIGH-DETAIL EXPLORATION SPACESHIP
-          Modular toy-like aesthetics with crisp materials & bevels
-         ========================================================== */}
+    <>
+      <group ref={groupRef} position={position} dispose={null}>
+      {/* =========================================================================
+          RETRO TOY LOW-POLY ROCKET
+          100% Faithful to the Reference Image:
+          - Red faceted conical nose cone (pointed forward at +Z)
+          - White faceted spindle/bullet fuselage with crisp polygonal faces
+          - Circular porthole window with silver bezel and faceted sky-blue glass
+          - 4 Swept-back red aerodynamic fins with beveled edges
+          - Dynamic 15-puff dispersed polygonal exhaust jet (silent when stopped)
+         ========================================================================= */}
 
-      {/* 1. LOWER CHASSIS & ARMOR SKIRT (Graphite Titanium) */}
-      <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.25, 0.28, 2.7]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.35} metalness={0.7} />
-      </mesh>
-
-      {/* 2. MAIN UPPER FUSELAGE HULL (Ceramic Polar White) */}
-      <mesh position={[0, 0.46, 0.1]} castShadow receiveShadow>
-        <boxGeometry args={[1.15, 0.32, 2.3]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.2} metalness={0.25} />
-      </mesh>
-
-      {/* Racing Tech Stripe down central spine */}
-      <mesh position={[0, 0.63, 0.1]}>
-        <boxGeometry args={[0.32, 0.04, 2.25]} />
-        <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.4} />
-      </mesh>
-
-      {/* 3. SCULPTED AERODYNAMIC NOSE CONE */}
-      {/* Upper white nose cone */}
-      <mesh position={[0, 0.44, 1.7]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <coneGeometry args={[0.58, 1.3, 6]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.2} metalness={0.3} />
-      </mesh>
-      {/* Lower dark intake splitter */}
-      <mesh position={[0, 0.25, 1.7]} rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.48, 1.1, 6]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.8} />
-      </mesh>
-      {/* Front Nose Radar Sensor Probe */}
-      <mesh position={[0, 0.44, 2.42]}>
-        <sphereGeometry args={[0.08, 12, 12]} />
-        <meshBasicMaterial color="#38bdf8" />
-      </mesh>
-
-      {/* Dual Front Headlights / Fog Projectors */}
-      <group position={[0, 0.34, 1.95]}>
-        <mesh position={[-0.32, 0, 0]}>
-          <boxGeometry args={[0.12, 0.1, 0.2]} />
-          <meshBasicMaterial color="#e0f2fe" />
-        </mesh>
-        <mesh position={[0.32, 0, 0]}>
-          <boxGeometry args={[0.12, 0.1, 0.2]} />
-          <meshBasicMaterial color="#e0f2fe" />
-        </mesh>
-        <pointLight position={[0, 0, 0.5]} color="#bae6fd" intensity={3.0} distance={14} />
-      </group>
-
-      {/* 4. CANOPY & DETAILED ASTRONAUT PILOT COCKPIT */}
-      {/* Cockpit Interior Tub & Instrument Dash */}
-      <group position={[0, 0.62, 0.28]}>
-        <mesh position={[0, -0.04, 0]}>
-          <boxGeometry args={[0.62, 0.15, 1.05]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
-        {/* Holographic Instrument Display Panel */}
-        <mesh position={[0, 0.08, 0.42]} rotation={[-0.4, 0, 0]}>
-          <planeGeometry args={[0.4, 0.18]} />
-          <meshBasicMaterial color="#38bdf8" />
-        </mesh>
-
-        {/* Adorable Mini Astronaut Pilot */}
-        <group position={[0, 0.12, -0.08]}>
-          {/* Astronaut Suit Torso */}
-          <mesh position={[0, 0.06, 0]}>
-            <boxGeometry args={[0.26, 0.24, 0.2]} />
-            <meshStandardMaterial color="#e2e8f0" roughness={0.4} />
-          </mesh>
-          {/* Cyan Suit Collar / Harness */}
-          <mesh position={[0, 0.17, 0.02]}>
-            <boxGeometry args={[0.22, 0.05, 0.16]} />
-            <meshStandardMaterial color="#0284c7" />
-          </mesh>
-          {/* Astronaut Helmet (Spherical White Dome) */}
-          <mesh position={[0, 0.32, 0]}>
-            <sphereGeometry args={[0.15, 16, 16]} />
-            <meshStandardMaterial color="#ffffff" roughness={0.15} metalness={0.3} />
-          </mesh>
-          {/* Gold Mirror Visor (Bruno Simon Iconic Reflective Shield) */}
-          <mesh position={[0, 0.33, 0.08]} rotation={[0.1, 0, 0]}>
-            <sphereGeometry args={[0.11, 14, 14, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
-            <meshStandardMaterial color="#f59e0b" roughness={0.05} metalness={0.95} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* Glass Bubble Canopy (Tinted Polycarbonate Glass) */}
-      <mesh position={[0, 0.78, 0.28]} rotation={[-0.14, 0, 0]} castShadow>
-        <boxGeometry args={[0.74, 0.38, 1.32]} />
+      {/* -----------------------------------------------------------------
+          1. RED FACETED NOSE CONE (Apex pointing forward at +Z)
+         ----------------------------------------------------------------- */}
+      <mesh position={[0, 0, 1.925]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <coneGeometry args={[0.62, 1.35, 10]} />
         <meshStandardMaterial
-          color="#0284c7"
-          roughness={0.06}
-          metalness={0.2}
-          transparent
-          opacity={0.42}
+          color="#dc2626"
+          roughness={0.84}
+          metalness={0.05}
+          flatShading
         />
       </mesh>
-      {/* Canopy Reflective Glint Highlight Strip */}
-      <mesh position={[0, 0.98, 0.28]} rotation={[-0.14, 0, 0]}>
-        <planeGeometry args={[0.56, 1.0]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.35} />
-      </mesh>
 
-      {/* 5. FORWARD CANARD STABILIZERS (Aerodynamic Dart Fins) */}
-      <group position={[0, 0.42, 1.1]}>
-        <mesh position={[-0.72, 0, 0]} rotation={[0, -0.25, 0.08]}>
-          <boxGeometry args={[0.6, 0.04, 0.4]} />
-          <meshStandardMaterial color="#0284c7" metalness={0.5} roughness={0.2} />
+      {/* -----------------------------------------------------------------
+          2. WHITE FACETED MAIN FUSELAGE (Spindle / Bullet Body)
+             rotation={[Math.PI / 2, 0, 0]} maps Top (+Y) to Front (+Z)
+         ----------------------------------------------------------------- */}
+      <group>
+        {/* Upper Fuselage: radiusTop (front) = 0.62, radiusBottom (rear) = 0.84 */}
+        <mesh position={[0, 0, 0.825]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.62, 0.84, 0.85, 10]} />
+          <meshStandardMaterial
+            color="#f3f4f6"
+            roughness={0.85}
+            metalness={0.05}
+            flatShading
+          />
         </mesh>
-        <mesh position={[0.72, 0, 0]} rotation={[0, 0.25, -0.08]}>
-          <boxGeometry args={[0.6, 0.04, 0.4]} />
-          <meshStandardMaterial color="#0284c7" metalness={0.5} roughness={0.2} />
+
+        {/* Mid Fuselage: widest central cylindrical core (r = 0.84) */}
+        <mesh position={[0, 0, 0.025]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.84, 0.84, 0.75, 10]} />
+          <meshStandardMaterial
+            color="#f3f4f6"
+            roughness={0.85}
+            metalness={0.05}
+            flatShading
+          />
+        </mesh>
+
+        {/* Lower Fuselage: radiusTop (front) = 0.84, radiusBottom (rear) = 0.48 */}
+        <mesh position={[0, 0, -0.90]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.84, 0.48, 1.10, 10]} />
+          <meshStandardMaterial
+            color="#f3f4f6"
+            roughness={0.85}
+            metalness={0.05}
+            flatShading
+          />
         </mesh>
       </group>
 
-      {/* 6. MAIN SWEPT DELTA WINGS WITH WINGLETS & STROBE LIGHTS */}
-      {/* Left Main Wing */}
-      <group position={[-1.5, 0.38, -0.1]}>
-        {/* Main Wing Plane */}
-        <mesh rotation={[0, 0.18, 0.04]} castShadow>
-          <boxGeometry args={[1.75, 0.07, 1.8]} />
-          <meshStandardMaterial color="#f8fafc" roughness={0.25} metalness={0.3} />
+      {/* -----------------------------------------------------------------
+          3. CIRCULAR PORTHOLE WINDOW (Silver Bezel + Faceted Cyan Glass)
+             Positioned on the upper fuselage (facing upwards +Y)
+         ----------------------------------------------------------------- */}
+      <group position={[0, 0.82, 0.42]} rotation={[0.15, 0, 0]}>
+        {/* Outer Bezel Frame Ring (Silver / Gray) */}
+        <mesh castShadow>
+          <cylinderGeometry args={[0.38, 0.42, 0.12, 10]} />
+          <meshStandardMaterial
+            color="#cbd5e1"
+            roughness={0.82}
+            metalness={0.08}
+            flatShading
+          />
         </mesh>
-        {/* Wing Heat Dissipator Vent / Carbon Panel */}
-        <mesh position={[0.1, 0.045, -0.2]} rotation={[0, 0.18, 0.04]}>
-          <boxGeometry args={[0.8, 0.02, 0.8]} />
-          <meshStandardMaterial color="#1e293b" metalness={0.8} />
+
+        {/* Inner Window Recess */}
+        <mesh position={[0, 0.04, 0]}>
+          <cylinderGeometry args={[0.31, 0.31, 0.08, 10]} />
+          <meshStandardMaterial
+            color="#94a3b8"
+            roughness={0.85}
+            metalness={0.08}
+            flatShading
+          />
         </mesh>
-        {/* Angled Winglet Endplate */}
-        <mesh position={[-0.92, 0.32, 0]} rotation={[0, 0, -0.15]}>
-          <boxGeometry args={[0.07, 0.62, 0.9]} />
-          <meshStandardMaterial color="#0284c7" metalness={0.6} />
+
+        {/* Faceted Sky-Blue Porthole Glass Dome */}
+        <mesh position={[0, 0.07, 0]} castShadow>
+          <sphereGeometry args={[0.29, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.45]} />
+          <meshStandardMaterial
+            color="#67e8f9"
+            roughness={0.25}
+            metalness={0.12}
+            flatShading
+          />
         </mesh>
-        {/* Left Strobe Beacon (Red Nav Light) */}
-        <mesh position={[-0.97, 0.62, 0.18]}>
-          <sphereGeometry args={[0.09, 10, 10]} />
-          <meshBasicMaterial ref={leftStrobeRef} color="#ef4444" transparent opacity={0.9} />
-        </mesh>
+
+        {/* Soft Interior Porthole Glow */}
+        <pointLight position={[0, 0.15, 0]} color="#a5f3fc" intensity={1.8} distance={5} />
       </group>
 
-      {/* Right Main Wing */}
-      <group position={[1.5, 0.38, -0.1]}>
-        {/* Main Wing Plane */}
-        <mesh rotation={[0, -0.18, -0.04]} castShadow>
-          <boxGeometry args={[1.75, 0.07, 1.8]} />
-          <meshStandardMaterial color="#f8fafc" roughness={0.25} metalness={0.3} />
-        </mesh>
-        {/* Wing Heat Dissipator Vent / Carbon Panel */}
-        <mesh position={[-0.1, 0.045, -0.2]} rotation={[0, -0.18, -0.04]}>
-          <boxGeometry args={[0.8, 0.02, 0.8]} />
-          <meshStandardMaterial color="#1e293b" metalness={0.8} />
-        </mesh>
-        {/* Angled Winglet Endplate */}
-        <mesh position={[0.92, 0.32, 0]} rotation={[0, 0, 0.15]}>
-          <boxGeometry args={[0.07, 0.62, 0.9]} />
-          <meshStandardMaterial color="#0284c7" metalness={0.6} />
-        </mesh>
-        {/* Right Strobe Beacon (Green Nav Light) */}
-        <mesh position={[0.97, 0.62, 0.18]}>
-          <sphereGeometry args={[0.09, 10, 10]} />
-          <meshBasicMaterial ref={rightStrobeRef} color="#10b981" transparent opacity={0.9} />
-        </mesh>
-      </group>
-
-      {/* 7. TWIN ANGLED DORSAL STABILIZER TAIL FINS */}
-      <group position={[0, 0.82, -0.85]}>
-        {/* Left Fin */}
-        <mesh position={[-0.32, 0, 0]} rotation={[0, 0, -0.22]} castShadow>
-          <boxGeometry args={[0.08, 0.78, 0.85]} />
-          <meshStandardMaterial color="#0369a1" metalness={0.6} roughness={0.3} />
-        </mesh>
-        {/* Right Fin */}
-        <mesh position={[0.32, 0, 0]} rotation={[0, 0, 0.22]} castShadow>
-          <boxGeometry args={[0.08, 0.78, 0.85]} />
-          <meshStandardMaterial color="#0369a1" metalness={0.6} roughness={0.3} />
-        </mesh>
-        {/* Warning Hazard Stripe on Tails */}
-        <mesh position={[0, 0.15, 0.1]}>
-          <boxGeometry args={[0.7, 0.08, 0.5]} />
-          <meshStandardMaterial color="#f59e0b" metalness={0.4} />
-        </mesh>
-      </group>
-
-      {/* 8. DUAL HEAVY ION PROPULSION ENGINES & EXHAUST FLARES */}
-      <group position={[0, 0.44, -1.35]}>
-        {/* Left Ion Engine Nacelle */}
-        <group position={[-0.52, 0, 0]}>
-          {/* Outer Housing Cylinder */}
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.26, 0.32, 0.68, 12]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.85} roughness={0.25} />
-          </mesh>
-          {/* Copper Magnetic Compression Ring */}
-          <mesh position={[0, 0, -0.05]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.28, 0.035, 8, 16]} />
-            <meshStandardMaterial color="#d97706" metalness={0.9} />
-          </mesh>
-          {/* Exhaust Titanium Bell Nozzle */}
-          <mesh position={[0, 0, -0.36]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.29, 0.24, 0.18, 12]} />
-            <meshStandardMaterial color="#475569" metalness={0.9} />
-          </mesh>
-          {/* Multi-layer Plasma Jet Flare */}
-          <mesh ref={leftEngineRef} position={[0, 0, -0.6]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.28, 1.2, 10]} />
-            <meshBasicMaterial color="#38bdf8" transparent opacity={0.85} />
-          </mesh>
-          <mesh ref={leftInnerFlameRef} position={[0, 0, -0.45]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.15, 0.7, 8]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.95} />
+      {/* -----------------------------------------------------------------
+          4. 4 SWEPT-BACK RED AERODYNAMIC FINS (ALETAS)
+             Positioned at 90° intervals around the rocket body.
+             Top fin sits directly on the centerline below the porthole window!
+         ----------------------------------------------------------------- */}
+      {finAngles.map((angle, idx) => (
+        <group key={`fin-${idx}`} rotation={[0, 0, angle]}>
+          <mesh
+            position={[0, 0, -0.04]}
+            rotation={[Math.PI / 2, 0, 0]}
+            castShadow
+            receiveShadow
+          >
+            <extrudeGeometry args={[finShape, finExtrudeSettings]} />
+            <meshStandardMaterial
+              color="#dc2626"
+              roughness={0.84}
+              metalness={0.05}
+              flatShading
+            />
           </mesh>
         </group>
+      ))}
 
-        {/* Right Ion Engine Nacelle */}
-        <group position={[0.52, 0, 0]}>
-          {/* Outer Housing Cylinder */}
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.26, 0.32, 0.68, 12]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.85} roughness={0.25} />
-          </mesh>
-          {/* Copper Magnetic Compression Ring */}
-          <mesh position={[0, 0, -0.05]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.28, 0.035, 8, 16]} />
-            <meshStandardMaterial color="#d97706" metalness={0.9} />
-          </mesh>
-          {/* Exhaust Titanium Bell Nozzle */}
-          <mesh position={[0, 0, -0.36]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.29, 0.24, 0.18, 12]} />
-            <meshStandardMaterial color="#475569" metalness={0.9} />
-          </mesh>
-          {/* Multi-layer Plasma Jet Flare */}
-          <mesh ref={rightEngineRef} position={[0, 0, -0.6]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.28, 1.2, 10]} />
-            <meshBasicMaterial color="#38bdf8" transparent opacity={0.85} />
-          </mesh>
-          <mesh ref={rightInnerFlameRef} position={[0, 0, -0.45]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.15, 0.7, 8]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.95} />
-          </mesh>
-        </group>
-
-        {/* Central Overdrive Turbo Booster */}
-        <group position={[0, 0.1, -0.1]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.24, 0.29, 0.6, 12]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.9} />
-          </mesh>
-          <mesh ref={centralEngineRef} position={[0, 0, -0.62]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.32, 1.5, 10]} />
-            <meshBasicMaterial color="#60a5fa" transparent opacity={0.92} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* 9. HOVER REPULSOR PADS & UNDERGLOW (Anti-Gravity Emitters) */}
-      <group position={[0, 0.08, 0]}>
-        {/* Front Pad */}
-        <mesh position={[0, 0, 0.9]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.16, 0.24, 16]} />
-          <meshBasicMaterial color="#38bdf8" transparent opacity={0.8} side={THREE.DoubleSide} />
+      {/* -----------------------------------------------------------------
+          5. ENGINE NOZZLE (Gunmetal Metallic Collar & Bell)
+         ----------------------------------------------------------------- */}
+      <group>
+        {/* Nozzle Base Collar: radiusTop (front) = 0.48, radiusBottom (rear) = 0.38 */}
+        <mesh position={[0, 0, -1.575]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.48, 0.38, 0.25, 10]} />
+          <meshStandardMaterial
+            color="#475569"
+            roughness={0.85}
+            metalness={0.15}
+            flatShading
+          />
         </mesh>
-        {/* Rear Left Pad */}
-        <mesh position={[-0.55, 0, -0.7]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.16, 0.24, 16]} />
-          <meshBasicMaterial color="#38bdf8" transparent opacity={0.8} side={THREE.DoubleSide} />
+
+        {/* Flared Exhaust Bell: radiusTop (front) = 0.38, radiusBottom (rear) = 0.44 */}
+        <mesh position={[0, 0, -1.81]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.38, 0.44, 0.22, 10]} />
+          <meshStandardMaterial
+            color="#1e293b"
+            roughness={0.85}
+            metalness={0.15}
+            flatShading
+          />
         </mesh>
-        {/* Rear Right Pad */}
-        <mesh position={[0.55, 0, -0.7]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.16, 0.24, 16]} />
-          <meshBasicMaterial color="#38bdf8" transparent opacity={0.8} side={THREE.DoubleSide} />
+
+        {/* Glowing Inner Thrust Chamber */}
+        <mesh position={[0, 0, -1.86]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.32, 0.32, 0.05, 10]} />
+          <meshStandardMaterial
+            color="#f97316"
+            roughness={0.6}
+            metalness={0.05}
+            flatShading
+          />
         </mesh>
       </group>
 
-      {/* Underglow Flight Lighting */}
-      <pointLight position={[0, -0.2, 0]} color="#38bdf8" intensity={2.8} distance={9} />
-      <pointLight position={[0, 0.4, -2.1]} color="#60a5fa" intensity={3.5} distance={8} />
+      {/* -----------------------------------------------------------------
+          6. DYNAMIC FLIGHT ILLUMINATION
+         ----------------------------------------------------------------- */}
+      {/* Warm Engine Exhaust Glow illuminating the space behind */}
+      <pointLight
+        ref={flameLightRef}
+        position={[0, 0, -2.4]}
+        color="#f97316"
+        intensity={0}
+        distance={12}
+      />
+      {/* Forward Nose Light */}
+      <pointLight
+        ref={headlightRef}
+        position={[0, 0, 2.7]}
+        color="#bae6fd"
+        intensity={2.5}
+        distance={14}
+      />
     </group>
-  );
+
+    {/* -----------------------------------------------------------------
+        7. DYNAMIC 15-PUFF POLYGONAL EXHAUST JET (WORLD SPACE)
+           Independent low-poly figures simulated in world space coordinates.
+           Curving with authentic turn physics when steering with A/D,
+           gradually shrinking and disappearing (max 15 active).
+           Completely cuts off when the ship is stopped!
+       ----------------------------------------------------------------- */}
+    <group>
+      {Array.from({ length: NUM_PUFFS }).map((_, idx) => (
+        <mesh
+          key={`exhaust-puff-${idx}`}
+          ref={(el) => {
+            puffMeshesRef.current[idx] = el;
+          }}
+          scale={[0, 0, 0]}
+        >
+          <icosahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial
+            ref={(el) => {
+              puffMatsRef.current[idx] = el;
+            }}
+            color="#fbbf24"
+            roughness={0.8}
+            metalness={0.05}
+            flatShading
+            transparent
+            opacity={0.9}
+          />
+        </mesh>
+      ))}
+    </group>
+  </>
+);
 };

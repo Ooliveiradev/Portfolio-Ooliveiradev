@@ -1,9 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { IslandConfig, IslandId } from '../../types';
 import { sounds } from '../../audio/soundManager';
+import { useRapierBody } from './physics/useRapierBody';
 import { EducationIsland } from './islands/EducationIsland';
 import { SkillsIsland } from './islands/SkillsIsland';
 import { ProjectsIsland } from './islands/ProjectsIsland';
@@ -66,23 +67,41 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
   const [isNear, setIsNear] = useState(false);
   const orbitAngle = useRef(config.angleOffset);
 
+  // Compute fixed station coordinates for Rapier static collider
+  const defaultPos: [number, number, number] = useMemo(() => [
+    Math.cos(config.angleOffset) * config.orbitRadius,
+    config.elevation,
+    Math.sin(config.angleOffset) * config.orbitRadius,
+  ], [config.angleOffset, config.orbitRadius, config.elevation]);
+
+  // Associate each island platform with a static Rapier cylinder collider
+  useRapierBody<THREE.Group>({
+    type: 'fixed',
+    position: [defaultPos[0], defaultPos[1] - 0.4, defaultPos[2]],
+    shape: {
+      type: 'cylinder',
+      halfHeight: 1.0,
+      radius: 6.2,
+    },
+    friction: 0.8,
+    restitution: 0.1,
+  });
+
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
-    // Orbital rotation around the galaxy center
     if (orbitActive) {
-      orbitAngle.current += config.orbitSpeed * delta * 0.4;
+      orbitAngle.current += config.orbitSpeed * delta * 0.35;
     }
 
     const x = Math.cos(orbitAngle.current) * config.orbitRadius;
     const z = Math.sin(orbitAngle.current) * config.orbitRadius;
     const y =
       config.elevation +
-      (hovered ? 0.6 : Math.sin(Date.now() * 0.0015 + config.angleOffset) * 0.25);
+      (hovered ? 0.5 : Math.sin(Date.now() * 0.0015 + config.angleOffset) * 0.18);
 
     groupRef.current.position.set(x, y, z);
 
-    // Calculate proximity distance from player spaceship to this island
     const dist = Math.hypot(vehiclePos[0] - x, vehiclePos[2] - z);
     setIsNear(dist < 16.0);
   });
@@ -105,7 +124,6 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
     onSelect();
   };
 
-  // Only show the label card when close to the island or hovered, AND not in landing orbit and no modal is covering
   const showCard = (isNear || hovered) && !orbitActive && !isModalOpen;
 
   return (
@@ -116,8 +134,8 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
       onClick={handleClick}
     >
       {/* Dynamic Scale pop on hover */}
-      <group scale={hovered ? [1.05, 1.05, 1.05] : [1, 1, 1]}>
-        {/* Render the bespoke themed 3D island */}
+      <group scale={hovered ? [1.04, 1.04, 1.04] : [1, 1, 1]}>
+        {/* Render the bespoke themed 3D island model */}
         {config.id === 'education' && <EducationIsland />}
         {config.id === 'skills' && <SkillsIsland />}
         {config.id === 'projects' && <ProjectsIsland />}
@@ -126,55 +144,62 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
       </group>
 
       {/* ===================================================
-          AURA & LANDING RING
+          AURA & GRAVITY RING (Posicionado abaixo da base da ilha flutuante)
          =================================================== */}
-      <mesh position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[5.6, 6.2, 32]} />
-        <meshBasicMaterial
+      <mesh position={[0, -2.8, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[5.2, 5.8, 32]} />
+        <meshStandardMaterial
           color={config.color}
+          roughness={0.85}
+          metalness={0.05}
           transparent
           opacity={hovered ? 0.8 : 0.35}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Landing Target Pad */}
+      {/* Landing Target Helipad Pad */}
       <group position={[0, 0.05, 3.2]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.0, 1.25, 16]} />
-        <meshBasicMaterial color={config.color} transparent opacity={hovered ? 0.9 : 0.6} />
-        {/* 'H' mark */}
+        <ringGeometry args={[1.0, 1.25, 24]} />
+        <meshStandardMaterial
+          color={config.color}
+          roughness={0.85}
+          metalness={0.05}
+          transparent
+          opacity={hovered ? 0.95 : 0.65}
+        />
+        {/* 'H' mark with matte collectible plastic */}
         <mesh position={[-0.35, 0, 0]}>
           <planeGeometry args={[0.12, 0.8]} />
-          <meshBasicMaterial color={config.color} />
+          <meshStandardMaterial color={config.color} roughness={0.85} metalness={0.05} />
         </mesh>
         <mesh position={[0.35, 0, 0]}>
           <planeGeometry args={[0.12, 0.8]} />
-          <meshBasicMaterial color={config.color} />
+          <meshStandardMaterial color={config.color} roughness={0.85} metalness={0.05} />
         </mesh>
         <mesh position={[0, 0, 0]}>
           <planeGeometry args={[0.7, 0.12]} />
-          <meshBasicMaterial color={config.color} />
+          <meshStandardMaterial color={config.color} roughness={0.85} metalness={0.05} />
         </mesh>
       </group>
 
       {/* ===================================================
-          VISITED CHECKMARK BADGE ("CERTINHO") ABOVE ISLAND
-          Visible at all times so the user never gets lost
+          VISITED BADGE ("CERTINHO") ABOVE ISLAND
          =================================================== */}
       {isVisited && !isModalOpen && (
         <group position={[0, 4.6, 0]}>
-          {/* Subtle glowing beacon disc below the badge in 3D */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
             <ringGeometry args={[0.5, 0.8, 32]} />
-            <meshBasicMaterial
+            <meshStandardMaterial
               color="#10b981"
+              roughness={0.85}
+              metalness={0.05}
               transparent
-              opacity={0.65}
+              opacity={0.7}
               side={THREE.DoubleSide}
             />
           </mesh>
 
-          {/* HTML Billboard floating badge */}
           <Html
             position={[0, 0, 0]}
             center
@@ -183,7 +208,6 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
             style={{ zIndex: 12 }}
           >
             <div className="flex flex-col items-center gap-1 group">
-              {/* Vibrant Emerald Checkmark Circle */}
               <div className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-emerald-400 text-white shadow-[0_0_18px_rgba(16,185,129,0.85)] border-2 border-white ring-4 ring-emerald-500/25">
                 <svg
                   className="w-5 h-5 drop-shadow"
@@ -210,7 +234,6 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
 
       {/* ===================================================
           PROXIMITY-BASED DISCOVERY CARD / LABEL
-          Bruno Simon style clean tactile badge
          =================================================== */}
       {showCard && (
         <Html
@@ -259,8 +282,8 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
       <pointLight
         position={[0, 3.5, 0]}
         color={config.color}
-        intensity={hovered ? 4.5 : 2.8}
-        distance={16}
+        intensity={hovered ? 3.8 : 2.2}
+        distance={15}
       />
     </group>
   );

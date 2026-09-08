@@ -1,6 +1,6 @@
 export type IslandId = 'projects' | 'experience' | 'skills' | 'education' | 'about';
 
-export type CameraViewMode = 'chase' | 'tactical55';
+export type CameraViewMode = 'chase' | 'iso' | 'tactical55';
 
 export interface IslandConfig {
   id: IslandId;
