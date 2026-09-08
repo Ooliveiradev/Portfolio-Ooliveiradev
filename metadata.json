@@ -1,0 +1,6 @@
+{
+  "name": "Portfólio 3D Gamificado",
+  "description": "Portfólio 3D gamificado interativo no estilo Bruno Simon com ilhas temáticas em órbita, sistema de pontuação, badges, desafios técnicos e suporte mobile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
