@@ -4,21 +4,21 @@ import * as THREE from 'three';
 import { IslandConfig, CrystalCollectible } from '../../types';
 import { sounds } from '../../audio/soundManager';
 
+import { LowPolySun } from './LowPolySun';
+
 interface OrbitRingsAndCollectiblesProps {
-  islands: IslandConfig[];
+  islands?: IslandConfig[];
   crystals: CrystalCollectible[];
   vehiclePos: [number, number, number];
   onCollectCrystal: (id: number) => void;
 }
 
 export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps> = ({
-  islands,
   crystals,
   vehiclePos,
   onCollectCrystal,
 }) => {
   const crystalsGroupRef = useRef<THREE.Group>(null);
-  const sunRef = useRef<THREE.Group>(null);
 
   // Starfield particles throughout the solar system
   const [starPositions, starColors] = useMemo(() => {
@@ -53,11 +53,7 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
     return [positions, colors];
   }, []);
 
-  useFrame((_, delta) => {
-    if (sunRef.current) {
-      sunRef.current.rotation.y += delta * 0.2;
-    }
-
+  useFrame(() => {
     // Check collision between vehicle and floating crystals
     const vPos = new THREE.Vector3(...vehiclePos);
     crystals.forEach((crystal) => {
@@ -75,69 +71,9 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
     <group>
       {/* ==========================================================
           CENTRAL STAR / SUN OF THE SOLAR SYSTEM
-          Stylized Low-Poly Miniature Aesthetics (Bruno Simon Toy Style)
+          Faceted Low-Poly Sun with 36 Erupting Solar Particles & Fiery Glow
          ========================================================== */}
-      <group position={[0, 0, 0]}>
-        <group ref={sunRef}>
-          {/* Main Solar Core */}
-          <mesh>
-            <sphereGeometry args={[4.2, 24, 24]} />
-            <meshStandardMaterial
-              color="#fef08a"
-              emissive="#f59e0b"
-              emissiveIntensity={0.8}
-              roughness={0.85}
-              metalness={0.05}
-            />
-          </mesh>
-
-          {/* Low-Poly Corona Ring / Outer Toy Halo */}
-          <mesh rotation={[Math.PI / 3, 0, Math.PI / 6]}>
-            <torusGeometry args={[5.6, 0.22, 8, 32]} />
-            <meshStandardMaterial
-              color="#f97316"
-              roughness={0.85}
-              metalness={0.05}
-              transparent
-              opacity={0.65}
-            />
-          </mesh>
-          <mesh rotation={[-Math.PI / 4, Math.PI / 4, 0]}>
-            <torusGeometry args={[6.4, 0.16, 8, 32]} />
-            <meshStandardMaterial
-              color="#fbbf24"
-              roughness={0.85}
-              metalness={0.05}
-              transparent
-              opacity={0.45}
-            />
-          </mesh>
-        </group>
-        <pointLight color="#fef08a" intensity={3.5} distance={160} />
-      </group>
-
-      {/* ==========================================================
-          CELESTIAL PLANETARY ORBITAL RINGS
-          FIX: Placed safely BELOW the islands (y = -4.0) so they NEVER
-          clip or slice through the middle of the planetary island models!
-         ========================================================== */}
-      {islands.map((island) => (
-        <mesh
-          key={island.id}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, island.elevation - 4.2, 0]}
-        >
-          <ringGeometry args={[island.orbitRadius - 0.14, island.orbitRadius + 0.14, 96]} />
-          <meshStandardMaterial
-            color={island.color}
-            roughness={0.85}
-            metalness={0.05}
-            transparent
-            opacity={0.28}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      ))}
+      <LowPolySun />
 
       {/* Starfield Particles */}
       <points>

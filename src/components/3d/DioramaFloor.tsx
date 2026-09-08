@@ -47,24 +47,6 @@ export const DioramaFloor: React.FC = () => {
           metalness={0.02}
         />
       </mesh>
-
-      {/* Decorative Outer Concentric Track Rings */}
-      <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[28, 28.3, 64]} />
-        <meshStandardMaterial color="#0284c7" roughness={0.85} metalness={0.05} side={THREE.DoubleSide} transparent opacity={0.4} />
-      </mesh>
-      <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[46, 46.3, 64]} />
-        <meshStandardMaterial color="#38bdf8" roughness={0.85} metalness={0.05} side={THREE.DoubleSide} transparent opacity={0.4} />
-      </mesh>
-      <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[64, 64.3, 64]} />
-        <meshStandardMaterial color="#f59e0b" roughness={0.85} metalness={0.05} side={THREE.DoubleSide} transparent opacity={0.4} />
-      </mesh>
-      <mesh position={[0, -0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[82, 82.3, 64]} />
-        <meshStandardMaterial color="#a855f7" roughness={0.85} metalness={0.05} side={THREE.DoubleSide} transparent opacity={0.4} />
-      </mesh>
     </group>
   );
 };

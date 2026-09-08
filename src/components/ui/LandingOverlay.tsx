@@ -1,27 +1,24 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Volume2, VolumeX, ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Settings } from 'lucide-react';
 import { IslandConfig, IslandId } from '../../types';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
 
 interface LandingOverlayProps {
   onStartGame: () => void;
-  onOpenLeaderboard: () => void;
-  isMuted: boolean;
-  onToggleMute: () => void;
   islands: IslandConfig[];
   visitedIslands: IslandId[];
   onSelectIsland: (id: IslandId) => void;
+  onOpenSettings?: () => void;
 }
 
 export const LandingOverlay: React.FC<LandingOverlayProps> = ({
   onStartGame,
-  isMuted,
-  onToggleMute,
   islands,
   visitedIslands,
   onSelectIsland,
+  onOpenSettings,
 }) => {
   const handleStart = () => {
     sounds.startAmbient();
@@ -45,17 +42,20 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
           </span>
         </div>
 
-        {/* Audio Toggle */}
-        <button
-          onClick={() => {
-            onToggleMute();
-            sounds.playClick();
-          }}
-          className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-950/40 hover:bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800/80 backdrop-blur-sm transition-all cursor-pointer"
-          title={isMuted ? 'Ativar Som' : 'Desativar Som'}
-        >
-          {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-slate-300" />}
-        </button>
+        {/* Top Right: Single Clean Settings & Menu Button */}
+        {onOpenSettings && (
+          <button
+            onClick={() => {
+              sounds.playClick();
+              onOpenSettings();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/60 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800/80 backdrop-blur-md transition-all cursor-pointer font-mono text-xs font-medium shadow-sm hover:border-sky-500/40"
+            title="Menu de Configurações, Áudio & Câmera (ESC)"
+          >
+            <Settings className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden sm:inline">Menu</span>
+          </button>
+        )}
       </motion.div>
 
       {/* Minimalist Center Hero */}

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { useRapier } from './physics/RapierPhysicsContext';
 import { sounds } from '../../audio/soundManager';
+import { explosionEvents } from './explosions/explosionEvents';
 
 const NUM_PUFFS = 15;
 const COLOR_YELLOW = new THREE.Color('#fbbf24');
@@ -143,10 +144,39 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   const rotationY = useRef(0);
   const rollZ = useRef(0);
   const pitchX = useRef(0);
+  const respawnTimer = useRef(0);
   const keys = useRef<{ [key: string]: boolean }>({});
 
   // Setup Keyboard inputs
   useEffect(() => {
+    const triggerRespawn = () => {
+      const safePos = { x: 0, y: 1.2, z: 34 };
+      if (rigidBodyRef.current) {
+        rigidBodyRef.current.setTranslation(safePos, true);
+        rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        rigidBodyRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        const safeQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
+        rigidBodyRef.current.setRotation(safeQuat, true);
+      }
+      pos.current.set(safePos.x, safePos.y, safePos.z);
+      velocity.current.set(0, 0, 0);
+      rotationY.current = 0;
+      if (groupRef.current) {
+        groupRef.current.position.set(safePos.x, safePos.y, safePos.z);
+        groupRef.current.rotation.set(0, 0, 0);
+      }
+      respawnTimer.current = 1.5;
+      onPositionChange([safePos.x, safePos.y, safePos.z]);
+      onRotationChange?.(0);
+      puffsRef.current.forEach((p) => {
+        p.active = false;
+        p.life = 1;
+      });
+      puffMeshesRef.current.forEach((m) => {
+        if (m) m.scale.set(0, 0, 0);
+      });
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.current[e.key.toLowerCase()] = true;
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
@@ -154,6 +184,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       }
       if (e.key === ' ') {
         sounds.playBoost();
+      }
+      if (e.key.toLowerCase() === 'r') {
+        triggerRespawn();
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -166,10 +199,12 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     window.addEventListener('keydown', handleKeyDown, { passive: false });
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('app:respawn-vehicle', triggerRespawn);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('app:respawn-vehicle', triggerRespawn);
     };
   }, []);
 
@@ -361,6 +396,64 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
 
       onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
       onRotationChange?.(rotationY.current);
+    }
+
+    // Handle respawn invulnerability and visual blinking
+    if (respawnTimer.current > 0) {
+      respawnTimer.current -= delta;
+      if (respawnTimer.current > 1.4) {
+        // Disintegrate / hide during the initial blast
+        groupRef.current.visible = false;
+      } else {
+        // Blinking invulnerability
+        groupRef.current.visible = Math.floor(Date.now() / 70) % 2 === 0;
+      }
+      if (respawnTimer.current <= 0) {
+        groupRef.current.visible = true;
+      }
+    }
+
+    // Check Sun Collision (Sun is located at [0, 0, 0] with danger boundary ~5.5)
+    const currentX = body && isReady ? body.translation().x : pos.current.x;
+    const currentY = body && isReady ? body.translation().y : pos.current.y;
+    const currentZ = body && isReady ? body.translation().z : pos.current.z;
+    const distToSun = Math.hypot(currentX, currentY, currentZ);
+
+    if (distToSun < 5.6 && respawnTimer.current <= 0) {
+      // 1. Emit Bruno Simon Low-Poly Explosion at impact point
+      explosionEvents.emit([currentX, currentY, currentZ], 1.6);
+
+      // 2. Start respawn & invulnerability timer
+      respawnTimer.current = 2.2;
+
+      // 3. Teleport rocket safely outside the sun to outer orbit
+      const safeRespawnPos = { x: 0, y: 1.2, z: 34 };
+
+      if (body && isReady) {
+        body.setTranslation(safeRespawnPos, true);
+        body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        const safeQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
+        body.setRotation(safeQuat, true);
+      } else {
+        pos.current.set(safeRespawnPos.x, safeRespawnPos.y, safeRespawnPos.z);
+        velocity.current.set(0, 0, 0);
+        rotationY.current = 0;
+      }
+
+      groupRef.current.position.set(safeRespawnPos.x, safeRespawnPos.y, safeRespawnPos.z);
+      groupRef.current.rotation.set(0, 0, 0);
+      onPositionChange([safeRespawnPos.x, safeRespawnPos.y, safeRespawnPos.z]);
+      onRotationChange?.(0);
+
+      // Clear exhaust puffs so smoke doesn't streak across the solar system
+      puffsRef.current.forEach((p) => {
+        p.active = false;
+        p.life = 1;
+      });
+      puffMeshesRef.current.forEach((m) => {
+        if (m) m.scale.set(0, 0, 0);
+      });
     }
 
     // Determine if rocket is actively moving or thrusting

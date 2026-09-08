@@ -1,17 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Trophy,
-  Award,
-  Volume2,
-  VolumeX,
   RotateCcw,
-  Video,
-  ChevronDown,
-  Check,
-  Navigation,
-  Globe,
-  Layers,
+  Settings,
   FolderGit2,
   Briefcase,
   Cpu,
@@ -20,7 +11,7 @@ import {
   Zap,
   Home
 } from 'lucide-react';
-import { IslandConfig, IslandId, UserStats, CameraViewMode } from '../../types';
+import { IslandConfig, IslandId, UserStats } from '../../types';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
 import { MiniMap } from './MiniMap';
@@ -30,14 +21,9 @@ interface HUDProps {
   islands: IslandConfig[];
   selectedIslandId: IslandId | null;
   onSelectIsland: (id: IslandId) => void;
-  onOpenBadges: () => void;
-  onOpenLeaderboard: () => void;
   onResetVehicle: () => void;
   onReturnToLanding: () => void;
-  isMuted: boolean;
-  onToggleMute: () => void;
-  cameraViewMode: CameraViewMode;
-  onSelectCameraMode: (mode: CameraViewMode) => void;
+  onOpenSettings?: () => void;
   recentXpGained: number | null;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
@@ -48,19 +34,13 @@ export const HUD: React.FC<HUDProps> = ({
   islands,
   selectedIslandId,
   onSelectIsland,
-  onOpenBadges,
-  onOpenLeaderboard,
   onResetVehicle,
   onReturnToLanding,
-  isMuted,
-  onToggleMute,
-  cameraViewMode,
-  onSelectCameraMode,
+  onOpenSettings,
   recentXpGained,
   vehiclePos,
   vehicleRotation,
 }) => {
-  const [showCameraDropdown, setShowCameraDropdown] = useState(false);
   // Compute level from XP
   const levelTitle =
     stats.xp < 300
@@ -152,239 +132,35 @@ export const HUD: React.FC<HUDProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Top Right Action Buttons & MiniMap */}
+        {/* Minimalist Top Right Toolbar: Menu Inicial e Configurações */}
         <div className="flex flex-col items-end gap-2.5">
           <div className="flex items-center gap-2">
-            {/* Badges Button */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                onOpenBadges();
-              }}
-              className="flex items-center gap-1.5 bg-slate-900/85 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 px-3 py-2 rounded-xl text-xs font-mono font-medium backdrop-blur-md transition-all shadow-md cursor-pointer"
-              title="Ver Badges Desbloqueadas"
-            >
-              <Award className="w-4 h-4 text-purple-400" />
-              <span className="font-bold text-purple-300">{stats.unlockedBadges.length}/6</span>
-              <span className="hidden md:inline text-slate-400 text-[11px]">Badges</span>
-            </button>
-
-            {/* Leaderboard Button */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                onOpenLeaderboard();
-              }}
-              className="flex items-center gap-1.5 bg-slate-900/85 hover:bg-slate-800 text-amber-300 hover:text-amber-200 border border-amber-500/30 px-3 py-2 rounded-xl text-xs font-mono font-medium backdrop-blur-md transition-all shadow-md cursor-pointer"
-              title="Ranking dos Visitantes"
-            >
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline">Ranking</span>
-            </button>
-
-            {/* Camera Mode Dropdown Button & Menu */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setShowCameraDropdown(!showCameraDropdown);
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer shadow-md text-xs font-mono font-medium ${
-                  showCameraDropdown
-                    ? 'bg-sky-500/25 border-sky-400 text-white ring-2 ring-sky-500/40'
-                    : 'bg-slate-900/85 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/80'
-                }`}
-                title="Modos de Câmera"
-              >
-                <Video className="w-3.5 h-3.5 text-sky-400" />
-                <span className="hidden sm:inline font-bold">
-                  {cameraViewMode === 'chase'
-                    ? 'Atrás da Nave'
-                    : cameraViewMode === 'iso'
-                    ? 'Isométrica'
-                    : 'Visão Global'}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                    showCameraDropdown ? 'rotate-180 text-sky-400' : ''
-                  }`}
-                />
-              </button>
-
-              {/* Descending Dropdown List with 3 Modes */}
-              <AnimatePresence>
-                {showCameraDropdown && (
-                  <>
-                    {/* Click outside backdrop */}
-                    <div
-                      className="fixed inset-0 z-30"
-                      onClick={() => setShowCameraDropdown(false)}
-                    />
-
-                    <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-72 bg-slate-950/95 backdrop-blur-xl border border-slate-700/90 rounded-2xl shadow-2xl overflow-hidden p-2 z-40 flex flex-col gap-1.5"
-                    >
-                      <div className="px-2.5 py-1.5 border-b border-slate-800/80 flex items-center justify-between">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-                          Modos de Câmera
-                        </span>
-                        <span className="text-[9px] font-mono text-sky-400 bg-sky-950/60 px-1.5 py-0.5 rounded border border-sky-500/30">
-                          3 Modos
-                        </span>
-                      </div>
-
-                      {/* Modo 1: Atrás da Nave (Terceira Pessoa) */}
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onSelectCameraMode('chase');
-                          setShowCameraDropdown(false);
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
-                          cameraViewMode === 'chase'
-                            ? 'bg-sky-500/15 border-sky-500/60 text-white shadow-[0_0_12px_rgba(56,189,248,0.15)]'
-                            : 'bg-slate-900/60 hover:bg-slate-850 border-slate-800 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-lg mt-0.5 ${
-                            cameraViewMode === 'chase'
-                              ? 'bg-sky-500 text-slate-950'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          <Navigation className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
-                              Atrás da Nave
-                              <span className="text-[10px] text-sky-400 font-mono font-normal">
-                                (Chase)
-                              </span>
-                            </span>
-                            {cameraViewMode === 'chase' && (
-                              <Check className="w-3.5 h-3.5 text-sky-400 stroke-[3]" />
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                            Câmera em terceira pessoa fixada atrás da nave, acompanhando manobras e curvas em tempo real.
-                          </p>
-                        </div>
-                      </button>
-
-                      {/* Modo 2: Visão Isométrica (Diorama) */}
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onSelectCameraMode('iso');
-                          setShowCameraDropdown(false);
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
-                          cameraViewMode === 'iso'
-                            ? 'bg-purple-500/15 border-purple-500/60 text-white shadow-[0_0_12px_rgba(168,85,247,0.15)]'
-                            : 'bg-slate-900/60 hover:bg-slate-850 border-slate-800 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-lg mt-0.5 ${
-                            cameraViewMode === 'iso'
-                              ? 'bg-purple-500 text-slate-950'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          <Layers className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
-                              Visão Isométrica
-                              <span className="text-[10px] text-purple-400 font-mono font-normal">
-                                (Diorama)
-                              </span>
-                            </span>
-                            {cameraViewMode === 'iso' && (
-                              <Check className="w-3.5 h-3.5 text-purple-400 stroke-[3]" />
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                            Enquadramento diagonal de maquete com profundidade comprimida estilo Poly Bridge.
-                          </p>
-                        </div>
-                      </button>
-
-                      {/* Modo 3: Visão Global 55° */}
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onSelectCameraMode('tactical55');
-                          setShowCameraDropdown(false);
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
-                          cameraViewMode === 'tactical55'
-                            ? 'bg-emerald-500/15 border-emerald-500/60 text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                            : 'bg-slate-900/60 hover:bg-slate-850 border-slate-800 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-lg mt-0.5 ${
-                            cameraViewMode === 'tactical55'
-                              ? 'bg-emerald-500 text-slate-950'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          <Globe className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
-                              Visão Global
-                              <span className="text-[10px] text-emerald-400 font-mono font-normal">
-                                (55°)
-                              </span>
-                            </span>
-                            {cameraViewMode === 'tactical55' && (
-                              <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                            Ângulo tático amplo com todos os planetas do sistema solar visíveis.
-                          </p>
-                        </div>
-                      </button>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Sound Toggle */}
-            <button
-              onClick={() => {
-                onToggleMute();
-                sounds.playClick();
-              }}
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-900/85 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 backdrop-blur-md transition-all cursor-pointer shadow-md"
-              title={isMuted ? 'Ativar Som' : 'Desativar Som'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-            </button>
-
-            {/* Return to Landing */}
+            {/* Return to Landing Screen */}
             <button
               onClick={() => {
                 sounds.playClick();
                 onReturnToLanding();
               }}
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-900/85 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 backdrop-blur-md transition-all cursor-pointer shadow-md"
-              title="Menu Inicial"
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/70 backdrop-blur-md transition-all cursor-pointer shadow-md"
+              title="Menu Inicial / Tela de Entrada"
             >
               <Home className="w-4 h-4" />
             </button>
+
+            {/* Central Unified Settings & System Menu Button */}
+            {onOpenSettings && (
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  onOpenSettings();
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/85 hover:bg-slate-800 text-sky-300 hover:text-white border border-slate-700/80 backdrop-blur-md transition-all cursor-pointer shadow-md hover:border-sky-500/50 hover:shadow-sky-500/10 font-mono text-xs font-bold"
+                title="Configurações, Câmera, Conquistas & Ranking (ESC)"
+              >
+                <Settings className="w-4 h-4 text-sky-400" />
+                <span className="hidden sm:inline">Menu</span>
+              </button>
+            )}
           </div>
 
           {/* Tactical Radar MiniMap */}

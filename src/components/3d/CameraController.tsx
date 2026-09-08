@@ -27,10 +27,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   // Set perspective camera with low FOV (30 degrees) for miniature diorama effect
   useEffect(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = cameraViewMode === 'chase' ? 34 : 30;
+      camera.fov = 30;
       camera.updateProjectionMatrix();
     }
-  }, [camera, cameraViewMode]);
+  }, [camera]);
 
   useEffect(() => {
     if (gameMode === 'landing') {
@@ -83,33 +83,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     }
 
     // 3. DRIVING MODE:
-    // MODE A: ATRÁS DA NAVE (Chase Camera) - Fixada rigorosamente atrás da nave acompanhando rumo e curvas
-    if (cameraViewMode === 'chase') {
-      const sinRot = Math.sin(vehicleRotation);
-      const cosRot = Math.cos(vehicleRotation);
-
-      const chaseDist = 13.8;
-      const chaseHeight = 5.2;
-
-      const desiredCamPos = new THREE.Vector3(
-        vehiclePos[0] - sinRot * chaseDist,
-        vehiclePos[1] + chaseHeight,
-        vehiclePos[2] - cosRot * chaseDist
-      );
-
-      const targetLookAt = new THREE.Vector3(
-        vehiclePos[0] + sinRot * 9.5,
-        vehiclePos[1] + 1.2,
-        vehiclePos[2] + cosRot * 9.5
-      );
-
-      camera.position.lerp(desiredCamPos, Math.min(delta * 6.5, 1));
-      currentLookAt.current.lerp(targetLookAt, Math.min(delta * 8.0, 1));
-      camera.lookAt(currentLookAt.current);
-      return;
-    }
-
-    // MODE B: VISÃO ISOMÉTRICA (Diorama Diagonal Follow)
+    // VISÃO ISOMÉTRICA (Diorama Diagonal Follow - Padrão)
     if (cameraViewMode === 'iso') {
       const isoOffset = new THREE.Vector3(24, 26, 24);
       const desiredCamPos = new THREE.Vector3(

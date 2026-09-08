@@ -1,6 +1,8 @@
 import React from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRapierBody } from './useRapierBody';
+import { explosionEvents } from '../explosions/explosionEvents';
 
 interface PhysicsAsteroidProps {
   position: [number, number, number];
@@ -13,7 +15,7 @@ export const PhysicsSpaceAsteroid: React.FC<PhysicsAsteroidProps> = ({
   scale = 1.0,
   color = '#475569',
 }) => {
-  const { ref } = useRapierBody<THREE.Mesh>({
+  const { ref, bodyRef } = useRapierBody<THREE.Mesh>({
     type: 'dynamic',
     position,
     shape: {
@@ -25,6 +27,18 @@ export const PhysicsSpaceAsteroid: React.FC<PhysicsAsteroidProps> = ({
     restitution: 0.6,
     linearDamping: 0.8,
     angularDamping: 0.6,
+  });
+
+  useFrame(() => {
+    if (!bodyRef.current) return;
+    const t = bodyRef.current.translation();
+    const distToSun = Math.hypot(t.x, t.y, t.z);
+    if (distToSun < 5.5) {
+      explosionEvents.emit([t.x, t.y, t.z], scale * 1.2);
+      bodyRef.current.setTranslation({ x: position[0], y: position[1], z: position[2] }, true);
+      bodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      bodyRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
   });
 
   return (
@@ -49,7 +63,7 @@ export const PhysicsSpaceBeacon: React.FC<PhysicsBeaconProps> = ({
   position,
   color = '#38bdf8',
 }) => {
-  const { ref } = useRapierBody<THREE.Group>({
+  const { ref, bodyRef } = useRapierBody<THREE.Group>({
     type: 'dynamic',
     position,
     shape: {
@@ -62,6 +76,18 @@ export const PhysicsSpaceBeacon: React.FC<PhysicsBeaconProps> = ({
     restitution: 0.4,
     linearDamping: 1.0,
     angularDamping: 0.8,
+  });
+
+  useFrame(() => {
+    if (!bodyRef.current) return;
+    const t = bodyRef.current.translation();
+    const distToSun = Math.hypot(t.x, t.y, t.z);
+    if (distToSun < 5.5) {
+      explosionEvents.emit([t.x, t.y, t.z], 1.1);
+      bodyRef.current.setTranslation({ x: position[0], y: position[1], z: position[2] }, true);
+      bodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      bodyRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
   });
 
   return (

@@ -7,6 +7,7 @@ import { OrbitRingsAndCollectibles } from './3d/OrbitRingsAndCollectibles';
 import { CameraController } from './3d/CameraController';
 import { RapierPhysicsProvider } from './3d/physics/RapierPhysicsContext';
 import { PhysicsSpacePlayground } from './3d/physics/PhysicsProps';
+import { LowPolyExplosions } from './3d/explosions/LowPolyExplosions';
 import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode } from '../types';
 
 interface GalaxySceneProps {
@@ -136,13 +137,16 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
               />
             )}
 
-            {/* Sol Central, Órbitas Planetárias em Profundidade e Cristais */}
+            {/* Sol Central e Cristais */}
             <OrbitRingsAndCollectibles
               islands={islands}
               crystals={crystals}
               vehiclePos={vehiclePos}
               onCollectCrystal={onCollectCrystal}
             />
+
+            {/* Gerenciador de Explosões Low-Poly estilo Bruno Simon */}
+            <LowPolyExplosions />
           </RapierPhysicsProvider>
         </Suspense>
       </Canvas>

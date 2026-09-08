@@ -6,8 +6,7 @@ import { HUD } from './components/ui/HUD';
 import { MobileControls } from './components/ui/MobileControls';
 import { IslandModal } from './components/ui/IslandModal';
 import { ChallengeModal } from './components/ui/ChallengeModal';
-import { BadgesModal } from './components/ui/BadgesModal';
-import { LeaderboardModal } from './components/ui/LeaderboardModal';
+import { GameSettingsModal, SettingsTab } from './components/ui/GameSettingsModal';
 import {
   ISLANDS_CONFIG,
   CRYSTALS_DATA,
@@ -32,15 +31,15 @@ export default function App() {
     boost: false,
   });
 
-  // Camera view mode: 'chase' (fixed behind ship like Git City) or 'tactical55' (55° panoramic view)
-  const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>('chase');
+  // Camera view mode: 'iso' (default diorama isometric view) or 'tactical55' (55° panoramic view)
+  const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>('iso');
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
   // Active modals
   const [selectedIslandId, setSelectedIslandId] = useState<IslandId | null>(null);
   const [activeChallengeIsland, setActiveChallengeIsland] = useState<IslandId | null>(null);
-  const [showBadgesModal, setShowBadgesModal] = useState<boolean>(false);
-  const [showLeaderboardModal, setShowLeaderboardModal] = useState<boolean>(false);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [settingsModalTab, setSettingsModalTab] = useState<SettingsTab>('options');
 
   // Collectibles in 3D
   const [crystals, setCrystals] = useState<CrystalCollectible[]>(CRYSTALS_DATA);
@@ -78,6 +77,33 @@ export default function App() {
       // fallback
     }
   }, [stats]);
+
+  // ESC key handler for closing modals or opening settings
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showSettingsModal) {
+          setShowSettingsModal(false);
+        } else if (activeChallengeIsland) {
+          setActiveChallengeIsland(null);
+        } else if (selectedIslandId) {
+          setSelectedIslandId(null);
+          setTargetVehiclePos(null);
+          setGameMode(previousGameMode);
+        } else {
+          setSettingsModalTab('options');
+          setShowSettingsModal(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showSettingsModal,
+    activeChallengeIsland,
+    selectedIslandId,
+    previousGameMode,
+  ]);
 
   // Award XP helper
   const addXp = useCallback((amount: number) => {
@@ -270,11 +296,25 @@ export default function App() {
     handleSelectIsland(nearestIsland.id);
   };
 
+  const handleOpenSettingsModal = (tab: SettingsTab = 'options') => {
+    setSettingsModalTab(tab);
+    setShowSettingsModal(true);
+  };
+
+  const handleRespawnVehicle = () => {
+    sounds.playBoost();
+    window.dispatchEvent(new CustomEvent('app:respawn-vehicle'));
+  };
+
+  const handleResetCrystals = () => {
+    sounds.playClick();
+    setCrystals(CRYSTALS_DATA.map((c) => ({ ...c, collected: false })));
+  };
+
   const isModalOpen =
     gameMode === 'inspecting' ||
     Boolean(activeChallengeIsland) ||
-    showBadgesModal ||
-    showLeaderboardModal;
+    showSettingsModal;
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#070b14] text-white">
@@ -303,17 +343,15 @@ export default function App() {
         {gameMode === 'landing' && (
           <LandingOverlay
             onStartGame={handleStartGame}
-            onOpenLeaderboard={() => setShowLeaderboardModal(true)}
-            isMuted={isMuted}
-            onToggleMute={() => setIsMuted(sounds.toggleMute())}
             islands={ISLANDS_CONFIG}
             visitedIslands={stats.visitedIslands}
             onSelectIsland={handleSelectIsland}
+            onOpenSettings={() => handleOpenSettingsModal('home')}
           />
         )}
       </AnimatePresence>
 
-      {/* Screen 2: In-Game Exploration HUD */}
+      {/* Screen 2: In-Game Exploration HUD (Clean & Minimalist) */}
       {gameMode !== 'landing' && (
         <>
           <HUD
@@ -321,14 +359,9 @@ export default function App() {
             islands={ISLANDS_CONFIG}
             selectedIslandId={selectedIslandId}
             onSelectIsland={handleSelectIsland}
-            onOpenBadges={() => setShowBadgesModal(true)}
-            onOpenLeaderboard={() => setShowLeaderboardModal(true)}
             onResetVehicle={handleResetVehicle}
             onReturnToLanding={() => setGameMode('landing')}
-            isMuted={isMuted}
-            onToggleMute={() => setIsMuted(sounds.toggleMute())}
-            cameraViewMode={cameraViewMode}
-            onSelectCameraMode={setCameraViewMode}
+            onOpenSettings={() => handleOpenSettingsModal('options')}
             recentXpGained={recentXpGained}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
@@ -370,22 +403,25 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Badges & Achievements Modal */}
+      {/* System Settings & Options Modal */}
       <AnimatePresence>
-        {showBadgesModal && (
-          <BadgesModal
+        {showSettingsModal && (
+          <GameSettingsModal
+            isOpen={showSettingsModal}
+            onClose={() => setShowSettingsModal(false)}
+            isMuted={isMuted}
+            onToggleMute={() => setIsMuted(sounds.toggleMute())}
+            cameraViewMode={cameraViewMode}
+            onSelectCameraMode={setCameraViewMode}
+            onRespawnVehicle={handleRespawnVehicle}
+            onResetCrystals={() => {
+              setCrystals((prev) => prev.map((c) => ({ ...c, collected: false })));
+              setStats((prev) => ({ ...prev, collectedCrystals: [] }));
+              sounds.playCoin();
+            }}
             stats={stats}
-            onClose={() => setShowBadgesModal(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Hall of Fame / Leaderboard Modal */}
-      <AnimatePresence>
-        {showLeaderboardModal && (
-          <LeaderboardModal
-            stats={stats}
-            onClose={() => setShowLeaderboardModal(false)}
+            crystals={crystals}
+            initialTab={settingsModalTab}
           />
         )}
       </AnimatePresence>
