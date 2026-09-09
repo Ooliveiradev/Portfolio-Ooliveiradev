@@ -167,7 +167,7 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
         {config.id === 'about' && <AboutIsland />}
 
         {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
-        {config.id !== 'about' && config.id !== 'education' && (
+        {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && (
           <IslandLife
             islandId={config.id}
             themeColor={config.color}
@@ -206,8 +206,8 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
           />
         </mesh>
 
-        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (omitido para ilhas com quilha própria: 'projects', 'about', 'skills' e 'education') */}
-        {config.id !== 'projects' && config.id !== 'about' && config.id !== 'skills' && config.id !== 'education' &&
+        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (todas as 5 ilhas agora possuem quilha escultural exclusiva) */}
+        {config.id !== 'projects' && config.id !== 'about' && config.id !== 'skills' && config.id !== 'education' && config.id !== 'experience' &&
           [
             [-3.4, -0.6, 2.2, 0.55],
             [3.2, -0.9, -2.0, 0.65],

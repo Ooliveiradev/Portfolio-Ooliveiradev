@@ -791,6 +791,98 @@ class SoundEngine {
     }
   }
 
+  // Resonant Big Ben / clock tower bronze bell chime
+  public playClockChime() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Bell strike tone + fundamental + harmonics: 440Hz (strike), 880Hz, 1320Hz, 220Hz (hum)
+      const partials = [
+        { f: 440, g: 0.16, d: 1.8 },
+        { f: 880, g: 0.08, d: 1.2 },
+        { f: 1320, g: 0.04, d: 0.8 },
+        { f: 220, g: 0.12, d: 2.2 },
+      ];
+
+      partials.forEach(({ f, g, d }) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now);
+
+        gain.gain.setValueAtTime(g, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + d);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(now);
+        osc.stop(now + d + 0.05);
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Crisp executive briefcase dual brass latch click
+  public playBriefcaseClick() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Two rapid metallic snap clicks
+      [0, 0.045].forEach((offset, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'triangle';
+        const t = now + offset;
+        osc.frequency.setValueAtTime(idx === 0 ? 1800 : 2400, t);
+        osc.frequency.exponentialRampToValueAtTime(300, t + 0.03);
+
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + 0.04);
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Skybridge optic light beam whoosh / pulse
+  public playSkybridgePulse() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(580, now);
+      osc.frequency.exponentialRampToValueAtTime(1160, now + 0.18);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch {
+      // safe fallback
+    }
+  }
+
   // Island Landing Chime
   public playIslandEnter() {
     if (this.isMuted) return;
