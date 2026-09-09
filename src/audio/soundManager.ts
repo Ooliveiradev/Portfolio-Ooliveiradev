@@ -504,6 +504,181 @@ class SoundEngine {
     }
   }
 
+  // GPU Triple-Fan aerodynamic turbine spool-up whoosh
+  public playGpuTurbineBoost() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const duration = 0.55;
+
+      // 1. High-speed turbine whine (sine sweep)
+      const whine = this.ctx.createOscillator();
+      const whineGain = this.ctx.createGain();
+      whine.type = 'sine';
+      whine.frequency.setValueAtTime(320, now);
+      whine.frequency.exponentialRampToValueAtTime(1480, now + duration * 0.4);
+      whine.frequency.exponentialRampToValueAtTime(720, now + duration);
+
+      whineGain.gain.setValueAtTime(0.001, now);
+      whineGain.gain.linearRampToValueAtTime(0.12, now + duration * 0.35);
+      whineGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      whine.connect(whineGain);
+      whineGain.connect(this.ctx.destination);
+      whine.start(now);
+      whine.stop(now + duration);
+
+      // 2. Aerodynamic airflow rushing (filtered noise)
+      const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(450, now);
+      filter.frequency.exponentialRampToValueAtTime(2200, now + duration * 0.4);
+      filter.frequency.exponentialRampToValueAtTime(800, now + duration);
+      filter.Q.setValueAtTime(3.2, now);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.001, now);
+      noiseGain.gain.linearRampToValueAtTime(0.16, now + duration * 0.35);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.ctx.destination);
+      noise.start(now);
+      noise.stop(now + duration);
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Waterblock & Hard Tubing liquid coolant pulse & bubble flow
+  public playWaterblockPulse() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Series of tiny resonant liquid bubble blips
+      const freqs = [420, 680, 890, 1150, 1420];
+      freqs.forEach((f, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        const startT = now + idx * 0.045;
+        osc.frequency.setValueAtTime(f, startT);
+        osc.frequency.exponentialRampToValueAtTime(f * 1.6, startT + 0.05);
+
+        gain.gain.setValueAtTime(0.08, startT);
+        gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.055);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(startT);
+        osc.stop(startT + 0.06);
+      });
+
+      // Coolant pump pressure surge whoosh
+      const pump = this.ctx.createOscillator();
+      const pumpGain = this.ctx.createGain();
+      pump.type = 'triangle';
+      pump.frequency.setValueAtTime(120, now);
+      pump.frequency.exponentialRampToValueAtTime(260, now + 0.15);
+      pump.frequency.exponentialRampToValueAtTime(80, now + 0.32);
+
+      pumpGain.gain.setValueAtTime(0.10, now);
+      pumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      pump.connect(pumpGain);
+      pumpGain.connect(this.ctx.destination);
+      pump.start(now);
+      pump.stop(now + 0.36);
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Quantum Holographic Processor dimensional resonance chime
+  public playQuantumPulse() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      // Futuristic crystal-cyber chord: F#5 (739.99), A#5 (932.33), C#6 (1108.73), F6 (1396.91)
+      const chord = [739.99, 932.33, 1108.73, 1396.91];
+      chord.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        const startTime = now + idx * 0.035;
+        osc.frequency.setValueAtTime(freq, startTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.05, startTime + 0.45);
+
+        gain.gain.setValueAtTime(0.09, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.52);
+      });
+
+      // Quantum sub-harmonic hum
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(185, now);
+      subGain.gain.setValueAtTime(0.07, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      sub.connect(subGain);
+      subGain.connect(this.ctx.destination);
+      sub.start(now);
+      sub.stop(now + 0.42);
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // NVMe M.2 ultra-fast PCIe 5.0 read/write benchmark burst
+  public playNvmeBenchmark() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const bursts = [2800, 3600, 4200, 4800, 5400, 6200];
+      bursts.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'square';
+        const t = now + idx * 0.022;
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + 0.02);
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
   // Island Landing Chime
   public playIslandEnter() {
     if (this.isMuted) return;
