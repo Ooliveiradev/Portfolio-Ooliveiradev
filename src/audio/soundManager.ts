@@ -157,6 +157,150 @@ class SoundEngine {
     }
   }
 
+  // Retro 8-bit arcade insert coin / 1P ready arpeggio
+  public playArcadeCoin() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const notes = [987.77, 1318.51, 1567.98, 2093.0]; // B5, E6, G6, C7
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+        gain.gain.setValueAtTime(0.06, now + idx * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(now + idx * 0.05);
+        osc.stop(now + idx * 0.05 + 0.14);
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // High-pressure pneumatic steam / nitrogen purge release
+  public playPneumaticVent() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Bandpass noise burst
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.4);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1600, now);
+      filter.frequency.exponentialRampToValueAtTime(600, now + 0.38);
+      filter.Q.setValueAtTime(2.5, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(now);
+      noise.stop(now + 0.4);
+
+      // Low thump impulse
+      const thump = this.ctx.createOscillator();
+      const thumpGain = this.ctx.createGain();
+      thump.type = 'sine';
+      thump.frequency.setValueAtTime(140, now);
+      thump.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+      thumpGain.gain.setValueAtTime(0.12, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      thump.connect(thumpGain);
+      thumpGain.connect(this.ctx.destination);
+      thump.start(now);
+      thump.stop(now + 0.15);
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Sci-fi holographic projector scan & model switch chime
+  public playHoloSwitch() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const notes = [739.99, 932.33, 1108.73, 1479.98]; // F#5, A#5, C#6, F#6
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + idx * 0.04 + 0.15);
+
+        gain.gain.setValueAtTime(0.08, now + idx * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(now + idx * 0.04);
+        osc.stop(now + idx * 0.04 + 0.25);
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Satisfying mechanical keyboard tactile switch click ("thock")
+  public playKeycapClick() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // High-frequency click impulse
+      const clickOsc = this.ctx.createOscillator();
+      const clickGain = this.ctx.createGain();
+      clickOsc.type = 'triangle';
+      clickOsc.frequency.setValueAtTime(2800, now);
+      clickOsc.frequency.exponentialRampToValueAtTime(800, now + 0.025);
+      clickGain.gain.setValueAtTime(0.12, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      clickOsc.connect(clickGain);
+      clickGain.connect(this.ctx.destination);
+      clickOsc.start(now);
+      clickOsc.stop(now + 0.035);
+
+      // Low bottom-out acoustic thud
+      const thudOsc = this.ctx.createOscillator();
+      const thudGain = this.ctx.createGain();
+      thudOsc.type = 'sine';
+      thudOsc.frequency.setValueAtTime(320, now);
+      thudOsc.frequency.exponentialRampToValueAtTime(90, now + 0.05);
+      thudGain.gain.setValueAtTime(0.15, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      thudOsc.connect(thudGain);
+      thudGain.connect(this.ctx.destination);
+      thudOsc.start(now);
+      thudOsc.stop(now + 0.065);
+    } catch {
+      // safe fallback
+    }
+  }
+
   // Island Landing Chime
   public playIslandEnter() {
     if (this.isMuted) return;

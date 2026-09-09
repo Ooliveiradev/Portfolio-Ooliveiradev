@@ -204,29 +204,30 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
           />
         </mesh>
 
-        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade */}
-        {[
-          [-3.4, -0.6, 2.2, 0.55],
-          [3.2, -0.9, -2.0, 0.65],
-          [1.8, -1.2, 3.1, 0.45],
-          [-2.6, -1.0, -2.8, 0.5],
-        ].map(([rx, ry, rz, s], idx) => (
-          <mesh
-            key={idx}
-            position={[rx, ry, rz]}
-            scale={[s, s * 1.2, s]}
-            rotation={[idx * 0.7, idx * 1.2, idx * 0.4]}
-            castShadow
-          >
-            <dodecahedronGeometry args={[0.8, 0]} />
-            <meshStandardMaterial
-              color="#334155"
-              roughness={0.65}
-              metalness={0.08}
-              flatShading
-            />
-          </mesh>
-        ))}
+        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (omitido para 'projects' que possui quilha e shards esculturais próprios) */}
+        {config.id !== 'projects' &&
+          [
+            [-3.4, -0.6, 2.2, 0.55],
+            [3.2, -0.9, -2.0, 0.65],
+            [1.8, -1.2, 3.1, 0.45],
+            [-2.6, -1.0, -2.8, 0.5],
+          ].map(([rx, ry, rz, s], idx) => (
+            <mesh
+              key={idx}
+              position={[rx, ry, rz]}
+              scale={[s, s * 1.2, s]}
+              rotation={[idx * 0.7, idx * 1.2, idx * 0.4]}
+              castShadow
+            >
+              <dodecahedronGeometry args={[0.8, 0]} />
+              <meshStandardMaterial
+                color="#334155"
+                roughness={0.65}
+                metalness={0.08}
+                flatShading
+              />
+            </mesh>
+          ))}
       </group>
 
       {/* ===================================================
