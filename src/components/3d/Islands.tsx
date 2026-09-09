@@ -167,11 +167,13 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
         {config.id === 'about' && <AboutIsland />}
 
         {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
-        <IslandLife
-          islandId={config.id}
-          themeColor={config.color}
-          isNear={isNear}
-        />
+        {config.id !== 'about' && config.id !== 'education' && (
+          <IslandLife
+            islandId={config.id}
+            themeColor={config.color}
+            isNear={isNear}
+          />
+        )}
       </group>
 
       {/* ===================================================
@@ -204,8 +206,8 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
           />
         </mesh>
 
-        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (omitido para ilhas com quilha própria: 'projects', 'about' e 'skills') */}
-        {config.id !== 'projects' && config.id !== 'about' && config.id !== 'skills' &&
+        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (omitido para ilhas com quilha própria: 'projects', 'about', 'skills' e 'education') */}
+        {config.id !== 'projects' && config.id !== 'about' && config.id !== 'skills' && config.id !== 'education' &&
           [
             [-3.4, -0.6, 2.2, 0.55],
             [3.2, -0.9, -2.0, 0.65],
