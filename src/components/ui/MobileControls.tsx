@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Rocket, Anchor } from 'lucide-react';
+import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
 
 interface MobileControlsProps {
@@ -121,7 +121,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
               : 'bg-[#0c1017]/90 text-amber-400/90 border-slate-800/80 hover:border-amber-500/40 active:scale-95'
           }`}
         >
-          <Rocket className="w-5 h-5" />
+          <MaterialIcon name="rocket_launch" size={22} />
           <span className="text-[9px] font-mono font-bold uppercase tracking-wider">Turbo</span>
         </button>
 
@@ -133,7 +133,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
           }}
           className="w-14 h-14 rounded-2xl bg-[#0c1017]/90 hover:bg-[#111622] text-sky-400 border border-slate-800/80 hover:border-sky-500/40 flex flex-col items-center justify-center gap-0.5 shadow-xl active:scale-95 transition-all cursor-pointer backdrop-blur-xl"
         >
-          <Anchor className="w-5 h-5" />
+          <MaterialIcon name="anchor" size={22} />
           <span className="text-[9px] font-mono font-bold uppercase tracking-wider">Pousar</span>
         </button>
       </div>

@@ -377,6 +377,7 @@ export default function App() {
       setGameMode('landing');
       setSelectedIslandId(null);
       setTargetVehiclePos(null);
+      setVehiclePos([0, 1.0, 16]);
     }
   }, []);
 

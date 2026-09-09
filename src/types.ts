@@ -39,6 +39,23 @@ export interface ProjectItem {
   githubUrl?: string;
   featured: boolean;
   accentColor: string;
+  readme: string;
+  role?: string;
+  statusBadge?: string;
+  stats?: { label: string; value: string; icon?: string }[];
+  highlights?: string[];
+  architecture?: {
+    overview: string;
+    flow: string[];
+    database?: string;
+    security?: string[];
+  };
+  quickStart?: {
+    cloneCmd: string;
+    installCmd: string;
+    runCmd: string;
+    envExample?: string;
+  };
 }
 
 export interface ExperienceItem {

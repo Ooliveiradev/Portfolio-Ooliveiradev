@@ -1,31 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import {
-  Home,
-  Settings,
-  Gamepad2,
-  Award,
-  Trophy,
-  Sparkles,
-  HelpCircle,
-  X,
-  Volume2,
-  VolumeX,
-  RotateCcw,
-  Check,
-  ExternalLink,
-  Layers,
-  Globe,
-  Compass,
-  Cpu,
-  FolderSearch,
-  Send,
-  Lock,
-  Medal,
-  Share2,
-  UserCheck
-} from 'lucide-react';
+import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
 import { CameraViewMode, UserStats, CrystalCollectible, LeaderboardEntry, RaceLeaderboardEntry, GraphicsQuality } from '../../types';
 import { PERSONAL_INFO, BADGES_DATA, INITIAL_LEADERBOARD, INITIAL_RACE_LEADERBOARD } from '../../data/portfolioData';
@@ -110,19 +86,19 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   const getBadgeIcon = (id: string) => {
     switch (id) {
       case 'badge-ignition':
-        return <Compass className="w-5 h-5" />;
+        return <MaterialIcon name="explore" size={20} />;
       case 'badge-explorer':
-        return <Globe className="w-5 h-5" />;
+        return <MaterialIcon name="public" size={20} />;
       case 'badge-coder':
-        return <Cpu className="w-5 h-5" />;
+        return <MaterialIcon name="memory" size={20} />;
       case 'badge-crystal':
-        return <Sparkles className="w-5 h-5" />;
+        return <MaterialIcon name="auto_awesome" size={20} />;
       case 'badge-inspector':
-        return <FolderSearch className="w-5 h-5" />;
+        return <MaterialIcon name="manage_search" size={20} />;
       case 'badge-contact':
-        return <Send className="w-5 h-5" />;
+        return <MaterialIcon name="send" size={20} />;
       default:
-        return <Award className="w-5 h-5" />;
+        return <MaterialIcon name="military_tech" size={20} />;
     }
   };
 
@@ -209,7 +185,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Home / Universo"
             >
-              <Home className="w-4 h-4" />
+              <MaterialIcon name="home" size={16} />
             </button>
 
             {/* 2. Options Tab */}
@@ -225,7 +201,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Opções & Configurações"
             >
-              <Settings className="w-4 h-4" />
+              <MaterialIcon name="settings" size={16} />
             </button>
 
             {/* 3. Controls Tab */}
@@ -241,7 +217,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Comandos & Controles"
             >
-              <Gamepad2 className="w-4 h-4" />
+              <MaterialIcon name="sports_esports" size={16} />
             </button>
 
             {/* 4. Achievements / Badges Tab */}
@@ -257,7 +233,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Conquistas & Badges"
             >
-              <Award className="w-4 h-4" />
+              <MaterialIcon name="military_tech" size={16} />
             </button>
 
             {/* 5. Ranking Tab */}
@@ -273,7 +249,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Ranking & Hall da Fama"
             >
-              <Trophy className="w-4 h-4" />
+              <MaterialIcon name="emoji_events" size={16} />
             </button>
 
             {/* 6. Behind the Scene Tab */}
@@ -289,7 +265,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Arquitetura 3D & Bastidores"
             >
-              <Sparkles className="w-4 h-4" />
+              <MaterialIcon name="auto_awesome" size={16} />
             </button>
 
             {/* 7. About Developer Tab */}
@@ -305,7 +281,7 @@ Confira em: ${window.location.href}`;
               }`}
               title="Sobre o Desenvolvedor"
             >
-              <HelpCircle className="w-4 h-4" />
+              <MaterialIcon name="help" size={16} />
             </button>
 
             {/* 8. Close Button (Minimalist Standard X Button) */}
@@ -317,7 +293,7 @@ Confira em: ${window.location.href}`;
               className="w-10 h-10 bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
               title="Fechar (ESC)"
             >
-              <X className="w-4 h-4" />
+              <MaterialIcon name="close" size={16} />
             </button>
           </div>
 
@@ -514,12 +490,12 @@ Confira em: ${window.location.href}`;
                       >
                         {!isMuted ? (
                           <>
-                            <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <MaterialIcon name="volume_up" className="text-emerald-400" size={14} />
                             <span>Ligado</span>
                           </>
                         ) : (
                           <>
-                            <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                            <MaterialIcon name="volume_off" className="text-rose-400" size={14} />
                             <span>Mudo</span>
                           </>
                         )}
@@ -545,12 +521,12 @@ Confira em: ${window.location.href}`;
                       >
                         {cameraViewMode === 'iso' ? (
                           <>
-                            <Layers className="w-3.5 h-3.5 text-sky-400" />
+                            <MaterialIcon name="layers" className="text-sky-400" size={14} />
                             <span>Isométrica</span>
                           </>
                         ) : (
                           <>
-                            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                            <MaterialIcon name="public" className="text-emerald-400" size={14} />
                             <span>55° Global</span>
                           </>
                         )}
@@ -609,7 +585,7 @@ Confira em: ${window.location.href}`;
                         }}
                         className="w-28 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 text-xs font-mono font-medium transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                       >
-                        <RotateCcw className="w-3.5 h-3.5 text-sky-400" />
+                        <MaterialIcon name="refresh" className="text-sky-400" size={14} />
                         <span>Respawn</span>
                       </button>
                     </div>
@@ -792,7 +768,7 @@ Confira em: ${window.location.href}`;
                                 : 'bg-slate-800/60 text-slate-600'
                             }`}
                           >
-                            {isUnlocked ? getBadgeIcon(badge.id) : <Lock className="w-4 h-4" />}
+                            {isUnlocked ? getBadgeIcon(badge.id) : <MaterialIcon name="lock" size={16} />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1">
@@ -869,7 +845,7 @@ Confira em: ${window.location.href}`;
                       onClick={handleCopySummary}
                       className="px-3 py-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 text-xs font-mono font-medium transition flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
-                      <Share2 className="w-3.5 h-3.5" />
+                      <MaterialIcon name="share" size={14} />
                       <span>{copiedSummary ? 'Copiado!' : 'Compartilhar'}</span>
                     </button>
                   </div>
@@ -949,7 +925,7 @@ Confira em: ${window.location.href}`;
                         </form>
                       ) : (
                         <div className="mb-4 p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center gap-2 text-xs font-mono text-emerald-300">
-                          <Check className="w-4 h-4 text-emerald-400" />
+                          <MaterialIcon name="check" className="text-emerald-400" size={16} />
                           <span>Sua pontuação foi gravada com sucesso no Ranking!</span>
                         </div>
                       )}
@@ -1119,7 +1095,7 @@ Confira em: ${window.location.href}`;
                         className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-slate-200 rounded-xl font-mono text-xs flex items-center gap-1.5 transition"
                       >
                         <span>GitHub</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                        <MaterialIcon name="open_in_new" className="text-slate-400" size={14} />
                       </a>
                       <a
                         href={PERSONAL_INFO.linkedin}
@@ -1128,7 +1104,7 @@ Confira em: ${window.location.href}`;
                         className="px-3.5 py-2 bg-sky-600/80 hover:bg-sky-500 text-white rounded-xl font-mono text-xs flex items-center gap-1.5 transition shadow-sm"
                       >
                         <span>LinkedIn</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-white/80" />
+                        <MaterialIcon name="open_in_new" className="text-white/80" size={14} />
                       </a>
                       <a
                         href={`mailto:${PERSONAL_INFO.email}`}

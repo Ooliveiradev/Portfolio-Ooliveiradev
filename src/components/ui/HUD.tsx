@@ -1,10 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  Settings,
-  Zap,
-  Home
-} from 'lucide-react';
+import { MaterialIcon } from './MaterialIcon';
 import { IslandConfig, IslandId, UserStats, CrystalCollectible } from '../../types';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
@@ -83,7 +79,7 @@ export const HUD: React.FC<HUDProps> = ({
                 {PERSONAL_INFO.name}
               </span>
               <span className="text-[10px] font-mono text-sky-400 font-semibold flex items-center gap-0.5">
-                <Zap className="w-3 h-3 fill-sky-400" />
+                <MaterialIcon name="bolt" fill className="text-sky-400" size={14} />
                 {stats.xp} XP
               </span>
             </div>
@@ -112,7 +108,7 @@ export const HUD: React.FC<HUDProps> = ({
               exit={{ opacity: 0, y: -20, scale: 0.9 }}
               className="px-3.5 py-1.5 rounded-full bg-[#0c1017]/95 border border-amber-400/40 text-amber-300 font-mono text-xs shadow-xl backdrop-blur-md flex items-center gap-1.5"
             >
-              <Zap className="w-3.5 h-3.5 fill-amber-400" />
+              <MaterialIcon name="bolt" fill className="text-amber-400" size={15} />
               <span>+{recentXpGained} XP!</span>
             </motion.div>
           )}
@@ -130,7 +126,7 @@ export const HUD: React.FC<HUDProps> = ({
               className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg"
               title="Menu Inicial / Tela de Entrada"
             >
-              <Home className="w-4 h-4 text-sky-400" />
+              <MaterialIcon name="home" className="text-sky-400" size={18} />
             </button>
 
             {/* Central Unified Settings & System Menu Button */}
@@ -143,7 +139,7 @@ export const HUD: React.FC<HUDProps> = ({
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg font-mono text-xs font-medium"
                 title="Configurações, Câmera, Conquistas & Ranking (ESC)"
               >
-                <Settings className="w-4 h-4 text-sky-400" />
+                <MaterialIcon name="settings" className="text-sky-400" size={18} />
                 <span className="hidden sm:inline">Menu</span>
               </button>
             )}

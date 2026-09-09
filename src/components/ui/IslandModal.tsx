@@ -1,23 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  X,
-  ExternalLink,
-  Github,
-  Award,
-  Sparkles,
-  CheckCircle2,
-  Calendar,
-  MapPin,
-  Mail,
-  Linkedin,
-  MessageCircle,
-  FileText,
-  Copy,
-  Check,
-  Send,
-  Code2
-} from 'lucide-react';
+import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
+import { ProjectDetailModal } from './ProjectDetailModal';
 import {
   IslandConfig,
   IslandId,
@@ -53,6 +37,34 @@ export const IslandModal: React.FC<IslandModalProps> = ({
   const [contactMessage, setContactMessage] = useState('');
   const [messageSent, setMessageSent] = useState(false);
 
+  const currentProjectIndex = selectedProject
+    ? PROJECTS_DATA.findIndex((p) => p.id === selectedProject.id)
+    : -1;
+
+  const handlePrevProject = () => {
+    if (currentProjectIndex > 0) {
+      const prev = PROJECTS_DATA[currentProjectIndex - 1];
+      setSelectedProject(prev);
+      onInspectProject(prev.id);
+    } else {
+      const prev = PROJECTS_DATA[PROJECTS_DATA.length - 1];
+      setSelectedProject(prev);
+      onInspectProject(prev.id);
+    }
+  };
+
+  const handleNextProject = () => {
+    if (currentProjectIndex < PROJECTS_DATA.length - 1) {
+      const next = PROJECTS_DATA[currentProjectIndex + 1];
+      setSelectedProject(next);
+      onInspectProject(next.id);
+    } else {
+      const next = PROJECTS_DATA[0];
+      setSelectedProject(next);
+      onInspectProject(next.id);
+    }
+  };
+
   const isChallengeDone = stats.completedChallenges.includes(island.id);
 
   const handleCopyEmail = () => {
@@ -67,10 +79,17 @@ export const IslandModal: React.FC<IslandModalProps> = ({
     if (!contactMessage.trim()) return;
     setMessageSent(true);
     sounds.playBadgeUnlocked();
+
+    // Dispara abertura no cliente de email para o endereço de Danilo
+    const mailtoUrl = `mailto:${PERSONAL_INFO.email}?subject=${encodeURIComponent(
+      'Contato via Portfólio 3D - Danilo Ribeiro'
+    )}&body=${encodeURIComponent(contactMessage)}`;
+    window.location.href = mailtoUrl;
+
     setTimeout(() => {
       setMessageSent(false);
       setContactMessage('');
-    }, 3000);
+    }, 3500);
   };
 
   return (
@@ -88,7 +107,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
               className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
               style={{ backgroundColor: island.color }}
             >
-              <Code2 className="w-6 h-6 text-slate-950" />
+              <MaterialIcon name="code" className="text-slate-950" size={24} />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -102,8 +121,12 @@ export const IslandModal: React.FC<IslandModalProps> = ({
               <h2 className="text-xl sm:text-2xl font-sans font-bold text-slate-100 leading-tight">
                 {island.name}
               </h2>
-              <p className="text-xs text-slate-400 font-normal">
-                {island.tagline}
+              <p className="text-xs sm:text-sm text-slate-300 font-medium tracking-wide mt-1 flex items-center gap-1.5">
+                <span
+                  className="w-2 h-2 rounded-full shrink-0 shadow-sm"
+                  style={{ backgroundColor: island.color, boxShadow: `0 0 8px ${island.color}80` }}
+                />
+                <span>{island.tagline}</span>
               </p>
             </div>
           </div>
@@ -123,12 +146,12 @@ export const IslandModal: React.FC<IslandModalProps> = ({
             >
               {isChallengeDone ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <MaterialIcon name="check_circle" fill size={14} />
                   <span>Desafio Concluído</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3.5 h-3.5 fill-black" />
+                  <MaterialIcon name="auto_awesome" size={14} />
                   <span>Desafio da Ilha (+150 XP)</span>
                 </>
               )}
@@ -143,7 +166,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
               className="w-9 h-9 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center transition-colors cursor-pointer"
               title="Fechar e Retomar Navegação"
             >
-              <X className="w-4 h-4" />
+              <MaterialIcon name="close" size={18} />
             </button>
           </div>
         </div>
@@ -228,9 +251,10 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                             setSelectedProject(project);
                             onInspectProject(project.id);
                           }}
-                          className="text-xs font-mono font-medium text-sky-400 hover:text-sky-300 cursor-pointer flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 hover:text-sky-200 text-xs font-mono font-medium cursor-pointer flex items-center gap-1.5 transition shadow-sm"
                         >
-                          <span>{isViewed ? '✓ Inspecionado' : 'Inspecionar (+50 XP)'}</span>
+                          <MaterialIcon name="description" size={14} className="text-sky-400" />
+                          <span>{isViewed ? 'Inspecionar & README' : 'Inspecionar (+50 XP)'}</span>
                         </button>
 
                         <div className="flex items-center gap-2">
@@ -242,7 +266,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                               className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/80 transition-colors"
                               title="Repositório GitHub"
                             >
-                              <Github className="w-3.5 h-3.5" />
+                              <GithubIcon className="w-3.5 h-3.5" />
                             </a>
                           )}
                           {project.liveUrl && (
@@ -253,7 +277,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                               className="p-2 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 transition-colors"
                               title="Ver Online"
                             >
-                              <ExternalLink className="w-3.5 h-3.5" />
+                              <MaterialIcon name="open_in_new" size={14} />
                             </a>
                           )}
                         </div>
@@ -280,7 +304,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                           {item.role}
                         </h3>
                         <span className="text-xs font-mono text-sky-400 flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
+                          <MaterialIcon name="calendar_today" size={14} />
                           {item.period}
                         </span>
                       </div>
@@ -289,7 +313,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                         <span className="font-semibold text-sky-400">{item.company}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1 text-slate-400">
-                          <MapPin className="w-3 h-3" />
+                          <MaterialIcon name="location_on" size={14} />
                           {item.location}
                         </span>
                       </div>
@@ -330,7 +354,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                   >
                     <h3 className="text-sm font-sans font-bold text-sky-400 mb-4 pb-2 border-b border-slate-800/80 flex items-center justify-between">
                       <span>{cat.title}</span>
-                      <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                      <MaterialIcon name="auto_awesome" className="text-sky-400" size={14} />
                     </h3>
 
                     <div className="space-y-3.5">
@@ -422,88 +446,110 @@ export const IslandModal: React.FC<IslandModalProps> = ({
               </div>
 
               {/* Social Channels & Contact Action Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button
-                  onClick={handleCopyEmail}
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-700/80 text-left transition-all cursor-pointer group"
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {/* GitHub */}
+                <a
+                  href={PERSONAL_INFO.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-600/80 text-left transition-all group hover:bg-[#151c2c]/70"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Mail className="w-4 h-4 text-sky-400" />
+                    <div className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center text-slate-200">
+                      <GithubIcon className="w-4 h-4" />
+                    </div>
                     <div>
-                      <span className="text-xs font-medium text-slate-100 block">Email Direto</span>
-                      <span className="text-[11px] text-slate-400 font-mono">Copiar endereço</span>
+                      <span className="text-xs font-medium text-slate-100 block">GitHub</span>
+                      <span className="text-[11px] text-slate-400 font-mono">@Ooliveiradev</span>
                     </div>
                   </div>
-                  {copiedEmail ? (
-                    <Check className="w-4 h-4 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-4 h-4 text-slate-500 group-hover:text-slate-300" />
-                  )}
-                </button>
+                  <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-slate-300" size={16} />
+                </a>
 
+                {/* LinkedIn */}
                 <a
                   href={PERSONAL_INFO.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-700/80 text-left transition-all group"
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-sky-500/60 text-left transition-all group hover:bg-[#151c2c]/70"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Linkedin className="w-4 h-4 text-sky-400" />
+                    <div className="w-8 h-8 rounded-lg bg-sky-950/60 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                      <LinkedinIcon className="w-4 h-4" />
+                    </div>
                     <div>
                       <span className="text-xs font-medium text-slate-100 block">LinkedIn</span>
-                      <span className="text-[11px] text-slate-400">Conectar perfil</span>
+                      <span className="text-[11px] text-slate-400">danilo-oliveira</span>
                     </div>
                   </div>
-                  <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-slate-300" />
+                  <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-sky-300" size={16} />
                 </a>
 
-                <a
-                  href={PERSONAL_INFO.whatsapp}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-700/80 text-left transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <MessageCircle className="w-4 h-4 text-emerald-400" />
-                    <div>
-                      <span className="text-xs font-medium text-slate-100 block">WhatsApp</span>
-                      <span className="text-[11px] text-slate-400">Conversar agora</span>
+                {/* Email (Abre mailto com botão de copiar ao lado) */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-amber-500/50 text-left transition-all group hover:bg-[#151c2c]/70">
+                  <a
+                    href={`mailto:${PERSONAL_INFO.email}`}
+                    className="flex items-center gap-2.5 flex-1 min-w-0"
+                    title={`Enviar email para ${PERSONAL_INFO.email}`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-950/60 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                      <MaterialIcon name="mail" size={18} />
                     </div>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-slate-300" />
-                </a>
+                    <div className="min-w-0">
+                      <span className="text-xs font-medium text-slate-100 block">Email Direto</span>
+                      <span className="text-[11px] text-slate-400 font-mono truncate block">
+                        {PERSONAL_INFO.email}
+                      </span>
+                    </div>
+                  </a>
+                  <button
+                    onClick={handleCopyEmail}
+                    className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer shrink-0 ml-1"
+                    title="Copiar endereço de email"
+                  >
+                    {copiedEmail ? (
+                      <MaterialIcon name="check" className="text-emerald-400" size={16} />
+                    ) : (
+                      <MaterialIcon name="content_copy" className="group-hover:text-slate-200" size={16} />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Direct Message Transmitter */}
               <form onSubmit={handleSendMessage} className="bg-[#111622]/60 border border-slate-800/60 p-5 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-xs font-mono font-medium text-slate-200 uppercase flex items-center gap-1.5">
-                    <Send className="w-3.5 h-3.5 text-sky-400" />
+                    <MaterialIcon name="send" className="text-sky-400" size={14} />
                     <span>Terminal de Mensagem Rápida</span>
                   </h4>
-                  <span className="text-[10px] text-slate-400 font-mono">Disparo Imediato</span>
+                  <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                    <span>Destino de envio:</span>
+                    <span className="text-sky-300 underline underline-offset-2">{PERSONAL_INFO.email}</span>
+                  </span>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={contactMessage}
                     onChange={(e) => setContactMessage(e.target.value)}
-                    placeholder="Escreva uma mensagem rápida para Danilo..."
+                    placeholder="Escreva uma mensagem para Danilo..."
                     className="flex-1 bg-[#07090e] border border-slate-700/80 text-xs text-slate-100 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-sky-400"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold font-mono transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold font-mono transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    title="Abrir no cliente de email para envio imediato"
                   >
-                    <span>Enviar</span>
-                    <Send className="w-3 h-3" />
+                    <span>Enviar Email</span>
+                    <MaterialIcon name="send" size={14} />
                   </button>
                 </div>
 
                 {messageSent && (
                   <p className="text-xs text-emerald-400 font-mono flex items-center gap-1">
-                    ✓ Sinal galáctico transmitido com sucesso! Retornarei em breve.
+                    ✓ Sinal cósmico transmitido! O cliente de email foi acionado para {PERSONAL_INFO.email}.
                   </p>
                 )}
               </form>
@@ -511,71 +557,15 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           )}
         </div>
 
-        {/* Project Detailed Inspection Drawer/Modal if opened */}
+        {/* Project Detailed Inspection Modal with Styled README */}
         <AnimatePresence>
           {selectedProject && (
-            <div className="absolute inset-0 z-50 bg-[#0c1017]/95 backdrop-blur-xl p-6 flex flex-col justify-between overflow-y-auto">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
-                  <span className="text-xs font-mono text-sky-400 font-bold">
-                    [TELEMETRIA DO PROJETO]
-                  </span>
-                  <button
-                    onClick={() => setSelectedProject(null)}
-                    className="w-8 h-8 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center transition cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <h3 className="text-2xl font-sans font-bold text-slate-100 mt-4">
-                  {selectedProject.title}
-                </h3>
-                <p className="text-sm text-slate-300 mt-2 leading-relaxed font-sans">
-                  {selectedProject.description}
-                </p>
-
-                {selectedProject.metrics && (
-                  <div className="mt-4 p-3 rounded-xl bg-[#07090e]/70 border border-slate-800/80 text-xs font-mono text-emerald-400">
-                    🏆 Impacto Operacional: {selectedProject.metrics}
-                  </div>
-                )}
-
-                <div className="mt-6">
-                  <h4 className="text-xs font-mono text-slate-400 mb-2">Stack Utilizada:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedProject.tags.map((t, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-md bg-sky-500/10 border border-sky-500/30 text-sky-300 text-xs font-mono font-medium"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800/80">
-                <button
-                  onClick={() => setSelectedProject(null)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800/80 text-slate-300 text-xs font-mono font-medium hover:bg-slate-700 hover:text-white cursor-pointer"
-                >
-                  Voltar à Ilha
-                </button>
-                {selectedProject.liveUrl && (
-                  <a
-                    href={selectedProject.liveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg"
-                  >
-                    <span>Abrir Demo</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
-              </div>
-            </div>
+            <ProjectDetailModal
+              project={selectedProject}
+              onClose={() => setSelectedProject(null)}
+              onPrev={handlePrevProject}
+              onNext={handleNextProject}
+            />
           )}
         </AnimatePresence>
       </motion.div>

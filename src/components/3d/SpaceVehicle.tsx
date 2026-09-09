@@ -249,23 +249,68 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     };
 
     const handleBoostImpulse = (e: Event) => {
-      const custom = e as CustomEvent<{ direction?: [number, number, number]; force?: number }>;
+      const custom = e as CustomEvent<{
+        direction?: [number, number, number];
+        force?: number;
+        useRocketFacing?: boolean;
+      }>;
       const body = rigidBodyRef.current;
-      if (!body) return;
-      const force = custom.detail?.force ?? 620;
-      if (custom.detail?.direction) {
-        const [dx, dy, dz] = custom.detail.direction;
-        body.applyImpulse({ x: dx * force, y: dy * force, z: dz * force }, true);
-      } else {
+      const force = custom.detail?.force ?? 650;
+
+      // Calculate current rocket heading (where the rocket is facing)
+      let fX = 0;
+      let fZ = 1;
+
+      if (body && isReady) {
         const currentRot = body.rotation();
         _tempQuat.set(currentRot.x, currentRot.y, currentRot.z, currentRot.w);
         _tempEuler.setFromQuaternion(_tempQuat, 'YXZ');
-        const fX = Math.sin(_tempEuler.y);
-        const fZ = Math.cos(_tempEuler.y);
-        body.applyImpulse({ x: fX * force, y: 0, z: fZ * force }, true);
+        const yaw = _tempEuler.y;
+        fX = Math.sin(yaw);
+        fZ = Math.cos(yaw);
+      } else {
+        const yaw = rotationY.current;
+        fX = Math.sin(yaw);
+        fZ = Math.cos(yaw);
       }
-      pitchVelocity.current += 0.38;
-      suspensionVelocity.current -= 0.28;
+
+      // Default to the rocket's facing direction unless explicitly overridden
+      const shouldUseFacing = custom.detail?.useRocketFacing ?? (!custom.detail?.direction);
+      let dirX = fX;
+      let dirY = 0;
+      let dirZ = fZ;
+
+      if (!shouldUseFacing && custom.detail?.direction) {
+        [dirX, dirY, dirZ] = custom.detail.direction;
+      }
+
+      if (body && isReady) {
+        // Direct the boost cleanly in the direction the rocket is facing!
+        const linvel = body.linvel();
+        const currentSpeed = Math.hypot(linvel.x, linvel.z);
+        // Clean high-speed surge forward in the facing direction
+        const boostSpeed = Math.max(currentSpeed * 0.45 + 38, 52);
+
+        body.setLinvel(
+          {
+            x: dirX * boostSpeed,
+            y: Math.min(Math.max(linvel.y * 0.2, -0.6), 1.2),
+            z: dirZ * boostSpeed,
+          },
+          true
+        );
+
+        // Dynamic physical impulse
+        body.applyImpulse({ x: dirX * 180, y: dirY * 180, z: dirZ * 180 }, true);
+      } else {
+        // Kinematic fallback
+        const boostSpeed = 50;
+        velocity.current.set(dirX * boostSpeed, 0, dirZ * boostSpeed);
+      }
+
+      sounds.playBoost();
+      pitchVelocity.current += 0.42;
+      suspensionVelocity.current -= 0.32;
     };
 
     window.addEventListener('keydown', handleKeyDown, { passive: false });

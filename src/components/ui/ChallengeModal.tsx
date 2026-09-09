@@ -1,17 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import confetti from 'canvas-confetti';
-import {
-  Trophy,
-  CheckCircle2,
-  Terminal,
-  Cpu,
-  Layers,
-  HelpCircle,
-  Radio,
-  Sparkles,
-  X
-} from 'lucide-react';
+import { MaterialIcon } from './MaterialIcon';
 import { IslandId } from '../../types';
 import { sounds } from '../../audio/soundManager';
 
@@ -66,7 +56,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
-              <Trophy className="w-4 h-4" />
+              <MaterialIcon name="emoji_events" size={18} />
             </div>
             <div>
               <div className="text-[10px] font-mono text-amber-400 uppercase font-bold">
@@ -88,7 +78,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
             }}
             className="w-8 h-8 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center cursor-pointer transition-colors"
           >
-            <X className="w-4 h-4" />
+            <MaterialIcon name="close" size={18} />
           </button>
         </div>
 
@@ -101,7 +91,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
 
             <div className="bg-[#111622]/60 border border-slate-800/60 rounded-xl p-4 font-mono text-xs text-slate-300 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 pb-2 border-b border-slate-800/60">
-                <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                <MaterialIcon name="terminal" className="text-sky-400" size={16} />
                 <span>ci-cd-runner@production:~#</span>
               </div>
               <div className="space-y-1">
@@ -348,7 +338,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
               }}
               className="w-full py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-mono font-bold text-xs shadow-xl transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <Radio className="w-4 h-4 animate-pulse" />
+              <MaterialIcon name="podcasts" className="animate-pulse" size={18} />
               <span>ESTABELECER CONEXÃO ESPACIAL</span>
             </button>
           </div>
@@ -362,7 +352,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
             className="mt-6 p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-center"
           >
             <div className="text-emerald-400 font-sans font-bold text-sm flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
+              <MaterialIcon name="check_circle" fill className="text-emerald-400" size={18} />
               <span>Desafio Concluído com Sucesso! (+150 XP)</span>
             </div>
           </motion.div>

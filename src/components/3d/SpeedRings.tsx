@@ -142,12 +142,12 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
         // Sound effect
         sounds.playSpeedRing();
 
-        // Physical boost event for Rapier vehicle
+        // Physical boost event for Rapier vehicle: propel in the direction the rocket is facing
         window.dispatchEvent(
           new CustomEvent('app:boost-vehicle', {
             detail: {
-              direction: ring.forward,
-              force: 650,
+              useRocketFacing: true,
+              force: 680,
             },
           })
         );

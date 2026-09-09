@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, Settings } from 'lucide-react';
+import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
 import { IslandConfig, IslandId } from '../../types';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
@@ -51,7 +51,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer font-mono text-xs font-medium shadow-lg"
             title="Menu de Configurações, Áudio & Câmera (ESC)"
           >
-            <Settings className="w-4 h-4 text-sky-400" />
+            <MaterialIcon name="settings" className="text-sky-400" size={18} />
             <span className="hidden sm:inline">Menu</span>
           </button>
         )}
@@ -65,16 +65,12 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
           transition={{ duration: 1, delay: 0.1 }}
           className="flex flex-col items-center"
         >
-          <span className="text-[11px] font-mono tracking-[0.3em] uppercase text-sky-400 mb-3 font-medium">
-            Creative 3D Portfolio
-          </span>
-
           <h1 className="text-4xl sm:text-6xl font-sans font-bold text-slate-100 tracking-tight leading-none mb-3 drop-shadow-lg">
             {PERSONAL_INFO.name}
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-400 font-normal tracking-wide max-w-md mb-6">
-            Full Stack &amp; Creative 3D Engineer
+          <p className="text-sm sm:text-base text-slate-300 font-medium tracking-wide max-w-lg mb-6">
+            {PERSONAL_INFO.title}
           </p>
 
           {/* Clean Minimalist Explore Action */}
@@ -83,7 +79,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
             className="group flex items-center gap-3 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-slate-100 font-mono text-xs tracking-wider uppercase px-7 py-3.5 rounded-xl border border-sky-400/30 hover:border-sky-400/60 backdrop-blur-xl transition-all cursor-pointer shadow-xl"
           >
             <span>Iniciar Exploração com Nave</span>
-            <ArrowRight className="w-4 h-4 text-sky-400 transition-transform group-hover:translate-x-1" />
+            <MaterialIcon name="arrow_forward" className="text-sky-400 transition-transform group-hover:translate-x-1" size={18} />
           </button>
 
           {/* Direct Island Access Chips */}
@@ -121,6 +117,38 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
                 );
               })}
             </div>
+          </div>
+
+          {/* Quick External Profiles (GitHub, LinkedIn, Email) */}
+          <div className="mt-5 flex items-center gap-3">
+            <a
+              href={PERSONAL_INFO.github}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0c1017]/80 hover:bg-slate-800/90 text-slate-300 hover:text-white border border-slate-800/80 hover:border-slate-600 text-xs font-mono transition shadow-sm"
+              title="Acessar GitHub de Danilo"
+            >
+              <GithubIcon className="w-3.5 h-3.5" />
+              <span>GitHub</span>
+            </a>
+            <a
+              href={PERSONAL_INFO.linkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-400 text-xs font-mono transition shadow-sm"
+              title="Acessar LinkedIn de Danilo"
+            >
+              <LinkedinIcon className="w-3.5 h-3.5" />
+              <span>LinkedIn</span>
+            </a>
+            <a
+              href={`mailto:${PERSONAL_INFO.email}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 hover:text-white border border-amber-500/30 hover:border-amber-400 text-xs font-mono transition shadow-sm"
+              title={`Enviar email para ${PERSONAL_INFO.email}`}
+            >
+              <MaterialIcon name="mail" className="text-amber-400" size={16} />
+              <span>Email</span>
+            </a>
           </div>
         </motion.div>
       </div>

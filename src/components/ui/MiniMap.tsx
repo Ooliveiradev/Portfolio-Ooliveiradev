@@ -1,12 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  Compass,
-  ChevronDown,
-  ChevronUp,
-  Maximize2,
-  Minimize2,
-} from 'lucide-react';
+import { MaterialIcon } from './MaterialIcon';
 import { IslandConfig, IslandId, CrystalCollectible } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { SPEED_RINGS } from '../3d/SpeedRings';
@@ -117,14 +111,14 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           title="Abrir Mapa"
         >
           <div className="relative">
-            <Compass className="w-4 h-4 text-sky-400 group-hover:rotate-45 transition-transform" />
+            <MaterialIcon name="explore" className="text-sky-400 group-hover:rotate-45 transition-transform" size={18} />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#0c1017]" />
           </div>
           <span className="font-semibold tracking-wider text-slate-200">MAPA</span>
           <span className="text-[10px] text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded-md border border-emerald-500/30">
             {visitedCount}/5
           </span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          <MaterialIcon name="expand_more" className="text-slate-400" size={18} />
         </button>
       )}
 
@@ -162,7 +156,11 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/80 transition cursor-pointer"
                   title={isLargeSize ? 'Reduzir' : 'Expandir'}
                 >
-                  {isLargeSize ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  {isLargeSize ? (
+                    <MaterialIcon name="fullscreen_exit" size={16} />
+                  ) : (
+                    <MaterialIcon name="fullscreen" size={16} />
+                  )}
                 </button>
 
                 <button
@@ -173,7 +171,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/80 transition cursor-pointer"
                   title="Fechar"
                 >
-                  <ChevronUp className="w-3.5 h-3.5" />
+                  <MaterialIcon name="expand_less" size={18} />
                 </button>
               </div>
             </div>

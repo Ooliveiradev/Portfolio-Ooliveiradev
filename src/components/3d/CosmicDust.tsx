@@ -1,11 +1,12 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GraphicsQuality } from '../../types';
+import { GraphicsQuality, GameMode } from '../../types';
 
 interface CosmicDustProps {
   sharedVehiclePos: React.MutableRefObject<THREE.Vector3>;
   graphicsQuality?: GraphicsQuality;
+  gameMode?: GameMode;
 }
 
 // Generate a smooth radial glowing particle texture once
@@ -31,9 +32,11 @@ function getDustTexture(): THREE.CanvasTexture {
 export const CosmicDust: React.FC<CosmicDustProps> = ({
   sharedVehiclePos,
   graphicsQuality = 'mid',
+  gameMode = 'landing',
 }) => {
   const pointsRef = useRef<THREE.Points>(null);
   const dustTexture = useMemo(() => getDustTexture(), []);
+  const dustCenter = useRef<THREE.Vector3>(new THREE.Vector3(0, 4, 0));
 
   // Dispose texture on unmount
   useEffect(() => {
@@ -44,18 +47,10 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
 
   // Particle count based on graphics quality tier
   const count = useMemo(() => {
-    if (graphicsQuality === 'low') return 250;
-    if (graphicsQuality === 'high') return 1200;
-    return 600; // mid
+    if (graphicsQuality === 'low') return 280;
+    if (graphicsQuality === 'high') return 1300;
+    return 650; // mid
   }, [graphicsQuality]);
-
-  // Dimensions of the toroidal volume centered around the ship
-  const boxX = 90;
-  const boxY = 36;
-  const boxZ = 90;
-  const halfX = boxX / 2;
-  const halfY = boxY / 2;
-  const halfZ = boxZ / 2;
 
   // Initialize buffer attributes and drift velocities
   const { positions, colors, drifts, baseColors } = useMemo(() => {
@@ -64,20 +59,18 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     const baseCol = new Float32Array(count * 3);
     const drf = new Float32Array(count * 3);
 
-    const initialCenter = sharedVehiclePos.current;
-
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
 
-      // Position distributed in box around vehicle
-      pos[idx] = initialCenter.x + (Math.random() - 0.5) * boxX;
-      pos[idx + 1] = initialCenter.y + (Math.random() - 0.5) * boxY;
-      pos[idx + 2] = initialCenter.z + (Math.random() - 0.5) * boxZ;
+      // Generous natural distribution throughout the solar system
+      pos[idx] = (Math.random() - 0.5) * 160;
+      pos[idx + 1] = (Math.random() - 0.5) * 52 + 4;
+      pos[idx + 2] = (Math.random() - 0.5) * 160;
 
       // Organic subtle drift velocity (space vacuum sway)
-      drf[idx] = (Math.random() - 0.5) * 0.4;
-      drf[idx + 1] = (Math.random() - 0.5) * 0.25;
-      drf[idx + 2] = (Math.random() - 0.5) * 0.4;
+      drf[idx] = (Math.random() - 0.5) * 0.45;
+      drf[idx + 1] = (Math.random() - 0.5) * 0.28;
+      drf[idx + 2] = (Math.random() - 0.5) * 0.45;
 
       // Subtle Galactic Minimal palette: Sky Blue (70%), Ice White (20%), Warm Amber (10%)
       const randType = Math.random();
@@ -105,7 +98,7 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
       drifts: drf,
       baseColors: baseCol,
     };
-  }, [count, boxX, boxY, boxZ, sharedVehiclePos]);
+  }, [count]);
 
   // Frame loop: Continuous toroidal wrapping & micro-twinkle without allocations
   useFrame((_, delta) => {
@@ -119,43 +112,61 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     const posArr = posAttr.array as Float32Array;
     const colArr = colAttr.array as Float32Array;
 
-    const shipPos = sharedVehiclePos.current;
-    const sx = shipPos.x;
-    const sy = shipPos.y;
-    const sz = shipPos.z;
+    const dt = Math.min(delta, 0.1); // clamp delta against frame drops
+    const isLanding = gameMode === 'landing' || gameMode === 'exiting';
+
+    // Target center coordinates:
+    // In landing or exiting mode, dust centers on the core solar system (0, 4, 0)
+    // In active exploration, dust smoothly tracks the ship's live coordinates
+    let targetX = 0;
+    let targetY = 4;
+    let targetZ = 0;
+
+    if (!isLanding && sharedVehiclePos?.current) {
+      targetX = sharedVehiclePos.current.x;
+      targetY = sharedVehiclePos.current.y;
+      targetZ = sharedVehiclePos.current.z;
+    }
+
+    // Smooth lerp avoids popping when transitioning between views
+    const centerLerp = Math.min(dt * 5.0, 1.0);
+    dustCenter.current.x += (targetX - dustCenter.current.x) * centerLerp;
+    dustCenter.current.y += (targetY - dustCenter.current.y) * centerLerp;
+    dustCenter.current.z += (targetZ - dustCenter.current.z) * centerLerp;
+
+    const sx = dustCenter.current.x;
+    const sy = dustCenter.current.y;
+    const sz = dustCenter.current.z;
+
+    // Adapt volume size:
+    // Landing screen: wide panoramic coverage around the sun and orbiting islands
+    // Driving mode: concentrated cloud around the vehicle for speed sensation
+    const boxX = isLanding ? 160 : 96;
+    const boxY = isLanding ? 54 : 38;
+    const boxZ = isLanding ? 160 : 96;
+    const halfX = boxX * 0.5;
+    const halfY = boxY * 0.5;
+    const halfZ = boxZ * 0.5;
 
     const time = Date.now() * 0.002;
-    const dt = Math.min(delta, 0.1); // clamp delta against frame drops
 
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
 
-      // 1. Apply natural Brownian drift
+      // 1. Natural Brownian drift
       posArr[idx] += drifts[idx] * dt;
       posArr[idx + 1] += drifts[idx + 1] * dt;
       posArr[idx + 2] += drifts[idx + 2] * dt;
 
-      // 2. Toroidal boundary wrap around the ship
-      const dx = posArr[idx] - sx;
-      if (dx > halfX) {
-        posArr[idx] -= boxX;
-      } else if (dx < -halfX) {
-        posArr[idx] += boxX;
-      }
+      // 2. Modulo toroidal boundary wrap (guarantees all particles stay within box without popping)
+      const relX = ((posArr[idx] - sx + halfX) % boxX + boxX) % boxX - halfX;
+      posArr[idx] = sx + relX;
 
-      const dy = posArr[idx + 1] - sy;
-      if (dy > halfY) {
-        posArr[idx + 1] -= boxY;
-      } else if (dy < -halfY) {
-        posArr[idx + 1] += boxY;
-      }
+      const relY = ((posArr[idx + 1] - sy + halfY) % boxY + boxY) % boxY - halfY;
+      posArr[idx + 1] = sy + relY;
 
-      const dz = posArr[idx + 2] - sz;
-      if (dz > halfZ) {
-        posArr[idx + 2] -= boxZ;
-      } else if (dz < -halfZ) {
-        posArr[idx + 2] += boxZ;
-      }
+      const relZ = ((posArr[idx + 2] - sz + halfZ) % boxZ + boxZ) % boxZ - halfZ;
+      posArr[idx + 2] = sz + relZ;
 
       // 3. Subtle twinkle/shimmer on mid and high graphics
       if (graphicsQuality !== 'low' && (i % 3 === 0)) {
@@ -185,11 +196,11 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
         />
       </bufferGeometry>
       <pointsMaterial
-        size={graphicsQuality === 'high' ? 0.9 : 0.8}
+        size={graphicsQuality === 'high' ? 0.95 : 0.85}
         map={dustTexture}
         vertexColors
         transparent
-        opacity={0.6}
+        opacity={0.65}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
         depthWrite={false}

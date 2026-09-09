@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Flag, Timer, X, Sparkles, CheckCircle2, RotateCcw, ArrowRight, Navigation } from 'lucide-react';
+import { MaterialIcon } from './MaterialIcon';
 import { formatRaceTime } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
 
@@ -88,7 +88,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
             <div className="flex items-start justify-between gap-3 mb-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-amber-400">
-                  <Flag className="w-4 h-4" />
+                  <MaterialIcon name="flag" size={18} />
                 </div>
                 <div>
                   <h3 className="text-sm font-sans font-bold text-slate-100 tracking-tight">
@@ -101,7 +101,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
               </div>
               {bestTime !== null && (
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#111622]/80 border border-slate-800 text-[10px] font-mono text-amber-300">
-                  <Trophy className="w-3 h-3 text-amber-400" />
+                  <MaterialIcon name="emoji_events" className="text-amber-400" size={14} />
                   <span>{formatRaceTime(bestTime)}</span>
                 </div>
               )}
@@ -156,7 +156,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
           >
             {/* Live Stopwatch */}
             <div className="flex items-center gap-2">
-              <Timer className="w-4 h-4 text-sky-400 animate-pulse" />
+              <MaterialIcon name="timer" className="text-sky-400 animate-pulse" size={18} />
               <span className="font-mono text-lg font-bold text-sky-400 tracking-wider">
                 {formatRaceTime(elapsedTime)}
               </span>
@@ -201,7 +201,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                     className="w-4 h-4 flex items-center justify-center transition-transform duration-100 ease-out"
                     style={{ transform: `rotate(${navData.angleDeg}deg)` }}
                   >
-                    <Navigation className="w-3.5 h-3.5 fill-current" />
+                    <MaterialIcon name="near_me" size={14} />
                   </div>
                   <span>
                     {navData.distance < 12 ? 'Na Mira!' : `${navData.distance}m`}
@@ -221,7 +221,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
               title="Cancelar corrida"
               className="w-6 h-6 rounded-lg bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
+              <MaterialIcon name="close" size={16} />
             </button>
           </motion.div>
         )}
@@ -242,12 +242,12 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                 onClick={onCloseModal}
                 className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <MaterialIcon name="close" size={18} />
               </button>
 
               {/* Victory Header */}
               <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-lg">
-                <Trophy className="w-6 h-6" />
+                <MaterialIcon name="emoji_events" size={26} />
               </div>
 
               <h2 className="text-xl font-sans font-bold text-slate-100 tracking-tight mb-1">
@@ -267,7 +267,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                 </span>
                 {bestTime !== null && elapsedTime <= bestTime && (
                   <div className="mt-1 flex items-center justify-center gap-1 text-[11px] font-mono text-emerald-400">
-                    <Sparkles className="w-3 h-3" />
+                    <MaterialIcon name="auto_awesome" size={14} />
                     <span>Novo Recorde Pessoal!</span>
                   </div>
                 )}
@@ -275,7 +275,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
 
               {/* XP Bonus */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-medium mb-5">
-                <Sparkles className="w-3.5 h-3.5" />
+                <MaterialIcon name="auto_awesome" size={16} />
                 <span>+200 XP de Piloto Adicionado</span>
               </div>
 
@@ -302,12 +302,12 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/40 font-mono text-xs font-bold transition-all cursor-pointer shadow-lg active:scale-98"
                   >
                     <span>Salvar no Ranking</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <MaterialIcon name="arrow_forward" size={16} />
                   </button>
                 </form>
               ) : (
                 <div className="p-3 mb-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-center gap-2 text-emerald-300 font-mono text-xs">
-                  <CheckCircle2 className="w-4 h-4" />
+                  <MaterialIcon name="check_circle" fill size={18} />
                   <span>Tempo salvo no Ranking com sucesso!</span>
                 </div>
               )}
@@ -320,7 +320,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                 }}
                 className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-300 border border-slate-700/50 font-mono text-xs font-medium transition cursor-pointer"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <MaterialIcon name="refresh" size={16} />
                 <span>Correr Novamente</span>
               </button>
             </motion.div>

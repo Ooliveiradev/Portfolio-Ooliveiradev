@@ -1,4 +1,4 @@
-import React, { Suspense, useRef } from 'react';
+import React, { Suspense, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SpaceVehicle } from './3d/SpaceVehicle';
@@ -68,6 +68,13 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
 
+  // When returning to landing screen, restore shared coordinates to origin so parallax and dust remain centered
+  useEffect(() => {
+    if (gameMode === 'landing') {
+      sharedVehiclePos.current.set(0, 1.0, 16);
+    }
+  }, [gameMode]);
+
   const dprVal: number | [number, number] =
     graphicsQuality === 'low' ? 1 : graphicsQuality === 'high' ? [1, 2] : [1, 1.5];
 
@@ -88,6 +95,17 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
           gl.shadowMap.enabled = graphicsQuality !== 'low';
           if (graphicsQuality !== 'low') {
             gl.shadowMap.type = THREE.PCFSoftShadowMap;
+            // Previne o loop contínuo de aviso de depreciação do Three.js r185
+            // mantendo a renderização suave com PCFSoftShadowMap sem poluir o console
+            let configuredType: THREE.ShadowMapType = THREE.PCFSoftShadowMap;
+            Object.defineProperty(gl.shadowMap, 'type', {
+              get: () => THREE.PCFShadowMap,
+              set: (val: THREE.ShadowMapType) => {
+                configuredType = val;
+              },
+              configurable: true,
+              enumerable: true,
+            });
           }
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.1;
@@ -204,6 +222,7 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
             <CosmicDust
               sharedVehiclePos={sharedVehiclePos}
               graphicsQuality={graphicsQuality}
+              gameMode={gameMode}
             />
 
             {/* Estrelas Cadentes & Cometas Periódicos no Horizonte */}
