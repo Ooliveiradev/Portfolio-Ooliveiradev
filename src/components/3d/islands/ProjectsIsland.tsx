@@ -29,8 +29,12 @@ export const ProjectsIsland: React.FC = () => {
   const [holoModel, setHoloModel] = useState(0);
   const [holoFlash, setHoloFlash] = useState(0);
 
-  // 4. Artisan Keycaps press state
+  // 4. Teclado Magnético (Hall Effect / Rapid Trigger) states
   const [pressedKey, setPressedKey] = useState<number | null>(null);
+  const [magneticTravel, setMagneticTravel] = useState(0); // 0 -> 1 smooth travel
+  const [magneticPulse, setMagneticPulse] = useState(0); // magnetic induction ring ripple
+  const [encoderAngle, setEncoderAngle] = useState(0); // rotary encoder knob rotation
+  const [rgbThemeIdx, setRgbThemeIdx] = useState(0); // underglow & accent theme
 
   // Main frame loop for fluid mechanical and atmospheric animations
   useFrame((_, delta) => {
@@ -117,8 +121,14 @@ export const ProjectsIsland: React.FC = () => {
       setJoystickTilt({ x: 0, z: 0 });
     }
     if (pressedKey !== null) {
-      const timer = setTimeout(() => setPressedKey(null), 180);
-      return () => clearTimeout(timer);
+      // Smooth magnetic key recovery
+      setMagneticTravel((prev) => Math.max(0, prev - delta * 4.5));
+      if (magneticTravel <= 0.05) {
+        setPressedKey(null);
+      }
+    }
+    if (magneticPulse > 0) {
+      setMagneticPulse((prev) => Math.max(0, prev - delta * 2.8));
     }
   });
 
@@ -148,10 +158,22 @@ export const ProjectsIsland: React.FC = () => {
     setHoloModel((prev) => (prev + 1) % 3);
   };
 
-  const handleKeycapClick = (keyIdx: number, e: { stopPropagation: () => void }) => {
+  // Teclado Magnético: Acionamento contínuo Hall Effect com amortecimento tátil e som cremoso
+  const handleMagneticKeyClick = (keyIdx: number, e: { stopPropagation: () => void }) => {
     e.stopPropagation();
-    sounds.playKeycapClick();
+    const pitches = [0.88, 0.94, 1.0, 1.06, 1.12, 1.18];
+    sounds.playMagneticSwitch(pitches[keyIdx % pitches.length]);
     setPressedKey(keyIdx);
+    setMagneticTravel(1.0);
+    setMagneticPulse(1.0);
+  };
+
+  // Rotary Encoder do Teclado Magnético: Gira com clique e altera o perfil RGB / Rapid Trigger
+  const handleEncoderClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    sounds.playEncoderClick();
+    setEncoderAngle((prev) => prev + 0.45);
+    setRgbThemeIdx((prev) => (prev + 1) % 4);
   };
 
   // Precomputed positions for hexagon heat shield tiles
@@ -966,64 +988,300 @@ export const ProjectsIsland: React.FC = () => {
       </group>
 
       {/* ===================================================================
-          6. ⌨️ TECLADO MECÂNICO CUSTOM (ARTISAN KEYCAPS)
+          6. ⌨️ TECLADO MAGNÉTICO HIGH-END (HALL EFFECT / RAPID TRIGGER)
              Flanco esquerdo [-1.8, 0.15, 1.2]
-             Com Micro-Interatividade de Clique Mecânico ("Thock")
+             Chassi CNC, switches magnéticos translúcidos, ímãs de neodímio,
+             Rapid Trigger gauge analógico, knob recartilhado e cabo aviator espiralado
          =================================================================== */}
-      <group position={[-1.8, 0.15, 1.2]} rotation={[0, -0.38, 0]}>
-        {/* Base da carcaça do teclado mecânico chanfrada */}
-        <mesh position={[0, 0.1, 0]} receiveShadow castShadow>
-          <boxGeometry args={[3.3, 0.22, 1.45]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.2} />
+      <group position={[-1.8, 0.15, 1.2]} rotation={[0.08, -0.38, 0]}>
+        {/* Underglow RGB Difusor Perimetral */}
+        <mesh position={[0, 0.03, 0]}>
+          <boxGeometry args={[4.25, 0.06, 2.15]} />
+          <meshStandardMaterial
+            color={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+            emissive={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+            emissiveIntensity={1.4}
+            transparent
+            opacity={0.7}
+          />
         </mesh>
 
-        {/* Placa metálica de apoio (Switch Plate) */}
-        <mesh position={[0, 0.22, 0]} receiveShadow>
-          <boxGeometry args={[3.1, 0.04, 1.25]} />
-          <meshStandardMaterial color="#0f172a" roughness={0.5} metalness={0.4} />
+        {/* Chassi CNC em Alumínio Aeroespacial Anodizado Escuro */}
+        <mesh position={[0, 0.14, 0]} receiveShadow castShadow>
+          <boxGeometry args={[4.2, 0.22, 2.1]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.3} metalness={0.4} />
         </mesh>
 
-        {/* 3 Teclas artesanais coloridas com ícones e animação elástica de pressionamento */}
+        {/* Peso Traseiro de Latão Maciço Polido (Brass Weight Bar) */}
+        <mesh position={[0, 0.08, -0.98]}>
+          <boxGeometry args={[3.6, 0.12, 0.14]} />
+          <meshStandardMaterial
+            color="#eab308"
+            roughness={0.22}
+            metalness={0.88}
+          />
+        </mesh>
+
+        {/* Placa de Switch em Policarbonato Fumê com Visão das Trilhas Internas */}
+        <mesh position={[-0.35, 0.26, 0]} receiveShadow>
+          <boxGeometry args={[3.1, 0.04, 1.8]} />
+          <meshStandardMaterial
+            color="#1e293b"
+            roughness={0.45}
+            metalness={0.35}
+            transparent
+            opacity={0.88}
+          />
+        </mesh>
+
+        {/* Trilhas de Circuito Douradas Gravadas no PCB (PCB Traces) */}
+        {[-0.8, -0.3, 0.2].map((tx, tidx) => (
+          <mesh key={`pcb-trace-${tidx}`} position={[tx, 0.275, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.04, 1.6]} />
+            <meshStandardMaterial
+              color="#eab308"
+              emissive="#ca8a04"
+              emissiveIntensity={0.6}
+            />
+          </mesh>
+        ))}
+
+        {/* Cluster de 6 Teclas Magnéticas Hall Effect (Layout 2x3 Compacto) */}
         {[
-          { x: -1.05, col: '#f43f5e', glyph: '★' },
-          { x: 0, col: '#10b981', glyph: '</>' },
-          { x: 1.05, col: '#8b5cf6', glyph: '🚀' },
-        ].map((k, idx) => {
-          const isPressed = pressedKey === idx;
-          const keyY = isPressed ? 0.28 : 0.38;
+          // Fileira 1 (Superior)
+          { x: -1.05, z: -0.42, label: '★', col: '#f43f5e', accent: true },
+          { x: -0.35, z: -0.42, label: 'W', col: '#1e293b', accent: false },
+          { x: 0.35, z: -0.42, label: '🚀', col: '#8b5cf6', accent: true },
+          // Fileira 2 (Inferior / WASD Navigation)
+          { x: -1.05, z: 0.38, label: 'A', col: '#1e293b', accent: false },
+          { x: -0.35, z: 0.38, label: 'S', col: '#38bdf8', accent: true },
+          { x: 0.35, z: 0.38, label: 'D', col: '#1e293b', accent: false },
+        ].map((keyItem, kIdx) => {
+          const isThisPressed = pressedKey === kIdx;
+          const keyOffset = isThisPressed ? magneticTravel * 0.16 : 0;
+          const keyY = 0.44 - keyOffset;
+          const stemY = 0.32 - keyOffset * 0.8;
 
           return (
-            <group
-              key={`artisan-key-${idx}`}
-              position={[k.x, keyY, 0]}
-              onClick={(e) => handleKeycapClick(idx, e)}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                document.body.style.cursor = 'pointer';
-              }}
-              onPointerOut={() => {
-                document.body.style.cursor = 'auto';
-              }}
-            >
-              {/* Corpo da keycap artesanal com topo afunilado */}
-              <mesh castShadow receiveShadow>
-                <boxGeometry args={[0.88, 0.36, 0.88]} />
+            <group key={`mag-key-${kIdx}`}>
+              {/* Switch Magnético Translúcido (Housing Transparente) */}
+              <mesh position={[keyItem.x, 0.31, keyItem.z]}>
+                <boxGeometry args={[0.58, 0.14, 0.58]} />
                 <meshStandardMaterial
-                  color={k.col}
-                  emissive={k.col}
-                  emissiveIntensity={isPressed ? 0.6 : 0.1}
-                  roughness={0.32}
-                  metalness={0.12}
+                  color="#f8fafc"
+                  roughness={0.2}
+                  transparent
+                  opacity={0.4}
                 />
               </mesh>
-              {/* Centro com relevo branco e acabamento tátil */}
-              <mesh position={[0, 0.19, 0]}>
-                <boxGeometry args={[0.55, 0.04, 0.32]} />
-                <meshStandardMaterial color="#ffffff" roughness={0.25} />
+
+              {/* Haste Magnética Móvel (Stem em Laranja/Âmbar Neon) */}
+              <mesh position={[keyItem.x, stemY, keyItem.z]}>
+                <boxGeometry args={[0.18, 0.26, 0.18]} />
+                <meshStandardMaterial
+                  color="#f97316"
+                  emissive="#ea580c"
+                  emissiveIntensity={isThisPressed ? 1.2 : 0.4}
+                  roughness={0.3}
+                />
               </mesh>
+
+              {/* Ímã Cilíndrico de Neodímio na Base do Stem */}
+              <mesh position={[keyItem.x, stemY - 0.1, keyItem.z]}>
+                <cylinderGeometry args={[0.07, 0.07, 0.08, 12]} />
+                <meshStandardMaterial
+                  color="#cbd5e1"
+                  metalness={0.92}
+                  roughness={0.15}
+                />
+              </mesh>
+
+              {/* Sensor Hall Effect SMD soldado no PCB */}
+              <mesh position={[keyItem.x, 0.28, keyItem.z]}>
+                <boxGeometry args={[0.1, 0.03, 0.08]} />
+                <meshStandardMaterial color="#020617" roughness={0.5} />
+              </mesh>
+
+              {/* Anel de Fluxo / Indução Magnética Pulsante ao Atuar */}
+              {isThisPressed && magneticPulse > 0.05 && (
+                <mesh
+                  position={[keyItem.x, 0.29, keyItem.z]}
+                  rotation={[-Math.PI / 2, 0, 0]}
+                >
+                  <ringGeometry
+                    args={[
+                      0.28,
+                      0.38 + magneticPulse * 0.32,
+                      20,
+                    ]}
+                  />
+                  <meshStandardMaterial
+                    color={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+                    emissive={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+                    emissiveIntensity={2.5 * magneticPulse}
+                    transparent
+                    opacity={magneticPulse * 0.85}
+                    side={THREE.DoubleSide}
+                  />
+                </mesh>
+              )}
+
+              {/* Keycap PBT Magnética com Perfil Ergonômico Chanfrado */}
+              <group
+                position={[keyItem.x, keyY, keyItem.z]}
+                onClick={(e) => handleMagneticKeyClick(kIdx, e)}
+                onPointerOver={(e) => {
+                  e.stopPropagation();
+                  document.body.style.cursor = 'pointer';
+                }}
+                onPointerOut={() => {
+                  document.body.style.cursor = 'auto';
+                }}
+              >
+                {/* Corpo da Keycap */}
+                <mesh castShadow receiveShadow>
+                  <boxGeometry args={[0.66, 0.28, 0.66]} />
+                  <meshStandardMaterial
+                    color={keyItem.col}
+                    emissive={keyItem.accent ? keyItem.col : '#0284c7'}
+                    emissiveIntensity={isThisPressed ? 0.7 : keyItem.accent ? 0.2 : 0.05}
+                    roughness={0.36}
+                    metalness={keyItem.accent ? 0.15 : 0.25}
+                  />
+                </mesh>
+
+                {/* Topo da Keycap com Gravação Translúcida da Legenda */}
+                <mesh position={[0, 0.145, 0]}>
+                  <boxGeometry args={[0.48, 0.02, 0.48]} />
+                  <meshStandardMaterial
+                    color={isThisPressed ? '#ffffff' : '#94a3b8'}
+                    emissive={isThisPressed ? '#ffffff' : '#38bdf8'}
+                    emissiveIntensity={isThisPressed ? 0.8 : 0.15}
+                    roughness={0.25}
+                  />
+                </mesh>
+              </group>
             </group>
           );
         })}
+
+        {/* Rotary Encoder (Knob Recartilhado em Alumínio CNC) */}
+        <group
+          position={[1.45, 0.32, -0.42]}
+          onClick={handleEncoderClick}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = 'pointer';
+          }}
+          onPointerOut={() => {
+            document.body.style.cursor = 'auto';
+          }}
+        >
+          {/* Anel de LED Neon na Base do Knob */}
+          <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.34, 0.42, 24]} />
+            <meshStandardMaterial
+              color={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+              emissive={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+              emissiveIntensity={2.0}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+
+          {/* Corpo Cilíndrico Recartilhado do Knob */}
+          <mesh rotation={[0, encoderAngle, 0]} castShadow>
+            <cylinderGeometry args={[0.32, 0.34, 0.28, 20]} />
+            <meshStandardMaterial color="#cbd5e1" roughness={0.25} metalness={0.85} />
+          </mesh>
+
+          {/* Marcador de Posição Gravado no Topo do Knob */}
+          <mesh position={[0.18, 0.15, 0]} rotation={[0, encoderAngle, 0]}>
+            <boxGeometry args={[0.16, 0.02, 0.04]} />
+            <meshStandardMaterial
+              color={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+              emissive={['#38bdf8', '#a855f7', '#10b981', '#f97316'][rgbThemeIdx]}
+              emissiveIntensity={1.8}
+            />
+          </mesh>
+        </group>
+
+        {/* Display OLED / Gauge de Atuação Analógica Rapid Trigger */}
+        <group position={[1.45, 0.28, 0.38]}>
+          {/* Moldura Metálica do Display */}
+          <mesh receiveShadow>
+            <boxGeometry args={[0.82, 0.12, 0.88]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.3} />
+          </mesh>
+
+          {/* Tela de Vidro OLED Fumê */}
+          <mesh position={[0, 0.065, 0]} rotation={[-0.15, 0, 0]}>
+            <planeGeometry args={[0.74, 0.74]} />
+            <meshStandardMaterial
+              color="#020617"
+              emissive="#0891b2"
+              emissiveIntensity={0.2}
+              roughness={0.15}
+            />
+          </mesh>
+
+          {/* 4 Micro-LEDs de Atuação Analógica (0.1mm a 4.0mm) */}
+          {[
+            { z: -0.22, minT: 0.0, col: '#10b981' }, // 0.1mm - Calibrado
+            { z: -0.07, minT: 0.25, col: '#22c55e' }, // 1.0mm - Atuado
+            { z: 0.08, minT: 0.55, col: '#facc15' }, // 2.0mm - Rapid Trigger
+            { z: 0.23, minT: 0.8, col: '#f97316' }, // 3.8mm - Bottom Out
+          ].map((bar, bIdx) => {
+            const isLit = pressedKey !== null && magneticTravel >= bar.minT;
+            return (
+              <mesh key={`gauge-bar-${bIdx}`} position={[0, 0.075, bar.z]} rotation={[-0.15, 0, 0]}>
+                <planeGeometry args={[0.55, 0.08]} />
+                <meshStandardMaterial
+                  color={bar.col}
+                  emissive={bar.col}
+                  emissiveIntensity={isLit ? 2.5 : 0.3}
+                />
+              </mesh>
+            );
+          })}
+        </group>
+
+        {/* Cabo Coiled Aviator Cable (Cabo Espiralado GX16 em Alta Resolução) */}
+        <group position={[-0.2, 0.08, -1.15]}>
+          {/* Conector USB-C Reforçado na Traseira */}
+          <mesh position={[0, 0.08, 0]}>
+            <boxGeometry args={[0.28, 0.12, 0.18]} />
+            <meshStandardMaterial color="#475569" roughness={0.3} metalness={0.7} />
+          </mesh>
+
+          {/* Espirais do Cabo Coiled (Coiled Cable Rings descansando no deck) */}
+          {[0, 1, 2, 3, 4, 5, 6].map((ci) => (
+            <mesh
+              key={`coil-ring-${ci}`}
+              position={[-0.3 - ci * 0.16, 0.04, -0.22]}
+              rotation={[0, 0, Math.PI / 2]}
+            >
+              <torusGeometry args={[0.14, 0.045, 8, 16]} />
+              <meshStandardMaterial
+                color="#0284c7"
+                roughness={0.4}
+                metalness={0.15}
+              />
+            </mesh>
+          ))}
+
+          {/* Conector Metálico Aviator GX16 de 4 Pinos com Rosca de Bloqueio */}
+          <group position={[-1.45, 0.04, -0.22]}>
+            <mesh rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.13, 0.13, 0.34, 16]} />
+              <meshStandardMaterial color="#cbd5e1" roughness={0.2} metalness={0.92} />
+            </mesh>
+            {/* Anel de Rosca Serrilhada Central */}
+            <mesh rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.15, 0.15, 0.08, 12]} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.88} />
+            </mesh>
+          </group>
+        </group>
       </group>
 
       {/* Iluminação pontual cósmica para o estaleiro da ilha */}

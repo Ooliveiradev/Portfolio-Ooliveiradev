@@ -301,6 +301,71 @@ class SoundEngine {
     }
   }
 
+  // Hall Effect magnetic switch deep smooth actuation ("creamy lubed thock")
+  public playMagneticSwitch(pitchFactor: number = 1.0) {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Soft magnetic bottom-out acoustic thock
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(380 * pitchFactor, now);
+      osc.frequency.exponentialRampToValueAtTime(75 * pitchFactor, now + 0.07);
+
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.085);
+
+      // Magnetic flux resonance pulse (subtle damped hum)
+      const fluxOsc = this.ctx.createOscillator();
+      const fluxGain = this.ctx.createGain();
+      fluxOsc.type = 'triangle';
+      fluxOsc.frequency.setValueAtTime(840 * pitchFactor, now);
+      fluxOsc.frequency.exponentialRampToValueAtTime(220 * pitchFactor, now + 0.045);
+
+      fluxGain.gain.setValueAtTime(0.08, now);
+      fluxGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+      fluxOsc.connect(fluxGain);
+      fluxGain.connect(this.ctx.destination);
+      fluxOsc.start(now);
+      fluxOsc.stop(now + 0.055);
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Rotary encoder metallic detent click
+  public playEncoderClick() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(2200, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.015);
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.025);
+    } catch {
+      // safe fallback
+    }
+  }
+
   // Island Landing Chime
   public playIslandEnter() {
     if (this.isMuted) return;
