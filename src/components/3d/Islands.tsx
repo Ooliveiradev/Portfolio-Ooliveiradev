@@ -204,8 +204,8 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
           />
         </mesh>
 
-        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (omitido para 'projects' que possui quilha e shards esculturais próprios) */}
-        {config.id !== 'projects' &&
+        {/* Fragmentos de rochas flutuantes suspensas no campo de gravidade (omitido para ilhas com quilha própria: 'projects' e 'about') */}
+        {config.id !== 'projects' && config.id !== 'about' &&
           [
             [-3.4, -0.6, 2.2, 0.55],
             [3.2, -0.9, -2.0, 0.65],
