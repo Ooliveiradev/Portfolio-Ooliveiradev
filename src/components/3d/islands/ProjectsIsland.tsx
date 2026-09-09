@@ -703,12 +703,12 @@ export const ProjectsIsland: React.FC = () => {
 
       {/* ===================================================================
           4. 🕹️ GABINETE RETRO ARCADE (FLIPERAMA COLECIONÁVEL)
-             Setor posterior esquerdo [-2.6, 0.1, -1.2]
+             Setor posterior esquerdo [-2.8, 0.1, -1.7]
              Com Micro-Interatividade de Moeda 8-bit, Joystick e Botões
          =================================================================== */}
       <group
-        position={[-2.6, 0.1, -1.2]}
-        rotation={[0, 0.55, 0]}
+        position={[-2.8, 0.1, -1.7]}
+        rotation={[0, 0.65, 0]}
         onClick={handleArcadeClick}
         onPointerOver={(e) => {
           e.stopPropagation();
@@ -989,11 +989,15 @@ export const ProjectsIsland: React.FC = () => {
 
       {/* ===================================================================
           6. ⌨️ TECLADO MAGNÉTICO HIGH-END (HALL EFFECT / RAPID TRIGGER)
-             Flanco esquerdo [-1.8, 0.15, 1.2]
+             Flanco esquerdo [-3.1, 0.15, 0.25]
              Chassi CNC, switches magnéticos translúcidos, ímãs de neodímio,
              Rapid Trigger gauge analógico, knob recartilhado e cabo aviator espiralado
          =================================================================== */}
-      <group position={[-1.8, 0.15, 1.2]} rotation={[0.08, -0.38, 0]}>
+      <group
+        position={[-3.1, 0.15, 0.25]}
+        rotation={[0.06, 0.48, 0]}
+        scale={[0.72, 0.72, 0.72]}
+      >
         {/* Underglow RGB Difusor Perimetral */}
         <mesh position={[0, 0.03, 0]}>
           <boxGeometry args={[4.25, 0.06, 2.15]} />
