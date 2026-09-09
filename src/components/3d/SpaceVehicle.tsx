@@ -27,6 +27,7 @@ const _tempQuat = new THREE.Quaternion();
 const _tempEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _targetQuat = new THREE.Quaternion();
 const _forwardVec = new THREE.Vector3();
+const _rightVec = new THREE.Vector3();
 const _safeQuat = new THREE.Quaternion();
 const _shipLinVel = new THREE.Vector3();
 
@@ -190,7 +191,11 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   const velocity = useRef(new THREE.Vector3(0, 0, 0));
   const rotationY = useRef(0);
   const rollZ = useRef(0);
+  const rollVelocity = useRef(0);
   const pitchX = useRef(0);
+  const pitchVelocity = useRef(0);
+  const suspensionY = useRef(0);
+  const suspensionVelocity = useRef(0);
   const respawnTimer = useRef(0);
   const keys = useRef<{ [key: string]: boolean }>({});
 
@@ -259,6 +264,8 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         const fZ = Math.cos(_tempEuler.y);
         body.applyImpulse({ x: fX * force, y: 0, z: fZ * force }, true);
       }
+      pitchVelocity.current += 0.38;
+      suspensionVelocity.current -= 0.28;
     };
 
     window.addEventListener('keydown', handleKeyDown, { passive: false });
@@ -287,8 +294,8 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
 
     const bodyDesc = rapier.RigidBodyDesc.dynamic()
       .setTranslation(initialSpawnX, initialSpawnY, initialSpawnZ)
-      .setLinearDamping(1.9)
-      .setAngularDamping(3.2)
+      .setLinearDamping(1.55)
+      .setAngularDamping(3.4)
       .setCanSleep(false);
 
     // Free yaw rotation around Y, locked X and Z to prevent tumbling upside down
@@ -383,26 +390,60 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           onCinematicComplete?.('entering');
         }
       } else if (gameMode === 'landing-island') {
-        const progress = Math.min(cinematicTimer.current / 1.5, 1);
+        const progress = Math.min(cinematicTimer.current / 2.0, 1);
         const island = ISLANDS_CONFIG.find((i) => i.id === selectedIslandId) || ISLANDS_CONFIG[0];
         const [ix, iy, iz] = getIslandLivePosition(island);
-        const helipadTarget = new THREE.Vector3(ix, iy + 0.35, iz + 3.2);
 
-        const easeXZ = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-        cX = THREE.MathUtils.lerp(cinematicStartPos.current.x, helipadTarget.x, easeXZ);
-        cZ = THREE.MathUtils.lerp(cinematicStartPos.current.z, helipadTarget.z, easeXZ);
+        // Heliponto tártil proeminente posicionado em [0, 0.30, 3.5] relativo à ilha
+        const landX = ix;
+        const landZ = iz + 3.5;
+        const landY = iy + 2.16; // Assenta o bico/aletas perfeitamente sobre a superfície do heliponto
 
-        const easeY = progress * progress * (3 - 2 * progress);
-        cY = THREE.MathUtils.lerp(cinematicStartPos.current.y, helipadTarget.y, easeY);
+        // Fase 1 (0-60%): Curva de aproximação aerodinâmica e inclinação para atitude vertical
+        // Fase 2 (60-100%): Descida vertical precisa e desaceleração suave sobre o heliponto
+        const phase1End = 0.6;
 
-        cYaw = THREE.MathUtils.lerp(cinematicStartYaw.current, 0, easeXZ);
-        cPitch = Math.sin(progress * Math.PI) * 0.08;
-        cRoll = 0;
+        if (progress < phase1End) {
+          const p1 = progress / phase1End;
+          const easeP1 = p1 < 0.5 ? 2 * p1 * p1 : 1 - Math.pow(-2 * p1 + 2, 2) / 2;
 
-        thrust = progress < 0.85 ? 0.45 : 0.05;
+          // Aproximação XZ em direção ao heliponto
+          cX = THREE.MathUtils.lerp(cinematicStartPos.current.x, landX, easeP1);
+          cZ = THREE.MathUtils.lerp(cinematicStartPos.current.z, landZ, easeP1);
+
+          // Elevação suave até o teto de descida vertical acima do heliponto
+          const approachY = landY + 6.5;
+          cY = THREE.MathUtils.lerp(cinematicStartPos.current.y, approachY, easeP1);
+
+          // Inclina gradualmente o nariz para cima (pitch de horizontal até -PI/2 em pé)
+          cPitch = THREE.MathUtils.lerp(0, -Math.PI / 2, easeP1);
+          cYaw = THREE.MathUtils.lerp(cinematicStartYaw.current, 0, easeP1);
+          cRoll = 0;
+
+          thrust = 0.55;
+        } else {
+          const p2 = (progress - phase1End) / (1.0 - phase1End);
+          const easeP2 = p2 * p2 * (3 - 2 * p2); // smoothstep
+
+          // Mantém tracking do heliponto em tempo real com a órbita da ilha
+          cX = landX;
+          cZ = landZ;
+
+          // Descida vertical suave até tocar o heliponto
+          const hoverY = landY + 6.5;
+          cY = THREE.MathUtils.lerp(hoverY, landY, easeP2);
+
+          // Estritamente em pé
+          cPitch = -Math.PI / 2;
+          cYaw = 0;
+          cRoll = 0;
+
+          thrust = Math.max(0.02, 0.35 * (1 - p2));
+        }
+
         sounds.updateThrusterSound(thrust, false);
 
-        if (progress >= 1 && cinematicTimer.current >= 1.5) {
+        if (progress >= 1 && cinematicTimer.current >= 2.0) {
           sounds.playTouchdown();
           onCinematicComplete?.('landing-island');
         }
@@ -410,31 +451,53 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         const island = ISLANDS_CONFIG.find((i) => i.id === selectedIslandId) || ISLANDS_CONFIG[0];
         const [ix, iy, iz] = getIslandLivePosition(island);
         cX = ix;
-        cY = iy + 0.35;
-        cZ = iz + 3.2;
+        cY = iy + 2.16;
+        cZ = iz + 3.5;
         cYaw = 0;
-        cPitch = 0;
+        cPitch = -Math.PI / 2; // Em pé orgulhosamente no centro do heliponto [H]
         cRoll = 0;
         thrust = 0;
         sounds.updateThrusterSound(0, false);
       } else if (gameMode === 'takeoff') {
-        const progress = Math.min(cinematicTimer.current / 1.0, 1);
+        const progress = Math.min(cinematicTimer.current / 1.4, 1);
         const island = ISLANDS_CONFIG.find((i) => i.id === selectedIslandId) || ISLANDS_CONFIG[0];
         const [ix, iy, iz] = getIslandLivePosition(island);
-        cX = ix;
-        cZ = iz + 3.2;
 
-        const easeY = 1 - Math.pow(1 - progress, 2);
-        cY = THREE.MathUtils.lerp(iy + 0.35, 1.0, easeY);
-        cYaw = 0;
-        cPitch = Math.sin(progress * Math.PI) * 0.12;
-        cRoll = 0;
+        const launchX = ix;
+        const launchZ = iz + 3.5;
+        const launchY = iy + 2.16;
+
+        // Fase 1 (0-50%): Lançamento vertical direto do heliponto
+        // Fase 2 (50-100%): Transição de atitude vertical para horizontal em direção ao cruzeiro
+        const phase1End = 0.5;
+
+        if (progress < phase1End) {
+          const p1 = progress / phase1End;
+          const easeP1 = 1 - Math.pow(1 - p1, 2);
+
+          cX = launchX;
+          cZ = launchZ;
+          cY = THREE.MathUtils.lerp(launchY, launchY + 8.5, easeP1);
+          cPitch = -Math.PI / 2; // Sobe em pé
+          cYaw = 0;
+          cRoll = 0;
+        } else {
+          const p2 = (progress - phase1End) / (1.0 - phase1End);
+          const easeP2 = p2 * p2 * (3 - 2 * p2);
+
+          cX = launchX;
+          cZ = THREE.MathUtils.lerp(launchZ, launchZ + 8.0, easeP2);
+          cY = THREE.MathUtils.lerp(launchY + 8.5, 1.0, easeP2);
+          cPitch = THREE.MathUtils.lerp(-Math.PI / 2, 0, easeP2);
+          cYaw = 0;
+          cRoll = 0;
+        }
 
         thrust = 0.85;
         isBoosting = true;
         sounds.updateThrusterSound(0.85, true);
 
-        if (progress >= 1 && cinematicTimer.current >= 1.0) {
+        if (progress >= 1 && cinematicTimer.current >= 1.4) {
           onCinematicComplete?.('takeoff');
         }
       } else if (gameMode === 'exiting') {
@@ -553,13 +616,19 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         // Update yaw steering
         yaw += turn * turnSpeed * delta;
 
-        // Directional vector
+        // Directional vectors
         const forwardX = Math.sin(yaw);
         const forwardZ = Math.cos(yaw);
+        const rightX = Math.cos(yaw);
+        const rightZ = -Math.sin(yaw);
+
+        // Current Rapier linear velocity
+        const linvel = body.linvel();
+        const vLateral = linvel.x * rightX + linvel.z * rightZ;
 
         // Apply forward / reverse impulse
         if (thrust !== 0) {
-          const forceMagnitude = thrust * baseSpeed * 35;
+          const forceMagnitude = thrust * baseSpeed * 36;
           body.applyImpulse(
             {
               x: forwardX * forceMagnitude * delta,
@@ -570,13 +639,29 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           );
         }
 
+        // Tactile Bruno Simon Lateral Drift & Grip Dynamics:
+        // Lateral friction corrects sideways velocity, giving that crisp toy car handling.
+        // During boost or sharp turns, grip allows a controlled centrifugal drift!
+        const gripCoeff = isBoosting ? 0.68 : 0.88;
+        const lateralCorrection = -vLateral * gripCoeff;
+        const mass = 14.0;
+        const lateralImpulseMag = lateralCorrection * mass * Math.min(delta * 14.0, 1.0);
+        body.applyImpulse(
+          {
+            x: rightX * lateralImpulseMag,
+            y: 0,
+            z: rightZ * lateralImpulseMag,
+          },
+          true
+        );
+
         // Smooth procedural thruster sound (gentle plasma hiss & sub-bass weight)
         sounds.updateThrusterSound(thrust, isBoosting);
 
         // Gentle zero-G celestial elevation stabilization (Cruising level = 1.0)
         const targetElevation = targetPosition ? targetPosition[1] : 1.0;
         const elevDiff = targetElevation - currentTranslation.y;
-        body.applyImpulse({ x: 0, y: elevDiff * 8.5 * delta, z: 0 }, true);
+        body.applyImpulse({ x: 0, y: elevDiff * 9.0 * delta, z: 0 }, true);
 
         // Update orientation
         _tempEuler.set(0, yaw, 0, 'YXZ');
@@ -591,14 +676,41 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           true
         );
 
-        // Aerodynamic banking roll and pitch
-        const targetRoll = -turn * 0.45;
-        rollZ.current = THREE.MathUtils.lerp(rollZ.current, targetRoll, delta * 9);
-        const targetPitch = thrust * 0.16;
-        pitchX.current = THREE.MathUtils.lerp(pitchX.current, targetPitch, delta * 7);
+        // Aerodynamic banking roll, pitch recoil, and suspension spring dynamics
+        const targetRoll = -turn * 0.44 - Math.max(-0.25, Math.min(0.25, vLateral * 0.025));
+        const targetPitch = thrust * 0.18 + (isBoosting ? 0.08 : 0);
+        const targetSuspension = isBoosting ? -0.06 : (thrust !== 0 ? -0.03 : 0);
+
+        const dt = Math.min(delta, 0.05);
+
+        // Roll spring
+        const rollStiffness = 140;
+        const rollDamping = 18;
+        const rollForce = -rollStiffness * (rollZ.current - targetRoll) - rollDamping * rollVelocity.current;
+        rollVelocity.current += rollForce * dt;
+        rollZ.current += rollVelocity.current * dt;
+
+        // Pitch spring
+        const pitchStiffness = 130;
+        const pitchDamping = 17;
+        const pitchForce = -pitchStiffness * (pitchX.current - targetPitch) - pitchDamping * pitchVelocity.current;
+        pitchVelocity.current += pitchForce * dt;
+        pitchX.current += pitchVelocity.current * dt;
+
+        // Suspension bounce spring
+        const suspStiffness = 150;
+        const suspDamping = 18;
+        const suspForce = -suspStiffness * (suspensionY.current - targetSuspension) - suspDamping * suspensionVelocity.current;
+        suspensionVelocity.current += suspForce * dt;
+        suspensionY.current += suspensionVelocity.current * dt;
+
+        // High-speed engine shudder / micro-vibration
+        const engineJitter = isBoosting
+          ? Math.sin(Date.now() * 0.08) * 0.022
+          : (thrust !== 0 ? Math.sin(Date.now() * 0.045) * 0.007 : 0);
 
         const finalPos = body.translation();
-        const hoverY = Math.sin(Date.now() * 0.0035) * 0.18;
+        const hoverY = Math.sin(Date.now() * 0.0032) * 0.15 + suspensionY.current + engineJitter;
 
         groupRef.current.position.set(finalPos.x, finalPos.y + hoverY, finalPos.z);
         groupRef.current.rotation.set(pitchX.current, yaw, rollZ.current);
@@ -619,41 +731,65 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           onRotationChange?.(yaw);
         }
       } else {
-        // Kinematic fallback
-      rotationY.current += turn * turnSpeed * delta;
-      rollZ.current = THREE.MathUtils.lerp(rollZ.current, -turn * 0.45, delta * 9);
-      pitchX.current = THREE.MathUtils.lerp(pitchX.current, thrust * 0.16, delta * 7);
+        // Kinematic fallback with drift & spring banking
+        rotationY.current += turn * turnSpeed * delta;
+        const fX = Math.sin(rotationY.current);
+        const fZ = Math.cos(rotationY.current);
+        const rX = Math.cos(rotationY.current);
+        const rZ = -Math.sin(rotationY.current);
 
-      _forwardVec.set(
-        Math.sin(rotationY.current),
-        0,
-        Math.cos(rotationY.current)
-      );
+        const vL = velocity.current.x * rX + velocity.current.z * rZ;
 
-      if (thrust !== 0) {
-        velocity.current.addScaledVector(_forwardVec, thrust * baseSpeed * delta);
-      } else {
-        velocity.current.multiplyScalar(Math.pow(0.5, delta * 30));
+        if (thrust !== 0) {
+          velocity.current.x += fX * thrust * baseSpeed * delta;
+          velocity.current.z += fZ * thrust * baseSpeed * delta;
+        }
+
+        // Lateral damping
+        const kGrip = isBoosting ? 0.72 : 0.88;
+        const lateralDamp = Math.pow(1.0 - kGrip, delta * 20);
+        velocity.current.x -= rX * vL * (1.0 - lateralDamp);
+        velocity.current.z -= rZ * vL * (1.0 - lateralDamp);
+        velocity.current.multiplyScalar(Math.pow(0.92, delta * 30));
+        pos.current.addScaledVector(velocity.current, delta);
+
+        const targetRoll = -turn * 0.44 - Math.max(-0.25, Math.min(0.25, vL * 0.025));
+        const targetPitch = thrust * 0.18 + (isBoosting ? 0.08 : 0);
+        const targetSuspension = isBoosting ? -0.06 : (thrust !== 0 ? -0.03 : 0);
+
+        const dt = Math.min(delta, 0.05);
+        const rollForce = -140 * (rollZ.current - targetRoll) - 18 * rollVelocity.current;
+        rollVelocity.current += rollForce * dt;
+        rollZ.current += rollVelocity.current * dt;
+
+        const pitchForce = -130 * (pitchX.current - targetPitch) - 17 * pitchVelocity.current;
+        pitchVelocity.current += pitchForce * dt;
+        pitchX.current += pitchVelocity.current * dt;
+
+        const suspForce = -150 * (suspensionY.current - targetSuspension) - 18 * suspensionVelocity.current;
+        suspensionVelocity.current += suspForce * dt;
+        suspensionY.current += suspensionVelocity.current * dt;
+
+        const engineJitter = isBoosting
+          ? Math.sin(Date.now() * 0.08) * 0.022
+          : (thrust !== 0 ? Math.sin(Date.now() * 0.045) * 0.007 : 0);
+
+        const hoverY = Math.sin(Date.now() * 0.0032) * 0.15 + suspensionY.current + engineJitter;
+        groupRef.current.position.set(pos.current.x, pos.current.y + hoverY, pos.current.z);
+        groupRef.current.rotation.set(pitchX.current, rotationY.current, rollZ.current);
+        groupRef.current.updateMatrixWorld();
+
+        if (sharedVehiclePos) {
+          sharedVehiclePos.current.set(pos.current.x, pos.current.y, pos.current.z);
+        }
+
+        const now = performance.now();
+        if (now - lastAppUpdate.current > 50) {
+          lastAppUpdate.current = now;
+          onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
+          onRotationChange?.(rotationY.current);
+        }
       }
-      velocity.current.multiplyScalar(Math.pow(0.9, delta * 30));
-      pos.current.addScaledVector(velocity.current, delta);
-
-      const hoverY = Math.sin(Date.now() * 0.0035) * 0.18;
-      groupRef.current.position.set(pos.current.x, pos.current.y + hoverY, pos.current.z);
-      groupRef.current.rotation.set(pitchX.current, rotationY.current, rollZ.current);
-      groupRef.current.updateMatrixWorld();
-
-      if (sharedVehiclePos) {
-        sharedVehiclePos.current.set(pos.current.x, pos.current.y, pos.current.z);
-      }
-
-      const now = performance.now();
-      if (now - lastAppUpdate.current > 50) {
-        lastAppUpdate.current = now;
-        onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
-        onRotationChange?.(rotationY.current);
-      }
-    }
   }
 
     // Handle respawn invulnerability and visual blinking
@@ -872,9 +1008,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       <mesh position={[0, 0, 1.925]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <coneGeometry args={[0.62, 1.35, 10]} />
         <meshStandardMaterial
-          color="#dc2626"
-          roughness={0.84}
-          metalness={0.05}
+          color="#ef4444"
+          roughness={0.32}
+          metalness={0.15}
           flatShading
         />
       </mesh>
@@ -888,9 +1024,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         <mesh position={[0, 0, 0.825]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.62, 0.84, 0.85, 10]} />
           <meshStandardMaterial
-            color="#f3f4f6"
-            roughness={0.85}
-            metalness={0.05}
+            color="#f8fafc"
+            roughness={0.34}
+            metalness={0.12}
             flatShading
           />
         </mesh>
@@ -899,9 +1035,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         <mesh position={[0, 0, 0.025]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.84, 0.84, 0.75, 10]} />
           <meshStandardMaterial
-            color="#f3f4f6"
-            roughness={0.85}
-            metalness={0.05}
+            color="#f8fafc"
+            roughness={0.34}
+            metalness={0.12}
             flatShading
           />
         </mesh>
@@ -910,9 +1046,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         <mesh position={[0, 0, -0.90]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.84, 0.48, 1.10, 10]} />
           <meshStandardMaterial
-            color="#f3f4f6"
-            roughness={0.85}
-            metalness={0.05}
+            color="#f8fafc"
+            roughness={0.34}
+            metalness={0.12}
             flatShading
           />
         </mesh>
@@ -928,8 +1064,8 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           <cylinderGeometry args={[0.38, 0.42, 0.12, 10]} />
           <meshStandardMaterial
             color="#cbd5e1"
-            roughness={0.82}
-            metalness={0.08}
+            roughness={0.28}
+            metalness={0.45}
             flatShading
           />
         </mesh>
@@ -938,9 +1074,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         <mesh position={[0, 0.04, 0]}>
           <cylinderGeometry args={[0.31, 0.31, 0.08, 10]} />
           <meshStandardMaterial
-            color="#94a3b8"
-            roughness={0.85}
-            metalness={0.08}
+            color="#334155"
+            roughness={0.35}
+            metalness={0.30}
             flatShading
           />
         </mesh>
@@ -949,15 +1085,15 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         <mesh position={[0, 0.07, 0]} castShadow>
           <sphereGeometry args={[0.29, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.45]} />
           <meshStandardMaterial
-            color="#67e8f9"
-            roughness={0.25}
-            metalness={0.12}
+            color="#38bdf8"
+            roughness={0.12}
+            metalness={0.20}
             flatShading
           />
         </mesh>
 
         {/* Soft Interior Porthole Glow */}
-        <pointLight position={[0, 0.15, 0]} color="#a5f3fc" intensity={1.8} distance={5} />
+        <pointLight position={[0, 0.15, 0]} color="#38bdf8" intensity={2.2} distance={6} />
       </group>
 
       {/* -----------------------------------------------------------------
@@ -975,9 +1111,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           >
             <extrudeGeometry args={[finShape, finExtrudeSettings]} />
             <meshStandardMaterial
-              color="#dc2626"
-              roughness={0.84}
-              metalness={0.05}
+              color="#ef4444"
+              roughness={0.32}
+              metalness={0.15}
               flatShading
             />
           </mesh>
@@ -993,8 +1129,8 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           <cylinderGeometry args={[0.48, 0.38, 0.25, 10]} />
           <meshStandardMaterial
             color="#475569"
-            roughness={0.85}
-            metalness={0.15}
+            roughness={0.32}
+            metalness={0.65}
             flatShading
           />
         </mesh>
@@ -1004,8 +1140,8 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           <cylinderGeometry args={[0.38, 0.44, 0.22, 10]} />
           <meshStandardMaterial
             color="#1e293b"
-            roughness={0.85}
-            metalness={0.15}
+            roughness={0.30}
+            metalness={0.70}
             flatShading
           />
         </mesh>
@@ -1014,9 +1150,11 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         <mesh position={[0, 0, -1.86]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.32, 0.32, 0.05, 10]} />
           <meshStandardMaterial
-            color="#f97316"
-            roughness={0.6}
-            metalness={0.05}
+            color="#ffedd5"
+            emissive="#ea580c"
+            emissiveIntensity={2.6}
+            roughness={0.20}
+            metalness={0.10}
             flatShading
           />
         </mesh>
@@ -1070,11 +1208,11 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
               puffMatsRef.current[idx] = el;
             }}
             color="#fbbf24"
-            roughness={0.8}
+            roughness={0.35}
             metalness={0.05}
             flatShading
             transparent
-            opacity={0.9}
+            opacity={0.92}
           />
         </mesh>
       ))}

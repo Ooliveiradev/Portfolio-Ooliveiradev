@@ -100,30 +100,45 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
           <fog attach="fog" args={['#070b14', 90, 360]} />
 
           {/* ==========================================================
-              ILUMINAÇÃO E SOMBRAS DE ESTÚDIO SOLAR
+              ILUMINAÇÃO DE ESTÚDIO CÓSMICO (PADRÃO BRUNO SIMON)
+              Key Light (Sol) + Cool Fill (Nebulosa) + Rim/Kicker (Bordas)
              ========================================================== */}
-          {/* Luz Ambiente / HemisphereLight suave (céu azulado claro, chão quente) */}
-          <hemisphereLight args={['#e0f2fe', '#d97706', graphicsQuality === 'low' ? 0.8 : 0.6]} />
+          {/* Luz Ambiente / HemisphereLight suave (céu azulado claro, base cósmica índigo profundo) */}
+          <hemisphereLight
+            args={['#f0fdf4', '#0f172a', graphicsQuality === 'low' ? 0.9 : 0.75]}
+          />
 
-          {/* Luz Direcional Solar de Estúdio com mapa de sombras ajustado por perfil */}
+          {/* 1. LUZ PRINCIPAL SOLAR (KEY LIGHT) */}
           <directionalLight
-            position={[35, 55, 30]}
-            intensity={2.2}
+            position={[40, 60, 32]}
+            intensity={2.6}
             color="#fffdf5"
             castShadow={graphicsQuality !== 'low'}
             shadow-mapSize-width={graphicsQuality === 'high' ? 2048 : 1024}
             shadow-mapSize-height={graphicsQuality === 'high' ? 2048 : 1024}
-            shadow-camera-near={5}
-            shadow-camera-far={240}
-            shadow-camera-left={-75}
-            shadow-camera-right={75}
-            shadow-camera-top={75}
-            shadow-camera-bottom={-75}
-            shadow-bias={-0.0001}
+            shadow-camera-near={8}
+            shadow-camera-far={260}
+            shadow-camera-left={-85}
+            shadow-camera-right={85}
+            shadow-camera-top={85}
+            shadow-camera-bottom={-85}
+            shadow-bias={-0.00008}
+            shadow-normalBias={0.03}
           />
 
-          {/* Luz de preenchimento cósmica sutil */}
-          <directionalLight position={[-30, 20, -30]} intensity={0.4} color="#38bdf8" />
+          {/* 2. LUZ DE PREENCHIMENTO CÓSMICA (COOL NEBULA FILL LIGHT) */}
+          <directionalLight
+            position={[-45, 28, -40]}
+            intensity={0.7}
+            color="#38bdf8"
+          />
+
+          {/* 3. LUZ DE BORDA ESTELAR (RIM / KICKER LIGHT) - Realce das facetas chanfradas */}
+          <directionalLight
+            position={[-25, -12, 45]}
+            intensity={0.45}
+            color="#a78bfa"
+          />
 
           {/* Controlador de Câmera em Perspectiva Isométrica (FOV 30°) */}
           <CameraController

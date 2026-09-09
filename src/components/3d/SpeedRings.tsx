@@ -80,6 +80,7 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
   const targetGroundPingRef = useRef<THREE.Mesh>(null);
   const waypointGroupRef = useRef<THREE.Group>(null);
   const corridorGroupRef = useRef<THREE.Group>(null);
+  const innerRingsRef = useRef<(THREE.Group | null)[]>([]);
 
   // State per ring: cooldown & shockwave timer
   const ringStates = useMemo(() => {
@@ -95,6 +96,13 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
     const dt = Math.min(delta, 0.1);
     const time = Date.now() * 0.003;
     const ship = sharedVehiclePos.current;
+
+    // Counter-rotate mechanical gyro rings inside every jump gate
+    innerRingsRef.current.forEach((innerGroup, idx) => {
+      if (innerGroup) {
+        innerGroup.rotation.z = time * (idx % 2 === 0 ? 0.75 : -0.75);
+      }
+    });
 
     // Proximity check to Start Gate (Ring 0 next to the Sun)
     const startRing = SPEED_RINGS[0];
@@ -356,6 +364,7 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
 
       {SPEED_RINGS.map((ring, idx) => {
         const isStartRing = ring.id === 0;
+        const isCurrentTarget = isRacing && currentCheckpoint === idx;
 
         return (
           <group
@@ -363,52 +372,116 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
             position={ring.position}
             rotation={[0, ring.rotationY, 0]}
           >
-            {/* Outer Geometric Beveled Torus Frame */}
+            {/* Outer Heavy Octagonal Jump Gate Chassis (Machined Dark Gunmetal) */}
             <mesh castShadow={graphicsQuality !== 'low'}>
-              <torusGeometry args={[3.2, 0.28, 8, 24]} />
+              <torusGeometry args={[3.35, 0.32, 6, 12]} />
               <meshStandardMaterial
                 color={isStartRing ? '#334155' : '#1e293b'}
-                roughness={0.82}
-                metalness={0.15}
+                roughness={0.34}
+                metalness={0.65}
+                flatShading
               />
             </mesh>
 
-            {/* Glowing Neon Ring Frame */}
-            <mesh>
-              <torusGeometry args={[3.35, 0.08, 8, 24]} />
-              <meshBasicMaterial
-                color={isStartRing ? '#fde047' : '#38bdf8'}
-                transparent
-                opacity={0.85}
-              />
-            </mesh>
-
-            {/* Start Gate Checkered Halo Flag Marker */}
-            {isStartRing && !isRacing && (
-              <group position={[0, 4.2, 0]}>
-                <mesh>
-                  <boxGeometry args={[2.2, 0.6, 0.08]} />
+            {/* Heavy Structural Perimeter Lug Clamps (4 Quadrants) */}
+            {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle, cIdx) => (
+              <group key={`clamp-${cIdx}`} rotation={[0, 0, angle]}>
+                <mesh position={[0, 3.42, 0]} castShadow>
+                  <boxGeometry args={[0.42, 0.38, 0.52]} />
                   <meshStandardMaterial
-                    color="#0f172a"
-                    roughness={0.8}
-                    metalness={0.1}
+                    color={isStartRing ? '#f59e0b' : '#475569'}
+                    roughness={0.32}
+                    metalness={0.7}
+                    flatShading
                   />
                 </mesh>
-                <mesh position={[0, 0, 0.05]}>
-                  <planeGeometry args={[1.9, 0.45]} />
-                  <meshBasicMaterial color="#fde047" />
+                {/* Luminous Status Diode */}
+                <mesh position={[0, 3.42, 0.28]}>
+                  <sphereGeometry args={[0.07, 6, 6]} />
+                  <meshBasicMaterial
+                    color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
+                  />
                 </mesh>
               </group>
-            )}
+            ))}
 
-            {/* Translucent Energy Field Aperture */}
+            {/* Counter-Rotating Inner Mechanical Gyro Ring */}
+            <group ref={(el) => { innerRingsRef.current[idx] = el; }}>
+              <mesh>
+                <torusGeometry args={[3.08, 0.08, 6, 16]} />
+                <meshStandardMaterial
+                  color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
+                  emissive={isStartRing ? '#eab308' : isCurrentTarget ? '#f59e0b' : '#0284c7'}
+                  emissiveIntensity={1.8}
+                  roughness={0.25}
+                  metalness={0.4}
+                  flatShading
+                />
+              </mesh>
+              {/* Internal Gyro Spoke Nodes */}
+              {[Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4].map((sAngle, sIdx) => (
+                <group key={`spoke-${sIdx}`} rotation={[0, 0, sAngle]}>
+                  <mesh position={[0, 3.08, 0]}>
+                    <cylinderGeometry args={[0.04, 0.04, 0.45, 6]} />
+                    <meshStandardMaterial
+                      color="#64748b"
+                      roughness={0.3}
+                      metalness={0.8}
+                    />
+                  </mesh>
+                </group>
+              ))}
+            </group>
+
+            {/* Holographic Checkpoint Plaque / Start Banner */}
+            <group position={[0, 4.25, 0]}>
+              {/* Base Plaque Frame */}
+              <mesh castShadow>
+                <boxGeometry args={[2.0, 0.55, 0.1]} />
+                <meshStandardMaterial
+                  color="#0f172a"
+                  roughness={0.32}
+                  metalness={0.5}
+                  flatShading
+                />
+              </mesh>
+              {/* Holographic Display Face */}
+              <mesh position={[0, 0, 0.06]}>
+                <planeGeometry args={[1.82, 0.42]} />
+                <meshBasicMaterial
+                  color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
+                  transparent
+                  opacity={0.88}
+                />
+              </mesh>
+              {/* Central Glowing Checkpoint Core / Chevron Accent */}
+              <mesh position={[0, 0, 0.08]}>
+                <boxGeometry args={[0.5, 0.18, 0.02]} />
+                <meshBasicMaterial color="#ffffff" />
+              </mesh>
+            </group>
+
+            {/* Translucent Vortex Energy Field Diaphragm */}
             <mesh>
-              <ringGeometry args={[0.3, 3.1, 32]} />
+              <ringGeometry args={[0.25, 3.05, 32]} />
               <meshBasicMaterial
                 ref={(el) => (fieldMatsRef.current[idx] = el)}
                 color={isStartRing ? '#fde047' : '#38bdf8'}
                 transparent
-                opacity={0.3}
+                opacity={0.32}
+                blending={THREE.AdditiveBlending}
+                side={THREE.DoubleSide}
+                depthWrite={false}
+              />
+            </mesh>
+
+            {/* Concentric Inner Energy Vortex Ripple Ring */}
+            <mesh rotation={[0, 0, idx * 0.45]}>
+              <ringGeometry args={[1.5, 1.7, 24]} />
+              <meshBasicMaterial
+                color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
+                transparent
+                opacity={0.4}
                 blending={THREE.AdditiveBlending}
                 side={THREE.DoubleSide}
                 depthWrite={false}
@@ -417,46 +490,46 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
 
             {/* Directional Velocity Chevrons (>> arrow indicators) */}
             <group position={[0, 0, 0.1]}>
-              <mesh position={[0, 2.2, 0]} rotation={[0, 0, 0]}>
-                <coneGeometry args={[0.35, 0.6, 3]} />
+              <mesh position={[0, 2.15, 0]} rotation={[0, 0, 0]}>
+                <coneGeometry args={[0.32, 0.55, 3]} />
                 <meshBasicMaterial color={isStartRing ? '#fde047' : '#38bdf8'} />
               </mesh>
-              <mesh position={[0, -2.2, 0]} rotation={[0, 0, Math.PI]}>
-                <coneGeometry args={[0.35, 0.6, 3]} />
+              <mesh position={[0, -2.15, 0]} rotation={[0, 0, Math.PI]}>
+                <coneGeometry args={[0.32, 0.55, 3]} />
                 <meshBasicMaterial color={isStartRing ? '#fde047' : '#38bdf8'} />
               </mesh>
-              <mesh position={[-2.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                <coneGeometry args={[0.35, 0.6, 3]} />
+              <mesh position={[-2.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <coneGeometry args={[0.32, 0.55, 3]} />
                 <meshBasicMaterial color={isStartRing ? '#fde047' : '#38bdf8'} />
               </mesh>
-              <mesh position={[2.2, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-                <coneGeometry args={[0.35, 0.6, 3]} />
+              <mesh position={[2.15, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                <coneGeometry args={[0.32, 0.55, 3]} />
                 <meshBasicMaterial color={isStartRing ? '#fde047' : '#38bdf8'} />
               </mesh>
             </group>
 
-            {/* Shockwave Energy Ripple on Activation */}
+            {/* Shockwave Energy Ripple on Activation (Hyperspace Burst) */}
             <mesh
               ref={(el) => (ripplesRef.current[idx] = el)}
               visible={false}
             >
-              <ringGeometry args={[3.0, 3.5, 32]} />
+              <ringGeometry args={[3.0, 3.6, 32]} />
               <meshBasicMaterial
-                color="#38bdf8"
+                color={isStartRing ? '#fde047' : '#38bdf8'}
                 transparent
-                opacity={0.8}
+                opacity={0.85}
                 blending={THREE.AdditiveBlending}
                 side={THREE.DoubleSide}
                 depthWrite={false}
               />
             </mesh>
 
-            {/* Subtle Point Light Glow */}
+            {/* Dynamic Point Light Glow */}
             {graphicsQuality !== 'low' && (
               <pointLight
-                color={isStartRing ? '#fde047' : '#38bdf8'}
-                intensity={1.2}
-                distance={9}
+                color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
+                intensity={isCurrentTarget ? 2.5 : 1.4}
+                distance={11}
               />
             )}
           </group>
