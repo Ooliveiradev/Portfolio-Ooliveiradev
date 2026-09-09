@@ -7,22 +7,27 @@ import { MobileControls } from './components/ui/MobileControls';
 import { IslandModal } from './components/ui/IslandModal';
 import { ChallengeModal } from './components/ui/ChallengeModal';
 import { GameSettingsModal, SettingsTab } from './components/ui/GameSettingsModal';
+import { RaceOverlay } from './components/ui/RaceOverlay';
+import { SPEED_RINGS } from './components/3d/SpeedRings';
 import {
   ISLANDS_CONFIG,
   CRYSTALS_DATA,
   BADGES_DATA,
+  formatRaceTime,
 } from './data/portfolioData';
-import { IslandId, UserStats, CrystalCollectible, CameraViewMode } from './types';
+import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQuality, RaceLeaderboardEntry, GameMode } from './types';
 import { sounds } from './audio/soundManager';
+import { getIslandLivePosition } from './utils/celestialCoords';
+import confetti from 'canvas-confetti';
 
 export default function App() {
-  // Game mode: landing screen, free driving exploration, or island inspection
-  const [gameMode, setGameMode] = useState<'landing' | 'driving' | 'inspecting'>('landing');
+  // Game mode: landing screen, free driving exploration, island inspection, or cinematic transitions
+  const [gameMode, setGameMode] = useState<GameMode>('landing');
   // Keep track of which screen the user was on before inspecting an island
-  const [previousGameMode, setPreviousGameMode] = useState<'landing' | 'driving'>('landing');
+  const [previousGameMode, setPreviousGameMode] = useState<GameMode>('driving');
 
-  // Player Vehicle state
-  const [vehiclePos, setVehiclePos] = useState<[number, number, number]>([0, 0, 16]);
+  // Player Vehicle state (Cruising level = 1.0)
+  const [vehiclePos, setVehiclePos] = useState<[number, number, number]>([0, 1.0, 16]);
   const [vehicleRotation, setVehicleRotation] = useState<number>(0);
   const [targetVehiclePos, setTargetVehiclePos] = useState<[number, number, number] | null>(null);
   const [virtualInput, setVirtualInput] = useState<{ x: number; y: number; boost: boolean }>({
@@ -34,6 +39,28 @@ export default function App() {
   // Camera view mode: 'iso' (default diorama isometric view) or 'tactical55' (55° panoramic view)
   const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>('iso');
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // Graphics Quality Preset: 'low' (ultra lightweight), 'mid' (balanced default), 'high' (high fidelity)
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>(() => {
+    try {
+      const saved = localStorage.getItem('galactic_portfolio_graphics');
+      if (saved === 'low' || saved === 'mid' || saved === 'high') {
+        return saved;
+      }
+    } catch {
+      // fallback
+    }
+    return 'mid';
+  });
+
+  const handleSelectGraphicsQuality = (quality: GraphicsQuality) => {
+    setGraphicsQuality(quality);
+    try {
+      localStorage.setItem('galactic_portfolio_graphics', quality);
+    } catch {
+      // fallback
+    }
+  };
 
   // Active modals
   const [selectedIslandId, setSelectedIslandId] = useState<IslandId | null>(null);
@@ -86,10 +113,8 @@ export default function App() {
           setShowSettingsModal(false);
         } else if (activeChallengeIsland) {
           setActiveChallengeIsland(null);
-        } else if (selectedIslandId) {
-          setSelectedIslandId(null);
-          setTargetVehiclePos(null);
-          setGameMode(previousGameMode);
+        } else if (gameMode === 'inspecting' || selectedIslandId) {
+          setGameMode('takeoff');
         } else {
           setSettingsModalTab('options');
           setShowSettingsModal(true);
@@ -127,6 +152,133 @@ export default function App() {
       };
     });
   }, []);
+
+  // Cosmic Time Trial Race State
+  const [isNearStartGate, setIsNearStartGate] = useState<boolean>(false);
+  const [raceState, setRaceState] = useState<'idle' | 'countdown' | 'racing' | 'finished'>('idle');
+  const [countdownNumber, setCountdownNumber] = useState<number>(3);
+  const [raceElapsedTime, setRaceElapsedTime] = useState<number>(0);
+  const [currentCheckpoint, setCurrentCheckpoint] = useState<number>(0);
+  const totalCheckpoints = 6;
+  const raceStartTimeRef = useRef<number>(0);
+
+  const [bestRaceTime, setBestRaceTime] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('galactic_portfolio_best_race_time');
+      if (saved) return parseFloat(saved);
+    } catch {
+      // fallback
+    }
+    return null;
+  });
+
+  // Racing timer animation loop
+  useEffect(() => {
+    let animId: number;
+    if (raceState === 'racing') {
+      const updateTimer = () => {
+        const elapsed = (Date.now() - raceStartTimeRef.current) / 1000;
+        setRaceElapsedTime(elapsed);
+        animId = requestAnimationFrame(updateTimer);
+      };
+      animId = requestAnimationFrame(updateTimer);
+    }
+    return () => cancelAnimationFrame(animId);
+  }, [raceState]);
+
+  const handleStartRace = useCallback(() => {
+    setRaceState('countdown');
+    setCountdownNumber(3);
+    sounds.playCountdownBeep(false);
+
+    let count = 3;
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        setCountdownNumber(count);
+        sounds.playCountdownBeep(false);
+      } else if (count === 0) {
+        setCountdownNumber(0);
+        sounds.playCountdownBeep(true);
+      } else {
+        clearInterval(interval);
+        setRaceState('racing');
+        setCurrentCheckpoint(0);
+        raceStartTimeRef.current = Date.now();
+        setRaceElapsedTime(0);
+      }
+    }, 850);
+  }, []);
+
+  const handleReachCheckpoint = useCallback((index: number) => {
+    if (index === currentCheckpoint) {
+      if (index === totalCheckpoints - 1) {
+        // Race Finished!
+        const finalTime = (Date.now() - raceStartTimeRef.current) / 1000;
+        setRaceElapsedTime(finalTime);
+        setRaceState('finished');
+        sounds.playRaceVictory();
+        confetti({
+          particleCount: 65,
+          spread: 70,
+          origin: { y: 0.5 },
+        });
+        addXp(200);
+
+        setBestRaceTime((prev) => {
+          if (prev === null || finalTime < prev) {
+            try {
+              localStorage.setItem('galactic_portfolio_best_race_time', finalTime.toString());
+            } catch {
+              // fallback
+            }
+            return finalTime;
+          }
+          return prev;
+        });
+      } else {
+        setCurrentCheckpoint((prev) => prev + 1);
+      }
+    }
+  }, [currentCheckpoint, totalCheckpoints, addXp]);
+
+  const handleCancelRace = useCallback(() => {
+    setRaceState('idle');
+    setCurrentCheckpoint(0);
+    setRaceElapsedTime(0);
+  }, []);
+
+  const handleRecoverCargo = useCallback((_id: string) => {
+    addXp(35);
+  }, [addXp]);
+
+  const handleSaveRaceScore = useCallback((pilotName: string) => {
+    const newEntry: RaceLeaderboardEntry = {
+      id: Date.now().toString(),
+      name: pilotName,
+      timeSeconds: raceElapsedTime,
+      formattedTime: formatRaceTime(raceElapsedTime),
+      date: 'Hoje',
+    };
+
+    try {
+      const saved = localStorage.getItem('galactic_portfolio_race_ranking');
+      const currentList: RaceLeaderboardEntry[] = saved ? JSON.parse(saved) : [];
+      const updated = [...currentList, newEntry]
+        .sort((a, b) => a.timeSeconds - b.timeSeconds)
+        .slice(0, 10);
+      localStorage.setItem('galactic_portfolio_race_ranking', JSON.stringify(updated));
+    } catch {
+      // fallback
+    }
+
+    confetti({
+      particleCount: 45,
+      spread: 60,
+      origin: { y: 0.6 },
+    });
+    sounds.playBadgeUnlocked();
+  }, [raceElapsedTime]);
 
   // Check and unlock badges automatically
   const checkBadges = useCallback((currentStats: UserStats) => {
@@ -177,30 +329,24 @@ export default function App() {
     }
   }, [addXp]);
 
-  // Handle entering game from landing screen
+  // Handle entering game from landing screen with cinematic fly-in
   const handleStartGame = () => {
-    setGameMode('driving');
+    setGameMode('entering');
     setTargetVehiclePos(null);
-    sounds.playBoost();
+    sounds.startAmbient();
   };
 
-  // Handle Island Selection / Docking
+  // Handle Island Selection / Cinematic Docking
   const handleSelectIsland = (id: IslandId) => {
     const island = ISLANDS_CONFIG.find((i) => i.id === id);
     if (!island) return;
 
-    // Track which mode we entered from (landing vs driving)
-    if (gameMode !== 'inspecting') {
+    if (gameMode !== 'inspecting' && gameMode !== 'landing-island') {
       setPreviousGameMode(gameMode);
     }
 
-    // Approximate destination coordinate for island docking
-    const destX = Math.cos(island.angleOffset) * island.orbitRadius;
-    const destZ = Math.sin(island.angleOffset) * island.orbitRadius;
-
-    setTargetVehiclePos([destX, island.elevation + 0.5, destZ]);
     setSelectedIslandId(id);
-    setGameMode('inspecting');
+    setGameMode('landing-island');
 
     // If first visit, award XP
     setStats((prev) => {
@@ -215,6 +361,29 @@ export default function App() {
       }
       return prev;
     });
+  };
+
+  // Handle cinematic animation completions
+  const handleCinematicComplete = useCallback((finishedMode: GameMode) => {
+    if (finishedMode === 'entering') {
+      setGameMode('driving');
+    } else if (finishedMode === 'landing-island') {
+      setGameMode('inspecting');
+    } else if (finishedMode === 'takeoff') {
+      setSelectedIslandId(null);
+      setTargetVehiclePos(null);
+      setGameMode('driving');
+    } else if (finishedMode === 'exiting') {
+      setGameMode('landing');
+      setSelectedIslandId(null);
+      setTargetVehiclePos(null);
+    }
+  }, []);
+
+  // Handle Return to Landing Screen with cinematic fly-out
+  const handleReturnToLanding = () => {
+    sounds.playClick();
+    setGameMode('exiting');
   };
 
   // Handle collecting a crystal
@@ -272,7 +441,7 @@ export default function App() {
 
   // Reset rover to origin in case player gets lost
   const handleResetVehicle = () => {
-    setVehiclePos([0, 0, 16]);
+    setVehiclePos([0, 1.0, 16]);
     setTargetVehiclePos(null);
     setSelectedIslandId(null);
     setGameMode('driving');
@@ -284,8 +453,7 @@ export default function App() {
     let minDistance = Infinity;
 
     ISLANDS_CONFIG.forEach((isl) => {
-      const ix = Math.cos(isl.angleOffset) * isl.orbitRadius;
-      const iz = Math.sin(isl.angleOffset) * isl.orbitRadius;
+      const [ix, , iz] = getIslandLivePosition(isl);
       const dist = Math.hypot(vehiclePos[0] - ix, vehiclePos[2] - iz);
       if (dist < minDistance) {
         minDistance = dist;
@@ -336,6 +504,13 @@ export default function App() {
         virtualInput={virtualInput}
         isModalOpen={isModalOpen}
         onClearTargetPosition={() => setTargetVehiclePos(null)}
+        graphicsQuality={graphicsQuality}
+        isRacing={raceState === 'racing'}
+        currentCheckpoint={currentCheckpoint}
+        onReachCheckpoint={handleReachCheckpoint}
+        onNearStartGate={setIsNearStartGate}
+        onRecoverCargo={handleRecoverCargo}
+        onCinematicComplete={handleCinematicComplete}
       />
 
       {/* Screen 1: Initial Landing Screen Overlay with Centered Orbiting Galaxy in Background */}
@@ -352,7 +527,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Screen 2: In-Game Exploration HUD (Clean & Minimalist) */}
-      {gameMode !== 'landing' && (
+      {gameMode !== 'landing' && gameMode !== 'entering' && gameMode !== 'exiting' && (
         <>
           <HUD
             stats={stats}
@@ -360,17 +535,41 @@ export default function App() {
             selectedIslandId={selectedIslandId}
             onSelectIsland={handleSelectIsland}
             onResetVehicle={handleResetVehicle}
-            onReturnToLanding={() => setGameMode('landing')}
+            onReturnToLanding={handleReturnToLanding}
             onOpenSettings={() => handleOpenSettingsModal('options')}
             recentXpGained={recentXpGained}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
+            crystals={crystals}
+            targetVehiclePos={targetVehiclePos}
+            isRacing={raceState === 'racing'}
+            currentCheckpoint={currentCheckpoint}
           />
 
-          {/* Mobile Touch Controls (Virtual Joystick & Action Buttons) */}
-          <MobileControls
-            onInputChange={setVirtualInput}
-            onDockNearest={handleDockNearest}
+          {/* Mobile Touch Controls (Active during free driving exploration) */}
+          {gameMode === 'driving' && (
+            <MobileControls
+              onInputChange={setVirtualInput}
+              onDockNearest={handleDockNearest}
+            />
+          )}
+
+          {/* Cosmic Time Trial Race Overlay (Prompt Card, Countdown, Live Timer, Finish Modal) */}
+          <RaceOverlay
+            isNearStartGate={isNearStartGate}
+            raceState={raceState}
+            countdownNumber={countdownNumber}
+            elapsedTime={raceElapsedTime}
+            currentCheckpoint={currentCheckpoint}
+            totalCheckpoints={totalCheckpoints}
+            bestTime={bestRaceTime}
+            vehiclePos={vehiclePos}
+            targetRingPosition={SPEED_RINGS[currentCheckpoint]?.position}
+            onStartRace={handleStartRace}
+            onCancelRace={handleCancelRace}
+            onSaveScore={handleSaveRaceScore}
+            onRetryRace={handleStartRace}
+            onCloseModal={() => setRaceState('idle')}
           />
         </>
       )}
@@ -382,9 +581,7 @@ export default function App() {
             island={ISLANDS_CONFIG.find((i) => i.id === selectedIslandId)!}
             stats={stats}
             onClose={() => {
-              setSelectedIslandId(null);
-              setTargetVehiclePos(null);
-              setGameMode(previousGameMode);
+              setGameMode('takeoff');
             }}
             onStartChallenge={(id) => setActiveChallengeIsland(id)}
             onInspectProject={handleInspectProject}
@@ -422,6 +619,8 @@ export default function App() {
             stats={stats}
             crystals={crystals}
             initialTab={settingsModalTab}
+            graphicsQuality={graphicsQuality}
+            onSelectGraphicsQuality={handleSelectGraphicsQuality}
           />
         )}
       </AnimatePresence>

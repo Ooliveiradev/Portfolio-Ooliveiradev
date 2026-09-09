@@ -1,7 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { IslandConfig, CrystalCollectible } from '../../types';
+import { IslandConfig, CrystalCollectible, GraphicsQuality } from '../../types';
 import { sounds } from '../../audio/soundManager';
 
 import { LowPolySun } from './LowPolySun';
@@ -11,18 +11,22 @@ interface OrbitRingsAndCollectiblesProps {
   crystals: CrystalCollectible[];
   vehiclePos: [number, number, number];
   onCollectCrystal: (id: number) => void;
+  graphicsQuality?: GraphicsQuality;
+  sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
 }
 
 export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps> = ({
   crystals,
   vehiclePos,
   onCollectCrystal,
+  graphicsQuality = 'mid',
+  sharedVehiclePos,
 }) => {
   const crystalsGroupRef = useRef<THREE.Group>(null);
 
-  // Starfield particles throughout the solar system
+  // Starfield particles throughout the solar system scaled by graphics tier
   const [starPositions, starColors] = useMemo(() => {
-    const count = 1800;
+    const count = graphicsQuality === 'low' ? 600 : graphicsQuality === 'high' ? 2200 : 1400;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
 
@@ -51,20 +55,27 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
       }
     }
     return [positions, colors];
-  }, []);
+  }, [graphicsQuality]);
 
   useFrame(() => {
-    // Check collision between vehicle and floating crystals
-    const vPos = new THREE.Vector3(...vehiclePos);
-    crystals.forEach((crystal) => {
+    // Zero-allocation collision check between vehicle and floating crystals
+    const vx = sharedVehiclePos ? sharedVehiclePos.current.x : vehiclePos[0];
+    const vy = sharedVehiclePos ? sharedVehiclePos.current.y : vehiclePos[1];
+    const vz = sharedVehiclePos ? sharedVehiclePos.current.z : vehiclePos[2];
+    const thresholdSq = 3.4 * 3.4;
+
+    for (let i = 0; i < crystals.length; i++) {
+      const crystal = crystals[i];
       if (!crystal.collected) {
-        const cPos = new THREE.Vector3(...crystal.position);
-        if (vPos.distanceTo(cPos) < 3.4) {
+        const dx = vx - crystal.position[0];
+        const dy = vy - crystal.position[1];
+        const dz = vz - crystal.position[2];
+        if (dx * dx + dy * dy + dz * dz < thresholdSq) {
           sounds.playCoin();
           onCollectCrystal(crystal.id);
         }
       }
-    });
+    }
   });
 
   return (
@@ -73,7 +84,7 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
           CENTRAL STAR / SUN OF THE SOLAR SYSTEM
           Faceted Low-Poly Sun with 36 Erupting Solar Particles & Fiery Glow
          ========================================================== */}
-      <LowPolySun />
+      <LowPolySun graphicsQuality={graphicsQuality} />
 
       {/* Starfield Particles */}
       <points>
@@ -104,6 +115,7 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
             <SingleCrystal
               key={crystal.id}
               position={crystal.position}
+              graphicsQuality={graphicsQuality}
               onCollect={() => {
                 sounds.playCoin();
                 onCollectCrystal(crystal.id);
@@ -119,9 +131,10 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
 interface SingleCrystalProps {
   position: [number, number, number];
   onCollect: () => void;
+  graphicsQuality?: GraphicsQuality;
 }
 
-const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect }) => {
+const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect, graphicsQuality = 'mid' }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
   useFrame((_, delta) => {
@@ -135,7 +148,7 @@ const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect }) =>
     <group position={position}>
       <mesh
         ref={meshRef}
-        castShadow
+        castShadow={graphicsQuality !== 'low'}
         onClick={(e) => {
           e.stopPropagation();
           onCollect();
@@ -153,7 +166,9 @@ const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect }) =>
           flatShading
         />
       </mesh>
-      <pointLight color="#38bdf8" intensity={1.5} distance={6} />
+      {graphicsQuality !== 'low' && (
+        <pointLight color="#38bdf8" intensity={1.5} distance={6} />
+      )}
     </group>
   );
 };

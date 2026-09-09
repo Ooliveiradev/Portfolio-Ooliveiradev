@@ -3,8 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { explosionEvents } from './explosionEvents';
 import { sounds } from '../../../audio/soundManager';
+import { GraphicsQuality } from '../../../types';
 
-const PARTICLES_PER_EXPLOSION = 26;
 const MAX_EXPLOSIONS = 4;
 const EXPLOSION_DURATION = 0.9;
 
@@ -32,9 +32,18 @@ interface ExplosionInstance {
   shards: DebrisShard[];
 }
 
-export const LowPolyExplosions: React.FC = () => {
+interface LowPolyExplosionsProps {
+  graphicsQuality?: GraphicsQuality;
+}
+
+export const LowPolyExplosions: React.FC<LowPolyExplosionsProps> = ({
+  graphicsQuality = 'mid',
+}) => {
   const [explosions, setExplosions] = useState<ExplosionInstance[]>([]);
   const nextId = useRef(1);
+
+  const particlesCount =
+    graphicsQuality === 'low' ? 10 : graphicsQuality === 'high' ? 32 : 22;
 
   // Group refs for mesh manipulation
   const shockwaveRefs = useRef<(THREE.Mesh | null)[]>([]);
@@ -51,7 +60,7 @@ export const LowPolyExplosions: React.FC = () => {
       const origin = new THREE.Vector3(...pos);
       const shards: DebrisShard[] = [];
 
-      for (let i = 0; i < PARTICLES_PER_EXPLOSION; i++) {
+      for (let i = 0; i < particlesCount; i++) {
         // Spherical distribution
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(Math.random() * 2 - 1);
@@ -92,7 +101,7 @@ export const LowPolyExplosions: React.FC = () => {
     });
 
     return unsub;
-  }, []);
+  }, [particlesCount]);
 
   useFrame((_, delta) => {
     if (explosions.length === 0) return;
@@ -186,15 +195,17 @@ export const LowPolyExplosions: React.FC = () => {
             </mesh>
 
             {/* Epicenter Flash Light */}
-            <pointLight
-              ref={(el) => {
-                flashLights.current[expIdx] = el;
-              }}
-              position={exp.origin}
-              color="#fef08a"
-              intensity={18}
-              distance={45}
-            />
+            {graphicsQuality !== 'low' && (
+              <pointLight
+                ref={(el) => {
+                  flashLights.current[expIdx] = el;
+                }}
+                position={exp.origin}
+                color="#fef08a"
+                intensity={18}
+                distance={45}
+              />
+            )}
 
             {/* 26 Low-Poly Debris Shards (Faceted icosahedrons just like exhaust puffs) */}
             {exp.shards.map((shard, shardIdx) => (

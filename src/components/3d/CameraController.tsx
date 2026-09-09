@@ -1,28 +1,39 @@
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { IslandConfig, IslandId, CameraViewMode } from '../../types';
+import { IslandConfig, IslandId, CameraViewMode, GameMode } from '../../types';
+import { getIslandLivePosition } from '../../utils/celestialCoords';
 
 interface CameraControllerProps {
-  gameMode: 'landing' | 'driving' | 'inspecting';
+  gameMode: GameMode;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
   cameraViewMode: CameraViewMode;
   selectedIslandId: IslandId | null;
   islands: IslandConfig[];
+  sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
 }
+
+// Scratch objects to eliminate per-frame garbage collection
+const _desiredCamPos = new THREE.Vector3();
+const _targetLookAt = new THREE.Vector3();
+const _islandPos = new THREE.Vector3();
+const _targetPos = new THREE.Vector3();
+const _centerLookAt = new THREE.Vector3(0, 0, 0);
+const ISO_OFFSET = new THREE.Vector3(24, 26, 24);
 
 export const CameraController: React.FC<CameraControllerProps> = ({
   gameMode,
   vehiclePos,
-  vehicleRotation,
   cameraViewMode,
   selectedIslandId,
   islands,
+  sharedVehiclePos,
 }) => {
   const { camera } = useThree();
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
   const landingAngle = useRef(0);
+  const isFirstMount = useRef(true);
 
   // Set perspective camera with low FOV (30 degrees) for miniature diorama effect
   useEffect(() => {
@@ -32,85 +43,87 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     }
   }, [camera]);
 
+  // Initial mount position without hard-snapping on subsequent transitions
   useEffect(() => {
-    if (gameMode === 'landing') {
+    if (isFirstMount.current && gameMode === 'landing') {
       camera.position.set(38, 42, 38);
       camera.lookAt(0, 0, 0);
       currentLookAt.current.set(0, 0, 0);
+      isFirstMount.current = false;
     }
   }, [gameMode, camera]);
 
   useFrame((_, delta) => {
-    // 1. LANDING MODE: Smooth panoramic orbit around the entire solar system
-    if (gameMode === 'landing') {
+    // 1. LANDING & EXITING MODES: Smooth panoramic orbit around the entire solar system
+    if (gameMode === 'landing' || gameMode === 'exiting') {
       landingAngle.current += delta * 0.12;
       const radius = 72;
       const camX = Math.sin(landingAngle.current) * radius;
       const camZ = Math.cos(landingAngle.current) * radius;
       const camY = 54;
 
-      const targetPos = new THREE.Vector3(camX, camY, camZ);
-      camera.position.lerp(targetPos, delta * 2.5);
-      currentLookAt.current.lerp(new THREE.Vector3(0, 0, 0), delta * 3.5);
+      _targetPos.set(camX, camY, camZ);
+      const lerpFactor = gameMode === 'exiting' ? delta * 2.0 : delta * 2.5;
+      camera.position.lerp(_targetPos, lerpFactor);
+      currentLookAt.current.lerp(_centerLookAt, delta * 3.5);
       camera.lookAt(currentLookAt.current);
       return;
     }
 
-    // 2. INSPECTING MODE: Zoom smoothly on selected planetary island
-    if (gameMode === 'inspecting' && selectedIslandId) {
+    // 2. INSPECTING & LANDING-ON-ISLAND MODES: Smooth zoom & focus on selected planetary island
+    if ((gameMode === 'inspecting' || gameMode === 'landing-island') && selectedIslandId) {
       const island = islands.find((i) => i.id === selectedIslandId);
       if (island) {
-        const islandPos = new THREE.Vector3(
-          Math.cos(island.angleOffset) * island.orbitRadius,
-          island.elevation,
-          Math.sin(island.angleOffset) * island.orbitRadius
+        const [ix, iy, iz] = getIslandLivePosition(island);
+        _islandPos.set(ix, iy, iz);
+
+        _desiredCamPos.set(
+          _islandPos.x + 18,
+          _islandPos.y + 19,
+          _islandPos.z + 18
         );
 
-        const desiredCamPos = new THREE.Vector3(
-          islandPos.x + 18,
-          islandPos.y + 19,
-          islandPos.z + 18
-        );
+        _targetLookAt.set(_islandPos.x, _islandPos.y + 1.2, _islandPos.z);
 
-        camera.position.lerp(desiredCamPos, delta * 3.2);
-        currentLookAt.current.lerp(
-          new THREE.Vector3(islandPos.x, islandPos.y + 1.2, islandPos.z),
-          delta * 4.0
-        );
+        camera.position.lerp(_desiredCamPos, delta * 3.2);
+        currentLookAt.current.lerp(_targetLookAt, delta * 4.0);
         camera.lookAt(currentLookAt.current);
         return;
       }
     }
 
-    // 3. DRIVING MODE:
+    // 3. ENTERING, DRIVING & TAKEOFF MODES:
+    // Get live vehicle coordinates from high-speed shared ref or fallback to state
+    const vx = sharedVehiclePos ? sharedVehiclePos.current.x : vehiclePos[0];
+    const vy = sharedVehiclePos ? sharedVehiclePos.current.y : vehiclePos[1];
+    const vz = sharedVehiclePos ? sharedVehiclePos.current.z : vehiclePos[2];
+
     // VISÃO ISOMÉTRICA (Diorama Diagonal Follow - Padrão)
     if (cameraViewMode === 'iso') {
-      const isoOffset = new THREE.Vector3(24, 26, 24);
-      const desiredCamPos = new THREE.Vector3(
-        vehiclePos[0] + isoOffset.x,
-        vehiclePos[1] + isoOffset.y,
-        vehiclePos[2] + isoOffset.z
+      _desiredCamPos.set(
+        vx + ISO_OFFSET.x,
+        vy + ISO_OFFSET.y,
+        vz + ISO_OFFSET.z
       );
 
-      const targetLookAt = new THREE.Vector3(
-        vehiclePos[0],
-        vehiclePos[1] + 0.6,
-        vehiclePos[2]
-      );
+      _targetLookAt.set(vx, vy + 0.6, vz);
 
-      camera.position.lerp(desiredCamPos, Math.min(delta * 5.0, 1));
-      currentLookAt.current.lerp(targetLookAt, Math.min(delta * 6.5, 1));
+      // Smooth cinematic descent on game entry, responsive follow on driving
+      const camFollowSpeed = gameMode === 'entering' ? Math.min(delta * 2.8, 1) : Math.min(delta * 5.0, 1);
+      const lookFollowSpeed = gameMode === 'entering' ? Math.min(delta * 3.6, 1) : Math.min(delta * 6.5, 1);
+
+      camera.position.lerp(_desiredCamPos, camFollowSpeed);
+      currentLookAt.current.lerp(_targetLookAt, lookFollowSpeed);
       camera.lookAt(currentLookAt.current);
       return;
     }
 
     // MODE C: VISÃO GLOBAL (Panorâmica 55° cobrindo o Sistema Solar)
     if (cameraViewMode === 'tactical55') {
-      const desiredCamPos = new THREE.Vector3(0, 140, 110);
-      const centerLookAt = new THREE.Vector3(0, 0, 0);
+      _desiredCamPos.set(0, 140, 110);
 
-      camera.position.lerp(desiredCamPos, delta * 3.5);
-      currentLookAt.current.lerp(centerLookAt, delta * 4.0);
+      camera.position.lerp(_desiredCamPos, delta * 3.5);
+      currentLookAt.current.lerp(_centerLookAt, delta * 4.0);
       camera.lookAt(currentLookAt.current);
       return;
     }

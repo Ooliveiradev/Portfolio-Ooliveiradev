@@ -5,7 +5,8 @@ import {
   EducationItem,
   SkillCategory,
   Badge,
-  LeaderboardEntry
+  LeaderboardEntry,
+  RaceLeaderboardEntry
 } from '../types';
 
 export const PERSONAL_INFO = {
@@ -30,7 +31,7 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
     orbitRadius: 48,
     orbitSpeed: 0.10,
     angleOffset: 0,
-    elevation: 1.5,
+    elevation: -3.8,
     iconName: 'FolderGit2',
     challengeTitle: 'Terminal Cósmico de Deploy',
     challengeXp: 150,
@@ -43,7 +44,7 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
     orbitRadius: 66,
     orbitSpeed: -0.08,
     angleOffset: 1.25,
-    elevation: -0.8,
+    elevation: -4.2,
     iconName: 'Briefcase',
     challengeTitle: 'Ativação de Marco Operacional',
     challengeXp: 150,
@@ -56,7 +57,7 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
     orbitRadius: 84,
     orbitSpeed: 0.065,
     angleOffset: 2.5,
-    elevation: 2.0,
+    elevation: -3.8,
     iconName: 'Cpu',
     challengeTitle: 'Sintonia de Frequência Tech',
     challengeXp: 150,
@@ -69,7 +70,7 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
     orbitRadius: 102,
     orbitSpeed: -0.05,
     angleOffset: 3.8,
-    elevation: -1.2,
+    elevation: -4.4,
     iconName: 'GraduationCap',
     challengeTitle: 'Desafio Algorítmico Rápido',
     challengeXp: 150,
@@ -82,7 +83,7 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
     orbitRadius: 30,
     orbitSpeed: 0.13,
     angleOffset: 5.0,
-    elevation: 0,
+    elevation: -4.0,
     iconName: 'UserCheck',
     challengeTitle: 'Conexão de Frequência Segura',
     challengeXp: 150,
@@ -311,6 +312,21 @@ export const INITIAL_LEADERBOARD: LeaderboardEntry[] = [
   { id: '4', name: 'Explorador 404', score: 750, badgesCount: 3, title: 'Navegador Espacial', date: '5 dias atrás' },
   { id: '5', name: 'Visitante Curioso', score: 450, badgesCount: 2, title: 'Cadete Estelar', date: '1 sem atrás' },
 ];
+
+export const INITIAL_RACE_LEADERBOARD: RaceLeaderboardEntry[] = [
+  { id: '1', name: 'Danilo Ribeiro', timeSeconds: 18.42, formattedTime: '00:18.42', date: 'Hoje' },
+  { id: '2', name: 'Piloto Galáctico', timeSeconds: 22.15, formattedTime: '00:22.15', date: 'Ontem' },
+  { id: '3', name: 'Cosmic Ace', timeSeconds: 25.80, formattedTime: '00:25.80', date: '2 dias atrás' },
+  { id: '4', name: 'Speedster 404', timeSeconds: 28.95, formattedTime: '00:28.95', date: '4 dias atrás' },
+  { id: '5', name: 'Cadete Espacial', timeSeconds: 33.60, formattedTime: '00:33.60', date: '1 sem atrás' },
+];
+
+export const formatRaceTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+};
 
 export const CRYSTALS_DATA = [
   { id: 1, position: [22, 1.2, 14] as [number, number, number], collected: false },

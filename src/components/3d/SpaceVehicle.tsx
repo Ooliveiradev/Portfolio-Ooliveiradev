@@ -6,11 +6,29 @@ import { useRapier } from './physics/RapierPhysicsContext';
 import { sounds } from '../../audio/soundManager';
 import { explosionEvents } from './explosions/explosionEvents';
 
-const NUM_PUFFS = 15;
+import { GraphicsQuality, GameMode, IslandId } from '../../types';
+import { getIslandLivePosition } from '../../utils/celestialCoords';
+import { ISLANDS_CONFIG } from '../../data/portfolioData';
+
+const MAX_PUFFS_CAP = 24;
 const COLOR_YELLOW = new THREE.Color('#fbbf24');
 const COLOR_ORANGE = new THREE.Color('#f97316');
 const COLOR_WHITE = new THREE.Color('#f1f5f9');
 const COLOR_GRAY = new THREE.Color('#94a3b8');
+
+// Pre-allocated static scratch objects to eliminate per-frame garbage collection
+const _localNozzle = new THREE.Vector3();
+const _worldNozzleOffset = new THREE.Vector3();
+const _localVel = new THREE.Vector3();
+const _worldVel = new THREE.Vector3();
+const _omega = new THREE.Vector3();
+const _vTangential = new THREE.Vector3();
+const _tempQuat = new THREE.Quaternion();
+const _tempEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const _targetQuat = new THREE.Quaternion();
+const _forwardVec = new THREE.Vector3();
+const _safeQuat = new THREE.Quaternion();
+const _shipLinVel = new THREE.Vector3();
 
 interface ExhaustPuff {
   active: boolean;
@@ -41,15 +59,15 @@ const spawnPuff = (
   puff.maxLife = (isBoosting ? 0.38 : 0.54) + Math.random() * 0.12;
 
   // Local nozzle exit position (with slight radial jitter)
-  const localNozzle = new THREE.Vector3(
+  _localNozzle.set(
     (Math.random() - 0.5) * 0.08,
     (Math.random() - 0.5) * 0.08,
     -1.95
   );
 
   // Transform nozzle offset to world space
-  const worldNozzleOffset = localNozzle.clone().applyQuaternion(rocketGroup.quaternion);
-  puff.pos.copy(rocketGroup.position).add(worldNozzleOffset);
+  _worldNozzleOffset.copy(_localNozzle).applyQuaternion(rocketGroup.quaternion);
+  puff.pos.copy(rocketGroup.position).add(_worldNozzleOffset);
 
   // Slightly different ejection direction from center for dispersion
   const driftAngle = Math.random() * Math.PI * 2;
@@ -61,20 +79,19 @@ const spawnPuff = (
   const exhaustSpeed = isBoosting ? 13.5 : 7.0 + Math.abs(thrust) * 3.5;
   const localVz = -exhaustSpeed * (0.85 + Math.random() * 0.3);
 
-  const localVel = new THREE.Vector3(localVx, localVy, localVz);
-  const worldVel = localVel.applyQuaternion(rocketGroup.quaternion);
+  _localVel.set(localVx, localVy, localVz);
+  _worldVel.copy(_localVel).applyQuaternion(rocketGroup.quaternion);
 
   // 1. Inherit partial linear velocity from the ship (smooth curve momentum)
-  worldVel.addScaledVector(shipLinVel, 0.35);
+  _worldVel.addScaledVector(shipLinVel, 0.35);
 
   // 2. Realistic tangential velocity from yaw rotation (v = omega x r)
-  // When turning with A/D, the nozzle swings sideways and flings the exhaust into an authentic curved arc
   const yawRate = turn * turnSpeed;
-  const omega = new THREE.Vector3(0, yawRate, 0);
-  const vTangential = new THREE.Vector3().crossVectors(omega, worldNozzleOffset);
-  worldVel.addScaledVector(vTangential, 0.85);
+  _omega.set(0, yawRate, 0);
+  _vTangential.crossVectors(_omega, _worldNozzleOffset);
+  _worldVel.addScaledVector(_vTangential, 0.85);
 
-  puff.vel.copy(worldVel);
+  puff.vel.copy(_worldVel);
 
   // Random tumbling
   puff.rotX = Math.random() * Math.PI * 2;
@@ -95,6 +112,11 @@ interface SpaceVehicleProps {
   isDriving: boolean;
   virtualInput: { x: number; y: number; boost: boolean };
   onClearTargetPosition?: () => void;
+  graphicsQuality?: GraphicsQuality;
+  sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
+  gameMode?: GameMode;
+  selectedIslandId?: IslandId | null;
+  onCinematicComplete?: (finishedMode: GameMode) => void;
 }
 
 export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
@@ -104,14 +126,33 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   onRotationChange,
   virtualInput,
   onClearTargetPosition,
+  graphicsQuality = 'mid',
+  sharedVehiclePos,
+  gameMode = 'driving',
+  selectedIslandId,
+  onCinematicComplete,
 }) => {
   const { rapier, world, isReady } = useRapier();
 
   const groupRef = useRef<THREE.Group>(null);
+  const lastAppUpdate = useRef(0);
+  const maxPuffs = graphicsQuality === 'low' ? 6 : graphicsQuality === 'high' ? 22 : 15;
+
+  // Cinematic state tracking
+  const cinematicTimer = useRef(0);
+  const cinematicStartPos = useRef(
+    new THREE.Vector3(
+      gameMode === 'entering' ? 0 : position[0],
+      gameMode === 'entering' ? 24 : position[1],
+      gameMode === 'entering' ? -40 : position[2]
+    )
+  );
+  const cinematicStartYaw = useRef(0);
+  const prevGameModeRef = useRef<GameMode>(gameMode);
   
-  // Dynamic 15-puff polygonal exhaust pool (starts idle with 0 emission)
+  // Dynamic polygonal exhaust pool (starts idle with 0 emission)
   const puffsRef = useRef<ExhaustPuff[]>(
-    Array.from({ length: NUM_PUFFS }, () => ({
+    Array.from({ length: MAX_PUFFS_CAP }, () => ({
       active: false,
       pos: new THREE.Vector3(0, 0, 0),
       vel: new THREE.Vector3(0, 0, 0),
@@ -139,7 +180,13 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   const colliderRef = useRef<RAPIER.Collider | null>(null);
 
   // Flight dynamics state
-  const pos = useRef(new THREE.Vector3(...position));
+  const pos = useRef(
+    new THREE.Vector3(
+      gameMode === 'entering' ? 0 : position[0],
+      gameMode === 'entering' ? 24 : position[1],
+      gameMode === 'entering' ? -40 : position[2]
+    )
+  );
   const velocity = useRef(new THREE.Vector3(0, 0, 0));
   const rotationY = useRef(0);
   const rollZ = useRef(0);
@@ -150,7 +197,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   // Setup Keyboard inputs
   useEffect(() => {
     const triggerRespawn = () => {
-      const safePos = { x: 0, y: 1.2, z: 34 };
+      const safePos = { x: 0, y: 1.0, z: 34 };
       if (rigidBodyRef.current) {
         rigidBodyRef.current.setTranslation(safePos, true);
         rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -196,15 +243,36 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       keys.current = {};
     };
 
+    const handleBoostImpulse = (e: Event) => {
+      const custom = e as CustomEvent<{ direction?: [number, number, number]; force?: number }>;
+      const body = rigidBodyRef.current;
+      if (!body) return;
+      const force = custom.detail?.force ?? 620;
+      if (custom.detail?.direction) {
+        const [dx, dy, dz] = custom.detail.direction;
+        body.applyImpulse({ x: dx * force, y: dy * force, z: dz * force }, true);
+      } else {
+        const currentRot = body.rotation();
+        _tempQuat.set(currentRot.x, currentRot.y, currentRot.z, currentRot.w);
+        _tempEuler.setFromQuaternion(_tempQuat, 'YXZ');
+        const fX = Math.sin(_tempEuler.y);
+        const fZ = Math.cos(_tempEuler.y);
+        body.applyImpulse({ x: fX * force, y: 0, z: fZ * force }, true);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown, { passive: false });
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('app:respawn-vehicle', triggerRespawn);
+    window.addEventListener('app:boost-vehicle', handleBoostImpulse);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('app:respawn-vehicle', triggerRespawn);
+      window.removeEventListener('app:boost-vehicle', handleBoostImpulse);
+      sounds.stopThrusterSound();
     };
   }, []);
 
@@ -213,8 +281,12 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     if (!isReady || !world || !rapier) return;
 
     // Calibrated cuboid collider encompassing the rocket body and fins
+    const initialSpawnX = gameMode === 'entering' ? 0 : position[0];
+    const initialSpawnY = gameMode === 'entering' ? 24 : position[1];
+    const initialSpawnZ = gameMode === 'entering' ? -40 : position[2];
+
     const bodyDesc = rapier.RigidBodyDesc.dynamic()
-      .setTranslation(position[0], position[1], position[2])
+      .setTranslation(initialSpawnX, initialSpawnY, initialSpawnZ)
       .setLinearDamping(1.9)
       .setAngularDamping(3.2)
       .setCanSleep(false);
@@ -246,143 +318,320 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
-    const forwardKey = Boolean(keys.current['arrowup'] || keys.current['w'] || virtualInput.y < -0.2);
-    const backwardKey = Boolean(keys.current['arrowdown'] || keys.current['s'] || virtualInput.y > 0.2);
-    const leftKey = Boolean(keys.current['arrowleft'] || keys.current['a'] || virtualInput.x < -0.2);
-    const rightKey = Boolean(keys.current['arrowright'] || keys.current['d'] || virtualInput.x > 0.2);
-    const isBoosting = Boolean(keys.current[' '] || virtualInput.boost);
+    // Detect cinematic mode transition trigger
+    if (gameMode !== prevGameModeRef.current) {
+      cinematicTimer.current = 0;
+      cinematicStartPos.current.copy(pos.current);
+      cinematicStartYaw.current = rotationY.current;
 
-    const isManualInput =
-      forwardKey ||
-      backwardKey ||
-      leftKey ||
-      rightKey ||
-      Math.abs(virtualInput.x) > 0.1 ||
-      Math.abs(virtualInput.y) > 0.1;
-
-    if (isManualInput && targetPosition) {
-      onClearTargetPosition?.();
+      if (gameMode === 'entering') {
+        cinematicStartPos.current.set(0, 24, -40);
+        cinematicStartYaw.current = 0;
+        pos.current.set(0, 24, -40);
+        rotationY.current = 0;
+        if (rigidBodyRef.current) {
+          rigidBodyRef.current.setTranslation({ x: 0, y: 24, z: -40 }, true);
+          rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        }
+        sounds.playWarpEntry();
+      } else if (gameMode === 'takeoff') {
+        sounds.playLiftoff();
+      } else if (gameMode === 'exiting') {
+        sounds.playWarpExit();
+      }
+      prevGameModeRef.current = gameMode;
     }
 
-    const baseSpeed = isBoosting ? 46 : 27;
-    const turnSpeed = 3.6;
+    const isCinematic =
+      gameMode === 'entering' ||
+      gameMode === 'landing-island' ||
+      gameMode === 'inspecting' ||
+      gameMode === 'takeoff' ||
+      gameMode === 'exiting';
 
     let thrust = 0;
     let turn = 0;
-
-    if (forwardKey) thrust += 1;
-    if (backwardKey) thrust -= 0.75;
-    if (leftKey) turn += 1;
-    if (rightKey) turn -= 1;
-
-    if (Math.abs(virtualInput.x) > 0.1) turn = -virtualInput.x * 1.6;
-    if (Math.abs(virtualInput.y) > 0.1) thrust = -virtualInput.y * 1.4;
-
+    let isBoosting = false;
+    const turnSpeed = 3.6;
     const body = rigidBodyRef.current;
 
-    if (body && isReady) {
-      const currentTranslation = body.translation();
-      const currentRot = body.rotation();
+    if (isCinematic) {
+      cinematicTimer.current += delta;
 
-      const q = new THREE.Quaternion(currentRot.x, currentRot.y, currentRot.z, currentRot.w);
-      const euler = new THREE.Euler().setFromQuaternion(q, 'YXZ');
-      let yaw = euler.y;
+      let cX = pos.current.x;
+      let cY = pos.current.y;
+      let cZ = pos.current.z;
+      let cYaw = rotationY.current;
+      let cPitch = 0;
+      let cRoll = 0;
 
-      // Auto-navigation towards target island
-      if (targetPosition && !isManualInput) {
-        const diffX = targetPosition[0] - currentTranslation.x;
-        const diffZ = targetPosition[2] - currentTranslation.z;
-        const dist = Math.hypot(diffX, diffZ);
+      if (gameMode === 'entering') {
+        const progress = Math.min(cinematicTimer.current / 1.6, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        cX = THREE.MathUtils.lerp(cinematicStartPos.current.x, 0, ease);
+        cY = THREE.MathUtils.lerp(cinematicStartPos.current.y, 1.0, ease) + Math.sin(progress * Math.PI) * 1.8;
+        cZ = THREE.MathUtils.lerp(cinematicStartPos.current.z, 16, ease);
+        cYaw = 0;
+        cPitch = THREE.MathUtils.lerp(-0.22, 0, ease);
+        cRoll = 0;
 
-        if (dist > 2.5) {
-          const desiredAngle = Math.atan2(diffX, diffZ);
-          let angleDiff = desiredAngle - yaw;
-          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        thrust = progress < 0.85 ? 1.0 : 0.15;
+        isBoosting = progress < 0.7;
+        sounds.updateThrusterSound(thrust, isBoosting);
 
-          yaw += angleDiff * Math.min(delta * 4.5, 1);
-          thrust = Math.min(dist * 0.8, 1.3);
+        if (progress >= 1 && cinematicTimer.current >= 1.6) {
+          onCinematicComplete?.('entering');
+        }
+      } else if (gameMode === 'landing-island') {
+        const progress = Math.min(cinematicTimer.current / 1.5, 1);
+        const island = ISLANDS_CONFIG.find((i) => i.id === selectedIslandId) || ISLANDS_CONFIG[0];
+        const [ix, iy, iz] = getIslandLivePosition(island);
+        const helipadTarget = new THREE.Vector3(ix, iy + 0.35, iz + 3.2);
 
-          // Smooth elevation matching
-          const newY = THREE.MathUtils.lerp(currentTranslation.y, targetPosition[1] + 0.4, delta * 3.0);
-          body.setTranslation({ x: currentTranslation.x, y: newY, z: currentTranslation.z }, true);
-        } else {
-          onClearTargetPosition?.();
-          thrust = 0;
+        const easeXZ = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        cX = THREE.MathUtils.lerp(cinematicStartPos.current.x, helipadTarget.x, easeXZ);
+        cZ = THREE.MathUtils.lerp(cinematicStartPos.current.z, helipadTarget.z, easeXZ);
+
+        const easeY = progress * progress * (3 - 2 * progress);
+        cY = THREE.MathUtils.lerp(cinematicStartPos.current.y, helipadTarget.y, easeY);
+
+        cYaw = THREE.MathUtils.lerp(cinematicStartYaw.current, 0, easeXZ);
+        cPitch = Math.sin(progress * Math.PI) * 0.08;
+        cRoll = 0;
+
+        thrust = progress < 0.85 ? 0.45 : 0.05;
+        sounds.updateThrusterSound(thrust, false);
+
+        if (progress >= 1 && cinematicTimer.current >= 1.5) {
+          sounds.playTouchdown();
+          onCinematicComplete?.('landing-island');
+        }
+      } else if (gameMode === 'inspecting') {
+        const island = ISLANDS_CONFIG.find((i) => i.id === selectedIslandId) || ISLANDS_CONFIG[0];
+        const [ix, iy, iz] = getIslandLivePosition(island);
+        cX = ix;
+        cY = iy + 0.35;
+        cZ = iz + 3.2;
+        cYaw = 0;
+        cPitch = 0;
+        cRoll = 0;
+        thrust = 0;
+        sounds.updateThrusterSound(0, false);
+      } else if (gameMode === 'takeoff') {
+        const progress = Math.min(cinematicTimer.current / 1.0, 1);
+        const island = ISLANDS_CONFIG.find((i) => i.id === selectedIslandId) || ISLANDS_CONFIG[0];
+        const [ix, iy, iz] = getIslandLivePosition(island);
+        cX = ix;
+        cZ = iz + 3.2;
+
+        const easeY = 1 - Math.pow(1 - progress, 2);
+        cY = THREE.MathUtils.lerp(iy + 0.35, 1.0, easeY);
+        cYaw = 0;
+        cPitch = Math.sin(progress * Math.PI) * 0.12;
+        cRoll = 0;
+
+        thrust = 0.85;
+        isBoosting = true;
+        sounds.updateThrusterSound(0.85, true);
+
+        if (progress >= 1 && cinematicTimer.current >= 1.0) {
+          onCinematicComplete?.('takeoff');
+        }
+      } else if (gameMode === 'exiting') {
+        const progress = Math.min(cinematicTimer.current / 1.3, 1);
+        const accel = progress * progress * 95;
+        const fX = Math.sin(cinematicStartYaw.current);
+        const fZ = Math.cos(cinematicStartYaw.current);
+
+        cX = cinematicStartPos.current.x + fX * accel;
+        cY = cinematicStartPos.current.y + progress * progress * 32;
+        cZ = cinematicStartPos.current.z + fZ * accel;
+
+        cYaw = cinematicStartYaw.current;
+        cPitch = 0.35;
+        cRoll = 0;
+
+        thrust = 1.3;
+        isBoosting = true;
+        sounds.updateThrusterSound(1.3, true);
+
+        if (progress >= 1 && cinematicTimer.current >= 1.3) {
+          onCinematicComplete?.('exiting');
         }
       }
 
-      // Update yaw steering
-      yaw += turn * turnSpeed * delta;
+      if (body && isReady) {
+        body.setTranslation({ x: cX, y: cY, z: cZ }, true);
+        body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        _tempEuler.set(cPitch, cYaw, cRoll, 'YXZ');
+        _targetQuat.setFromEuler(_tempEuler);
+        body.setRotation(_targetQuat, true);
+      }
 
-      // Directional vector
-      const forwardX = Math.sin(yaw);
-      const forwardZ = Math.cos(yaw);
+      groupRef.current.position.set(cX, cY, cZ);
+      groupRef.current.rotation.set(cPitch, cYaw, cRoll);
+      groupRef.current.updateMatrixWorld();
 
-      // Apply forward / reverse impulse
-      if (thrust !== 0) {
-        const forceMagnitude = thrust * baseSpeed * 35;
-        body.applyImpulse(
+      pos.current.set(cX, cY, cZ);
+      rotationY.current = cYaw;
+      pitchX.current = cPitch;
+      rollZ.current = cRoll;
+
+      if (sharedVehiclePos) {
+        sharedVehiclePos.current.set(cX, cY, cZ);
+      }
+
+      const now = performance.now();
+      if (now - lastAppUpdate.current > 50) {
+        lastAppUpdate.current = now;
+        onPositionChange([cX, cY, cZ]);
+        onRotationChange?.(cYaw);
+      }
+    } else {
+      // Normal Driving Manual Physics Loop
+      const forwardKey = Boolean(keys.current['arrowup'] || keys.current['w'] || virtualInput.y < -0.2);
+      const backwardKey = Boolean(keys.current['arrowdown'] || keys.current['s'] || virtualInput.y > 0.2);
+      const leftKey = Boolean(keys.current['arrowleft'] || keys.current['a'] || virtualInput.x < -0.2);
+      const rightKey = Boolean(keys.current['arrowright'] || keys.current['d'] || virtualInput.x > 0.2);
+      isBoosting = Boolean(keys.current[' '] || virtualInput.boost);
+
+      const isManualInput =
+        forwardKey ||
+        backwardKey ||
+        leftKey ||
+        rightKey ||
+        Math.abs(virtualInput.x) > 0.1 ||
+        Math.abs(virtualInput.y) > 0.1;
+
+      if (isManualInput && targetPosition) {
+        onClearTargetPosition?.();
+      }
+
+      const baseSpeed = isBoosting ? 46 : 27;
+
+      if (forwardKey) thrust += 1;
+      if (backwardKey) thrust -= 0.75;
+      if (leftKey) turn += 1;
+      if (rightKey) turn -= 1;
+
+      if (Math.abs(virtualInput.x) > 0.1) turn = -virtualInput.x * 1.6;
+      if (Math.abs(virtualInput.y) > 0.1) thrust = -virtualInput.y * 1.4;
+
+      if (body && isReady) {
+        const currentTranslation = body.translation();
+        const currentRot = body.rotation();
+
+        _tempQuat.set(currentRot.x, currentRot.y, currentRot.z, currentRot.w);
+        _tempEuler.setFromQuaternion(_tempQuat, 'YXZ');
+        let yaw = _tempEuler.y;
+
+        // Auto-navigation towards target island
+        if (targetPosition && !isManualInput) {
+          const diffX = targetPosition[0] - currentTranslation.x;
+          const diffZ = targetPosition[2] - currentTranslation.z;
+          const dist = Math.hypot(diffX, diffZ);
+
+          if (dist > 2.5) {
+            const desiredAngle = Math.atan2(diffX, diffZ);
+            let angleDiff = desiredAngle - yaw;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            yaw += angleDiff * Math.min(delta * 4.5, 1);
+            thrust = Math.min(dist * 0.8, 1.3);
+
+            // Smooth elevation matching to target docking height
+            const newY = THREE.MathUtils.lerp(currentTranslation.y, targetPosition[1], delta * 3.0);
+            body.setTranslation({ x: currentTranslation.x, y: newY, z: currentTranslation.z }, true);
+          } else {
+            onClearTargetPosition?.();
+            thrust = 0;
+          }
+        }
+
+        // Update yaw steering
+        yaw += turn * turnSpeed * delta;
+
+        // Directional vector
+        const forwardX = Math.sin(yaw);
+        const forwardZ = Math.cos(yaw);
+
+        // Apply forward / reverse impulse
+        if (thrust !== 0) {
+          const forceMagnitude = thrust * baseSpeed * 35;
+          body.applyImpulse(
+            {
+              x: forwardX * forceMagnitude * delta,
+              y: 0,
+              z: forwardZ * forceMagnitude * delta,
+            },
+            true
+          );
+        }
+
+        // Smooth procedural thruster sound (gentle plasma hiss & sub-bass weight)
+        sounds.updateThrusterSound(thrust, isBoosting);
+
+        // Gentle zero-G celestial elevation stabilization (Cruising level = 1.0)
+        const targetElevation = targetPosition ? targetPosition[1] : 1.0;
+        const elevDiff = targetElevation - currentTranslation.y;
+        body.applyImpulse({ x: 0, y: elevDiff * 8.5 * delta, z: 0 }, true);
+
+        // Update orientation
+        _tempEuler.set(0, yaw, 0, 'YXZ');
+        _targetQuat.setFromEuler(_tempEuler);
+        body.setRotation(
           {
-            x: forwardX * forceMagnitude * delta,
-            y: 0,
-            z: forwardZ * forceMagnitude * delta,
+            x: _targetQuat.x,
+            y: _targetQuat.y,
+            z: _targetQuat.z,
+            w: _targetQuat.w,
           },
           true
         );
-      }
 
-      // Gentle zero-G celestial elevation stabilization
-      const targetElevation = targetPosition ? targetPosition[1] : 0.5;
-      const elevDiff = targetElevation - currentTranslation.y;
-      body.applyImpulse({ x: 0, y: elevDiff * 8.5 * delta, z: 0 }, true);
+        // Aerodynamic banking roll and pitch
+        const targetRoll = -turn * 0.45;
+        rollZ.current = THREE.MathUtils.lerp(rollZ.current, targetRoll, delta * 9);
+        const targetPitch = thrust * 0.16;
+        pitchX.current = THREE.MathUtils.lerp(pitchX.current, targetPitch, delta * 7);
 
-      // Update orientation
-      const targetQuat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(0, yaw, 0, 'YXZ')
-      );
-      body.setRotation(
-        {
-          x: targetQuat.x,
-          y: targetQuat.y,
-          z: targetQuat.z,
-          w: targetQuat.w,
-        },
-        true
-      );
+        const finalPos = body.translation();
+        const hoverY = Math.sin(Date.now() * 0.0035) * 0.18;
 
-      // Aerodynamic banking roll and pitch
-      const targetRoll = -turn * 0.45;
-      rollZ.current = THREE.MathUtils.lerp(rollZ.current, targetRoll, delta * 9);
-      const targetPitch = thrust * 0.16;
-      pitchX.current = THREE.MathUtils.lerp(pitchX.current, targetPitch, delta * 7);
+        groupRef.current.position.set(finalPos.x, finalPos.y + hoverY, finalPos.z);
+        groupRef.current.rotation.set(pitchX.current, yaw, rollZ.current);
+        groupRef.current.updateMatrixWorld();
 
-      const finalPos = body.translation();
-      const hoverY = Math.sin(Date.now() * 0.0035) * 0.18;
+        pos.current.set(finalPos.x, finalPos.y, finalPos.z);
+        rotationY.current = yaw;
 
-      groupRef.current.position.set(finalPos.x, finalPos.y + hoverY, finalPos.z);
-      groupRef.current.rotation.set(pitchX.current, yaw, rollZ.current);
-      groupRef.current.updateMatrixWorld();
+        if (sharedVehiclePos) {
+          sharedVehiclePos.current.set(finalPos.x, finalPos.y, finalPos.z);
+        }
 
-      pos.current.set(finalPos.x, finalPos.y, finalPos.z);
-      rotationY.current = yaw;
-
-      onPositionChange([finalPos.x, finalPos.y, finalPos.z]);
-      onRotationChange?.(yaw);
-    } else {
-      // Kinematic fallback
+        // Throttle React root state updates to ~20 FPS for MiniMap / HUD
+        const now = performance.now();
+        if (now - lastAppUpdate.current > 50) {
+          lastAppUpdate.current = now;
+          onPositionChange([finalPos.x, finalPos.y, finalPos.z]);
+          onRotationChange?.(yaw);
+        }
+      } else {
+        // Kinematic fallback
       rotationY.current += turn * turnSpeed * delta;
       rollZ.current = THREE.MathUtils.lerp(rollZ.current, -turn * 0.45, delta * 9);
       pitchX.current = THREE.MathUtils.lerp(pitchX.current, thrust * 0.16, delta * 7);
 
-      const forward = new THREE.Vector3(
+      _forwardVec.set(
         Math.sin(rotationY.current),
         0,
         Math.cos(rotationY.current)
       );
 
       if (thrust !== 0) {
-        velocity.current.addScaledVector(forward, thrust * baseSpeed * delta);
+        velocity.current.addScaledVector(_forwardVec, thrust * baseSpeed * delta);
       } else {
         velocity.current.multiplyScalar(Math.pow(0.5, delta * 30));
       }
@@ -394,9 +643,18 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       groupRef.current.rotation.set(pitchX.current, rotationY.current, rollZ.current);
       groupRef.current.updateMatrixWorld();
 
-      onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
-      onRotationChange?.(rotationY.current);
+      if (sharedVehiclePos) {
+        sharedVehiclePos.current.set(pos.current.x, pos.current.y, pos.current.z);
+      }
+
+      const now = performance.now();
+      if (now - lastAppUpdate.current > 50) {
+        lastAppUpdate.current = now;
+        onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
+        onRotationChange?.(rotationY.current);
+      }
     }
+  }
 
     // Handle respawn invulnerability and visual blinking
     if (respawnTimer.current > 0) {
@@ -419,7 +677,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     const currentZ = body && isReady ? body.translation().z : pos.current.z;
     const distToSun = Math.hypot(currentX, currentY, currentZ);
 
-    if (distToSun < 5.6 && respawnTimer.current <= 0) {
+    if (!isCinematic && distToSun < 5.6 && respawnTimer.current <= 0) {
       // 1. Emit Bruno Simon Low-Poly Explosion at impact point
       explosionEvents.emit([currentX, currentY, currentZ], 1.6);
 
@@ -433,8 +691,8 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         body.setTranslation(safeRespawnPos, true);
         body.setLinvel({ x: 0, y: 0, z: 0 }, true);
         body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-        const safeQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
-        body.setRotation(safeQuat, true);
+        _safeQuat.set(0, 0, 0, 1);
+        body.setRotation(_safeQuat, true);
       } else {
         pos.current.set(safeRespawnPos.x, safeRespawnPos.y, safeRespawnPos.z);
         velocity.current.set(0, 0, 0);
@@ -462,13 +720,13 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
 
     const shipLinVel =
       body && isReady
-        ? new THREE.Vector3(body.linvel().x, body.linvel().y, body.linvel().z)
-        : velocity.current.clone();
+        ? _shipLinVel.set(body.linvel().x, body.linvel().y, body.linvel().z)
+        : _shipLinVel.copy(velocity.current);
 
-    // Dynamic 15-puff polygonal exhaust jet animation in world space:
+    // Dynamic polygonal exhaust jet animation in world space:
     // When the ship is stopped, NOTHING comes out.
     // When accelerating or moving, separate polygons shoot out in world space,
-    // curving naturally with turn physics when steering with A/D, shrinking gradually, and disappearing (max 15 active).
+    // curving naturally with turn physics when steering with A/D, shrinking gradually, and disappearing.
     if (isMoving) {
       const spawnInterval = isBoosting ? 0.024 : 0.038;
       spawnTimerRef.current += delta;
@@ -476,8 +734,15 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       while (spawnTimerRef.current >= spawnInterval) {
         spawnTimerRef.current -= spawnInterval;
 
-        // Find an inactive or finished puff in the 15-puff pool
-        const availablePuff = puffsRef.current.find((p) => !p.active || p.life >= 1);
+        // Find an inactive or finished puff within maxPuffs pool
+        let availablePuff: ExhaustPuff | undefined;
+        for (let i = 0; i < maxPuffs; i++) {
+          if (!puffsRef.current[i].active || puffsRef.current[i].life >= 1) {
+            availablePuff = puffsRef.current[i];
+            break;
+          }
+        }
+
         if (availablePuff) {
           spawnPuff(
             availablePuff,
@@ -489,21 +754,21 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
             thrust
           );
         } else {
-          break; // All 15 currently active
+          break; // Max puffs currently active
         }
       }
     } else {
       spawnTimerRef.current = 0;
     }
 
-    // Update the 15 puffs in world space
-    for (let i = 0; i < NUM_PUFFS; i++) {
+    // Update the puffs in world space
+    for (let i = 0; i < MAX_PUFFS_CAP; i++) {
       const puff = puffsRef.current[i];
       const mesh = puffMeshesRef.current[i];
       const mat = puffMatsRef.current[i];
 
-      if (!puff.active) {
-        if (mesh) mesh.scale.set(0, 0, 0);
+      if (i >= maxPuffs || !puff.active) {
+        if (mesh && mesh.scale.x > 0) mesh.scale.set(0, 0, 0);
         continue;
       }
 
@@ -761,38 +1026,43 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
           6. DYNAMIC FLIGHT ILLUMINATION
          ----------------------------------------------------------------- */}
       {/* Warm Engine Exhaust Glow illuminating the space behind */}
-      <pointLight
-        ref={flameLightRef}
-        position={[0, 0, -2.4]}
-        color="#f97316"
-        intensity={0}
-        distance={12}
-      />
+      {graphicsQuality !== 'low' && (
+        <pointLight
+          ref={flameLightRef}
+          position={[0, 0, -2.4]}
+          color="#f97316"
+          intensity={0}
+          distance={12}
+        />
+      )}
       {/* Forward Nose Light */}
-      <pointLight
-        ref={headlightRef}
-        position={[0, 0, 2.7]}
-        color="#bae6fd"
-        intensity={2.5}
-        distance={14}
-      />
+      {graphicsQuality !== 'low' && (
+        <pointLight
+          ref={headlightRef}
+          position={[0, 0, 2.7]}
+          color="#bae6fd"
+          intensity={2.5}
+          distance={14}
+        />
+      )}
     </group>
 
     {/* -----------------------------------------------------------------
-        7. DYNAMIC 15-PUFF POLYGONAL EXHAUST JET (WORLD SPACE)
+        7. DYNAMIC POLYGONAL EXHAUST JET (WORLD SPACE)
            Independent low-poly figures simulated in world space coordinates.
            Curving with authentic turn physics when steering with A/D,
-           gradually shrinking and disappearing (max 15 active).
+           gradually shrinking and disappearing.
            Completely cuts off when the ship is stopped!
        ----------------------------------------------------------------- */}
     <group>
-      {Array.from({ length: NUM_PUFFS }).map((_, idx) => (
+      {Array.from({ length: MAX_PUFFS_CAP }).map((_, idx) => (
         <mesh
           key={`exhaust-puff-${idx}`}
           ref={(el) => {
             puffMeshesRef.current[idx] = el;
           }}
           scale={[0, 0, 0]}
+          visible={idx < maxPuffs}
         >
           <icosahedronGeometry args={[1, 0]} />
           <meshStandardMaterial

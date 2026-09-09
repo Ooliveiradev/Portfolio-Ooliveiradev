@@ -21,7 +21,6 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
   onOpenSettings,
 }) => {
   const handleStart = () => {
-    sounds.startAmbient();
     sounds.playBoost();
     onStartGame();
   };
@@ -49,10 +48,10 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
               sounds.playClick();
               onOpenSettings();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/60 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800/80 backdrop-blur-md transition-all cursor-pointer font-mono text-xs font-medium shadow-sm hover:border-sky-500/40"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer font-mono text-xs font-medium shadow-lg"
             title="Menu de Configurações, Áudio & Câmera (ESC)"
           >
-            <Settings className="w-3.5 h-3.5 text-sky-400" />
+            <Settings className="w-4 h-4 text-sky-400" />
             <span className="hidden sm:inline">Menu</span>
           </button>
         )}
@@ -70,21 +69,21 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
             Creative 3D Portfolio
           </span>
 
-          <h1 className="text-4xl sm:text-6xl font-fun font-bold text-white tracking-tight leading-none mb-3 drop-shadow-lg">
+          <h1 className="text-4xl sm:text-6xl font-sans font-bold text-slate-100 tracking-tight leading-none mb-3 drop-shadow-lg">
             {PERSONAL_INFO.name}
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-400 font-light tracking-wide max-w-md mb-6">
+          <p className="text-xs sm:text-sm text-slate-400 font-normal tracking-wide max-w-md mb-6">
             Full Stack &amp; Creative 3D Engineer
           </p>
 
           {/* Clean Minimalist Explore Action */}
           <button
             onClick={handleStart}
-            className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-mono text-xs tracking-wider uppercase px-7 py-3.5 rounded-full border border-white/20 hover:border-white/40 backdrop-blur-md transition-all cursor-pointer shadow-2xl"
+            className="group flex items-center gap-3 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-slate-100 font-mono text-xs tracking-wider uppercase px-7 py-3.5 rounded-xl border border-sky-400/30 hover:border-sky-400/60 backdrop-blur-xl transition-all cursor-pointer shadow-xl"
           >
             <span>Iniciar Exploração com Nave</span>
-            <ArrowRight className="w-3.5 h-3.5 text-sky-400 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="w-4 h-4 text-sky-400 transition-transform group-hover:translate-x-1" />
           </button>
 
           {/* Direct Island Access Chips */}
@@ -102,10 +101,10 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
                       sounds.playClick();
                       onSelectIsland(island.id);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-medium backdrop-blur-md transition-all cursor-pointer border ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-mono font-medium backdrop-blur-xl transition-all cursor-pointer border ${
                       isVisited
-                        ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/20'
-                        : 'bg-slate-900/75 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/60'
+                        ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20'
+                        : 'bg-[#0c1017]/80 hover:bg-slate-800/80 text-slate-300 hover:text-white border-slate-800/80 hover:border-slate-700'
                     }`}
                   >
                     <span
@@ -114,7 +113,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
                     />
                     <span>{island.name}</span>
                     {isVisited && (
-                      <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[8px] font-bold">
+                      <span className="w-3.5 h-3.5 rounded-md bg-emerald-500 text-slate-950 flex items-center justify-center text-[9px] font-bold">
                         ✓
                       </span>
                     )}

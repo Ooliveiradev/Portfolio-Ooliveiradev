@@ -1,15 +1,18 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import RAPIER from '@dimforge/rapier3d-compat';
 import { IslandConfig, IslandId } from '../../types';
 import { sounds } from '../../audio/soundManager';
-import { useRapierBody } from './physics/useRapierBody';
+import { useRapier } from './physics/RapierPhysicsContext';
+import { getIslandLivePosition } from '../../utils/celestialCoords';
 import { EducationIsland } from './islands/EducationIsland';
 import { SkillsIsland } from './islands/SkillsIsland';
 import { ProjectsIsland } from './islands/ProjectsIsland';
 import { ExperienceIsland } from './islands/ExperienceIsland';
 import { AboutIsland } from './islands/AboutIsland';
+import { IslandLife } from './islands/IslandLife';
 
 interface IslandsProps {
   islands: IslandConfig[];
@@ -65,42 +68,49 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [isNear, setIsNear] = useState(false);
-  const orbitAngle = useRef(config.angleOffset);
+  const { rapier, world, isReady } = useRapier();
+  const rigidBodyRef = useRef<RAPIER.RigidBody | null>(null);
 
-  // Compute fixed station coordinates for Rapier static collider
-  const defaultPos: [number, number, number] = useMemo(() => [
-    Math.cos(config.angleOffset) * config.orbitRadius,
-    config.elevation,
-    Math.sin(config.angleOffset) * config.orbitRadius,
-  ], [config.angleOffset, config.orbitRadius, config.elevation]);
+  // Initialize Kinematic Rapier Cylinder Collider synchronized with island motion
+  useEffect(() => {
+    if (!isReady || !world || !rapier) return;
 
-  // Associate each island platform with a static Rapier cylinder collider
-  useRapierBody<THREE.Group>({
-    type: 'fixed',
-    position: [defaultPos[0], defaultPos[1] - 0.4, defaultPos[2]],
-    shape: {
-      type: 'cylinder',
-      halfHeight: 1.0,
-      radius: 6.2,
-    },
-    friction: 0.8,
-    restitution: 0.1,
-  });
+    const initialPos = getIslandLivePosition(config);
+    const bodyDesc = rapier.RigidBodyDesc.kinematicPositionBased()
+      .setTranslation(initialPos[0], initialPos[1] - 0.4, initialPos[2]);
 
-  useFrame((_, delta) => {
+    const body = world.createRigidBody(bodyDesc);
+    rigidBodyRef.current = body;
+
+    const colliderDesc = rapier.ColliderDesc.cylinder(1.0, 6.2)
+      .setFriction(0.8)
+      .setRestitution(0.1);
+
+    world.createCollider(colliderDesc, body);
+
+    return () => {
+      if (world && body) {
+        world.removeRigidBody(body);
+        rigidBodyRef.current = null;
+      }
+    };
+  }, [isReady]);
+
+  useFrame(() => {
     if (!groupRef.current) return;
 
-    if (orbitActive) {
-      orbitAngle.current += config.orbitSpeed * delta * 0.35;
-    }
-
-    const x = Math.cos(orbitAngle.current) * config.orbitRadius;
-    const z = Math.sin(orbitAngle.current) * config.orbitRadius;
+    // Retrieve mathematical synchronized real-time position
+    const [x, baseY, z] = getIslandLivePosition(config);
     const y =
-      config.elevation +
+      baseY +
       (hovered ? 0.5 : Math.sin(Date.now() * 0.0015 + config.angleOffset) * 0.18);
 
     groupRef.current.position.set(x, y, z);
+
+    // Update Kinematic Rapier body position
+    if (rigidBodyRef.current) {
+      rigidBodyRef.current.setNextKinematicTranslation({ x, y: baseY - 0.4, z });
+    }
 
     const dist = Math.hypot(vehiclePos[0] - x, vehiclePos[2] - z);
     setIsNear(dist < 16.0);
@@ -141,6 +151,13 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
         {config.id === 'projects' && <ProjectsIsland />}
         {config.id === 'experience' && <ExperienceIsland />}
         {config.id === 'about' && <AboutIsland />}
+
+        {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
+        <IslandLife
+          islandId={config.id}
+          themeColor={config.color}
+          isNear={isNear}
+        />
       </group>
 
       {/* ===================================================

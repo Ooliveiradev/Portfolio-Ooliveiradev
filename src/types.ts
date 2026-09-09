@@ -1,6 +1,17 @@
 export type IslandId = 'projects' | 'experience' | 'skills' | 'education' | 'about';
 
+export type GameMode =
+  | 'landing'
+  | 'entering'
+  | 'driving'
+  | 'landing-island'
+  | 'inspecting'
+  | 'takeoff'
+  | 'exiting';
+
 export type CameraViewMode = 'iso' | 'tactical55';
+
+export type GraphicsQuality = 'low' | 'mid' | 'high';
 
 export interface IslandConfig {
   id: IslandId;
@@ -78,6 +89,14 @@ export interface LeaderboardEntry {
   score: number;
   badgesCount: number;
   title: string;
+  date: string;
+}
+
+export interface RaceLeaderboardEntry {
+  id: string;
+  name: string;
+  timeSeconds: number;
+  formattedTime: string;
   date: string;
 }
 

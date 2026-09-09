@@ -1,17 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  RotateCcw,
   Settings,
-  FolderGit2,
-  Briefcase,
-  Cpu,
-  GraduationCap,
-  UserCheck,
   Zap,
   Home
 } from 'lucide-react';
-import { IslandConfig, IslandId, UserStats } from '../../types';
+import { IslandConfig, IslandId, UserStats, CrystalCollectible } from '../../types';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
 import { MiniMap } from './MiniMap';
@@ -21,12 +15,16 @@ interface HUDProps {
   islands: IslandConfig[];
   selectedIslandId: IslandId | null;
   onSelectIsland: (id: IslandId) => void;
-  onResetVehicle: () => void;
+  onResetVehicle?: () => void;
   onReturnToLanding: () => void;
   onOpenSettings?: () => void;
   recentXpGained: number | null;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
+  crystals?: CrystalCollectible[];
+  targetVehiclePos?: [number, number, number] | null;
+  isRacing?: boolean;
+  currentCheckpoint?: number;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -34,12 +32,15 @@ export const HUD: React.FC<HUDProps> = ({
   islands,
   selectedIslandId,
   onSelectIsland,
-  onResetVehicle,
   onReturnToLanding,
   onOpenSettings,
   recentXpGained,
   vehiclePos,
   vehicleRotation,
+  crystals,
+  targetVehiclePos,
+  isRacing = false,
+  currentCheckpoint = 0,
 }) => {
   // Compute level from XP
   const levelTitle =
@@ -61,39 +62,24 @@ export const HUD: React.FC<HUDProps> = ({
     Math.max(0, ((stats.xp - prevLevelThreshold) / (nextLevelThreshold - prevLevelThreshold)) * 100)
   );
 
-  const getIslandIcon = (id: IslandId) => {
-    switch (id) {
-      case 'projects':
-        return <FolderGit2 className="w-4 h-4" />;
-      case 'experience':
-        return <Briefcase className="w-4 h-4" />;
-      case 'skills':
-        return <Cpu className="w-4 h-4" />;
-      case 'education':
-        return <GraduationCap className="w-4 h-4" />;
-      case 'about':
-        return <UserCheck className="w-4 h-4" />;
-    }
-  };
-
   return (
     <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 sm:p-6 select-none">
       {/* Top Bar */}
       <div className="flex items-start justify-between w-full max-w-7xl mx-auto pointer-events-auto gap-3">
         {/* Profile & XP Status Widget */}
-        <div className="flex items-center gap-3 bg-slate-900/85 backdrop-blur-md border border-slate-800/90 p-2 sm:p-2.5 rounded-2xl shadow-xl">
+        <div className="flex items-center gap-3 bg-[#0c1017]/90 backdrop-blur-xl border border-slate-800/80 p-2 sm:p-2.5 rounded-2xl shadow-2xl">
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-fun font-bold text-base shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-mono font-bold text-sm shadow-md border border-sky-400/30">
               DR
             </div>
-            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-slate-900 text-[8px] font-bold text-black">
+            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-[#0c1017] text-[8px] font-bold text-black">
               ✓
             </span>
           </div>
 
           <div className="flex flex-col min-w-[130px] sm:min-w-[170px]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white tracking-wide truncate">
+              <span className="text-xs font-semibold text-slate-100 tracking-wide truncate">
                 {PERSONAL_INFO.name}
               </span>
               <span className="text-[10px] font-mono text-sky-400 font-semibold flex items-center gap-0.5">
@@ -108,9 +94,9 @@ export const HUD: React.FC<HUDProps> = ({
             </span>
 
             {/* XP Progress Bar */}
-            <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1.5 overflow-hidden">
+            <div className="w-full bg-slate-800/80 rounded-full h-1 mt-1.5 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-sky-400 to-indigo-500 h-full rounded-full transition-all duration-500"
+                className="bg-gradient-to-r from-sky-400 to-sky-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -124,9 +110,9 @@ export const HUD: React.FC<HUDProps> = ({
               initial={{ opacity: 0, y: 10, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-fun font-bold text-xs shadow-xl flex items-center gap-1.5 border border-yellow-200"
+              className="px-3.5 py-1.5 rounded-full bg-[#0c1017]/95 border border-amber-400/40 text-amber-300 font-mono text-xs shadow-xl backdrop-blur-md flex items-center gap-1.5"
             >
-              <Zap className="w-3.5 h-3.5 fill-black" />
+              <Zap className="w-3.5 h-3.5 fill-amber-400" />
               <span>+{recentXpGained} XP!</span>
             </motion.div>
           )}
@@ -141,10 +127,10 @@ export const HUD: React.FC<HUDProps> = ({
                 sounds.playClick();
                 onReturnToLanding();
               }}
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/70 backdrop-blur-md transition-all cursor-pointer shadow-md"
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg"
               title="Menu Inicial / Tela de Entrada"
             >
-              <Home className="w-4 h-4" />
+              <Home className="w-4 h-4 text-sky-400" />
             </button>
 
             {/* Central Unified Settings & System Menu Button */}
@@ -154,7 +140,7 @@ export const HUD: React.FC<HUDProps> = ({
                   sounds.playClick();
                   onOpenSettings();
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/85 hover:bg-slate-800 text-sky-300 hover:text-white border border-slate-700/80 backdrop-blur-md transition-all cursor-pointer shadow-md hover:border-sky-500/50 hover:shadow-sky-500/10 font-mono text-xs font-bold"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg font-mono text-xs font-medium"
                 title="Configurações, Câmera, Conquistas & Ranking (ESC)"
               >
                 <Settings className="w-4 h-4 text-sky-400" />
@@ -171,66 +157,11 @@ export const HUD: React.FC<HUDProps> = ({
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
             onSelectIsland={onSelectIsland}
+            crystals={crystals}
+            targetVehiclePos={targetVehiclePos}
+            isRacing={isRacing}
+            currentCheckpoint={currentCheckpoint}
           />
-        </div>
-      </div>
-
-      {/* Bottom Island Quick Dock & Utility Controls */}
-      <div className="flex flex-col items-center w-full max-w-5xl mx-auto pointer-events-auto gap-2">
-        {/* Island Dock */}
-        <div className="flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl bg-slate-950/85 backdrop-blur-lg border border-slate-800 shadow-2xl">
-          <span className="hidden md:inline text-[11px] font-mono text-slate-400 px-2 font-semibold">
-            VIAJAR:
-          </span>
-          {islands.map((island) => {
-            const isSelected = selectedIslandId === island.id;
-            const isVisited = stats.visitedIslands.includes(island.id);
-
-            return (
-              <button
-                key={island.id}
-                onClick={() => {
-                  sounds.playClick();
-                  onSelectIsland(island.id);
-                }}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border ${
-                  isSelected
-                    ? 'bg-sky-500 text-white border-sky-400 shadow-lg shadow-sky-500/30'
-                    : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-800'
-                }`}
-              >
-                <span style={{ color: isSelected ? '#ffffff' : island.color }}>
-                  {getIslandIcon(island.id)}
-                </span>
-                <span className="font-fun font-semibold">{island.name}</span>
-                {isVisited && (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-1 py-0.2 rounded-full font-bold ml-0.5">
-                    ✓
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Lower helper row (desktop controls note + reset rover position) */}
-        <div className="hidden sm:flex items-center justify-between w-full px-2 text-[11px] font-mono text-slate-400">
-          <div className="flex items-center gap-3">
-            <span>🎮 <strong>W, A, S, D / Setas</strong>: Pilotar</span>
-            <span>🚀 <strong>Espaço</strong>: Turbo</span>
-            <span>🖱️ <strong>Clique</strong> na ilha para pousar</span>
-          </div>
-
-          <button
-            onClick={() => {
-              sounds.playClick();
-              onResetVehicle();
-            }}
-            className="flex items-center gap-1 text-slate-400 hover:text-sky-300 transition-colors cursor-pointer"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>Recentralizar Rover</span>
-          </button>
         </div>
       </div>
     </div>

@@ -1,8 +1,13 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { GraphicsQuality } from '../../types';
 
-export const LowPolySun: React.FC = () => {
+interface LowPolySunProps {
+  graphicsQuality?: GraphicsQuality;
+}
+
+export const LowPolySun: React.FC<LowPolySunProps> = ({ graphicsQuality = 'mid' }) => {
   const coreRef = useRef<THREE.Mesh>(null);
   const mantleRef = useRef<THREE.Mesh>(null);
   const coronaRef = useRef<THREE.Group>(null);
@@ -31,7 +36,7 @@ export const LowPolySun: React.FC = () => {
           1. LOW-POLY INCANDESCENT SOLAR CORE
           Faceted polygonal dodecahedron (12 pentagonal faces) glowing with intense heat
          ========================================================================= */}
-      <mesh ref={coreRef} castShadow>
+      <mesh ref={coreRef} castShadow={graphicsQuality !== 'low'}>
         <dodecahedronGeometry args={[4.4, 0]} />
         <meshStandardMaterial
           color="#fef08a"
@@ -89,17 +94,19 @@ export const LowPolySun: React.FC = () => {
       {/* Primary Solar Illuminator (Bright Golden Sunlight) */}
       <pointLight
         color="#fef08a"
-        intensity={7.5}
+        intensity={graphicsQuality === 'low' ? 6.0 : 7.5}
         distance={220}
         decay={1.2}
       />
       {/* Secondary Volcanic Heat Wash (Deep Incandescent Crimson Atmosphere) */}
-      <pointLight
-        color="#ff3300"
-        intensity={4.5}
-        distance={65}
-        decay={1.4}
-      />
+      {graphicsQuality !== 'low' && (
+        <pointLight
+          color="#ff3300"
+          intensity={4.5}
+          distance={65}
+          decay={1.4}
+        />
+      )}
     </group>
   );
 };
