@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from './MaterialIcon';
-import { IslandConfig, IslandId, UserStats, CrystalCollectible } from '../../types';
+import { IslandConfig, IslandId, UserStats, CrystalCollectible, CosmicWhisper } from '../../types';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
 import { MiniMap } from './MiniMap';
@@ -16,6 +16,10 @@ interface HUDProps {
   onOpenSettings?: () => void;
   onOpenAchievements?: () => void;
   onAvatarClick?: () => void;
+  onOpenDropWhisper?: () => void;
+  onOpenWhispersList?: () => void;
+  whispers?: CosmicWhisper[];
+  presenceCount?: number;
   recentXpGained: number | null;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
@@ -34,6 +38,10 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenSettings,
   onOpenAchievements,
   onAvatarClick,
+  onOpenDropWhisper,
+  onOpenWhispersList,
+  whispers = [],
+  presenceCount = 4,
   recentXpGained,
   vehiclePos,
   vehicleRotation,
@@ -125,9 +133,50 @@ export const HUD: React.FC<HUDProps> = ({
           )}
         </AnimatePresence>
 
+        {/* Social Presence Pill: Exploradores Online & Sinais Cósmicos */}
+        {onOpenWhispersList && (
+          <button
+            onClick={() => {
+              sounds.playClick();
+              onOpenWhispersList();
+            }}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0c1017]/90 border border-cyan-500/30 hover:border-cyan-400/60 backdrop-blur-xl text-xs font-mono text-cyan-300 shadow-xl cursor-pointer transition hover:scale-105"
+            title="Rede Social Cósmica & Exploradores Online"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span>{presenceCount} no setor</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-slate-300 flex items-center gap-1">
+              <MaterialIcon name="sensors" size={13} className="text-cyan-400" />
+              {whispers.length} sinais
+            </span>
+          </button>
+        )}
+
         {/* Minimalist Top Right Toolbar: Menu Inicial e Configurações */}
         <div className="flex flex-col items-end gap-2.5">
           <div className="flex items-center gap-2">
+            {/* Transmit Cosmic Whisper Button */}
+            {onOpenDropWhisper && (
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  onOpenDropWhisper();
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-cyan-300 hover:text-cyan-200 border border-slate-800/80 hover:border-cyan-500/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg font-mono text-xs font-semibold"
+                title="Transmitir Mensagem Cósmica no Espaço (T)"
+              >
+                <MaterialIcon name="sensors" className="text-cyan-400 animate-pulse" size={18} />
+                <span className="hidden sm:inline">Transmitir</span>
+                <kbd className="hidden md:inline px-1 py-0.2 bg-cyan-950/80 rounded border border-cyan-500/30 text-[9px] text-cyan-300">
+                  T
+                </kbd>
+              </button>
+            )}
+
             {/* Return to Landing Screen */}
             <button
               onClick={() => {
@@ -183,6 +232,7 @@ export const HUD: React.FC<HUDProps> = ({
             targetVehiclePos={targetVehiclePos}
             isRacing={isRacing}
             currentCheckpoint={currentCheckpoint}
+            whispers={whispers}
           />
         </div>
       </div>

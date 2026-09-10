@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from './MaterialIcon';
-import { IslandConfig, IslandId, CrystalCollectible } from '../../types';
+import { IslandConfig, IslandId, CrystalCollectible, CosmicWhisper } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { SPEED_RINGS } from '../3d/SpeedRings';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
@@ -17,6 +17,7 @@ interface MiniMapProps {
   targetVehiclePos?: [number, number, number] | null;
   isRacing?: boolean;
   currentCheckpoint?: number;
+  whispers?: CosmicWhisper[];
 }
 
 // Low-poly celestial asteroids in world space
@@ -40,6 +41,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   targetVehiclePos,
   isRacing = false,
   currentCheckpoint = 0,
+  whispers = [],
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isLargeSize, setIsLargeSize] = useState(false);
@@ -449,6 +451,23 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                     </g>
                   );
                 })()}
+
+                {/* 6.9 Sussurros Cósmicos e Sinais Sociais no Radar */}
+                {whispers.map((w) => {
+                  const wPos = toSvg(w.position[0], w.position[2]);
+                  return (
+                    <g key={`whisper-marker-${w.id}`} opacity="0.85">
+                      <circle
+                        cx={wPos.x}
+                        cy={wPos.y}
+                        r="1.2"
+                        fill="#06b6d4"
+                        stroke="#67e8f9"
+                        strokeWidth="0.3"
+                      />
+                    </g>
+                  );
+                })}
 
                 {/* 7. Planetary Islands (Top-Down Diorama Platforms + Bruno Simon Diamond Markers) */}
                 {islands.map((island) => {

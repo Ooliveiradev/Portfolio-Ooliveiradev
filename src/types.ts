@@ -126,3 +126,18 @@ export interface UserStats {
   collectedCrystals: number[];
   unlockedBadges: string[];
 }
+
+export type WhisperColor = 'cyan' | 'purple' | 'amber' | 'emerald';
+
+export interface CosmicWhisper {
+  id: string;
+  author: string;
+  avatarIcon?: string;
+  origin?: string;
+  message: string;
+  position: [number, number, number];
+  createdAt: string;
+  likes: number;
+  color: WhisperColor;
+}
+

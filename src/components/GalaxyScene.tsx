@@ -17,7 +17,8 @@ import { PostProcessingPipeline } from './3d/postprocessing/PostProcessingPipeli
 import { GoldenSecretAsteroid } from './3d/secrets/GoldenSecretAsteroid';
 import { CosmicRubberDuck } from './3d/secrets/CosmicRubberDuck';
 import { SecretVoidIsland } from './3d/secrets/SecretVoidIsland';
-import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode } from '../types';
+import { CosmicWhispers } from './3d/whispers/CosmicWhispers';
+import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode, CosmicWhisper } from '../types';
 
 interface GalaxySceneProps {
   gameMode: GameMode;
@@ -44,6 +45,8 @@ interface GalaxySceneProps {
   onRecoverCargo?: (id: string) => void;
   onCinematicComplete?: (finishedMode: GameMode) => void;
   onDiscoverSecret?: (type: 'asteroid' | 'void-island' | 'duck') => void;
+  whispers?: CosmicWhisper[];
+  onInspectWhisper?: (whisper: CosmicWhisper) => void;
 }
 
 export const GalaxyScene: React.FC<GalaxySceneProps> = ({
@@ -71,6 +74,8 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
   onRecoverCargo,
   onCinematicComplete,
   onDiscoverSecret,
+  whispers = [],
+  onInspectWhisper,
 }) => {
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
@@ -275,6 +280,15 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
               sharedVehiclePos={sharedVehiclePos}
               onEnterSecretIsland={() => onDiscoverSecret?.('void-island')}
             />
+
+            {/* Rede Social Cósmica: Orbes Luminosos de Sussurros Estelares */}
+            {whispers.length > 0 && (
+              <CosmicWhispers
+                whispers={whispers}
+                sharedVehiclePos={sharedVehiclePos}
+                onInspectWhisper={(w) => onInspectWhisper?.(w)}
+              />
+            )}
 
             {/* Pipeline de Pós-Processamento Cinematográfico: Unreal Bloom & Aberração Cromática */}
             <PostProcessingPipeline graphicsQuality={graphicsQuality} />

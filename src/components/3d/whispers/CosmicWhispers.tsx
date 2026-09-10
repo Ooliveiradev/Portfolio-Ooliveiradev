@@ -1,0 +1,169 @@
+import React, { useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
+import * as THREE from 'three';
+import { CosmicWhisper, WhisperColor } from '../../../types';
+import { sounds } from '../../../audio/soundManager';
+
+interface CosmicWhispersProps {
+  whispers: CosmicWhisper[];
+  sharedVehiclePos: React.RefObject<THREE.Vector3>;
+  onInspectWhisper: (whisper: CosmicWhisper) => void;
+}
+
+const COLOR_MAP: Record<WhisperColor, { core: string; glow: string; hex: number }> = {
+  cyan: { core: '#06b6d4', glow: '#67e8f9', hex: 0x06b6d4 },
+  purple: { core: '#a855f7', glow: '#d8b4fe', hex: 0xa855f7 },
+  amber: { core: '#f59e0b', glow: '#fde68a', hex: 0xf59e0b },
+  emerald: { core: '#10b981', glow: '#6ee7b7', hex: 0x10b981 },
+};
+
+export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
+  whispers,
+  sharedVehiclePos,
+  onInspectWhisper,
+}) => {
+  const [nearbyWhisperId, setNearbyWhisperId] = useState<string | null>(null);
+  const groupsRef = useRef<{ [id: string]: THREE.Group | null }>({});
+
+  // 60/120 FPS frame loop para animações e checagem inercial de proximidade
+  useFrame(({ clock }) => {
+    const time = clock.getElapsedTime();
+    const vPos = sharedVehiclePos.current;
+
+    let closestId: string | null = null;
+    let closestDist = Infinity;
+
+    whispers.forEach((whisper, idx) => {
+      const group = groupsRef.current[whisper.id];
+      if (group) {
+        // Flutuação suave vertical (bobbing)
+        group.position.y = whisper.position[1] + Math.sin(time * 2 + idx * 1.3) * 0.25;
+
+        // Rotação dos anéis orbitais
+        group.rotation.y = time * 0.8 + idx;
+      }
+
+      if (vPos) {
+        const dx = vPos.x - whisper.position[0];
+        const dy = vPos.y - whisper.position[1];
+        const dz = vPos.z - whisper.position[2];
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        if (dist < 6.0 && dist < closestDist) {
+          closestDist = dist;
+          closestId = whisper.id;
+        }
+      }
+    });
+
+    if (closestId !== nearbyWhisperId) {
+      setNearbyWhisperId(closestId);
+    }
+  });
+
+  return (
+    <group name="CosmicWhispersGroup">
+      {whispers.map((whisper, idx) => {
+        const colors = COLOR_MAP[whisper.color] || COLOR_MAP.cyan;
+        const isNearby = nearbyWhisperId === whisper.id;
+
+        return (
+          <group
+            key={whisper.id}
+            position={[whisper.position[0], whisper.position[1], whisper.position[2]]}
+            ref={(el) => {
+              groupsRef.current[whisper.id] = el;
+            }}
+          >
+            {/* 1. Núcleo Bioluminescente Central */}
+            <mesh
+              onClick={(e) => {
+                e.stopPropagation();
+                sounds.playClick();
+                onInspectWhisper(whisper);
+              }}
+              onPointerOver={() => {
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = 'auto';
+              }}
+            >
+              <sphereGeometry args={[0.45, 24, 24]} />
+              <meshStandardMaterial
+                color={colors.core}
+                emissive={colors.core}
+                emissiveIntensity={isNearby ? 2.5 : 1.4}
+                roughness={0.2}
+                metalness={0.8}
+              />
+            </mesh>
+
+            {/* 2. Brilho Eéreo Externo */}
+            <mesh>
+              <sphereGeometry args={[0.7, 16, 16]} />
+              <meshBasicMaterial
+                color={colors.glow}
+                transparent
+                opacity={isNearby ? 0.35 : 0.18}
+                wireframe
+              />
+            </mesh>
+
+            {/* 3. Anéis Orbitais Holográficos Tilted */}
+            <mesh rotation={[Math.PI / 4, 0, idx]}>
+              <torusGeometry args={[0.85, 0.02, 8, 32]} />
+              <meshBasicMaterial color={colors.glow} transparent opacity={0.6} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 3, Math.PI / 6, -idx]}>
+              <torusGeometry args={[1.05, 0.015, 8, 32]} />
+              <meshBasicMaterial color={colors.core} transparent opacity={0.4} />
+            </mesh>
+
+            {/* 4. Luz de Ponto para Iluminação Dinâmica em Objetos Próximos */}
+            <pointLight
+              color={colors.hex}
+              intensity={isNearby ? 2.5 : 1.0}
+              distance={7}
+              decay={2}
+            />
+
+            {/* 5. Holograma Flutuante de Proximidade */}
+            {isNearby && (
+              <Html
+                position={[0, 1.4, 0]}
+                center
+                distanceFactor={18}
+                style={{ pointerEvents: 'auto' }}
+              >
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sounds.playClick();
+                    onInspectWhisper(whisper);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-cyan-500/60 shadow-xl shadow-cyan-500/20 text-center cursor-pointer transition transform hover:scale-105 select-none min-w-[140px]"
+                >
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono font-bold text-cyan-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                    <span>TRANSMISSÃO</span>
+                  </div>
+                  <div className="text-xs font-semibold text-white truncate max-w-[160px]">
+                    {whisper.author}
+                  </div>
+                  <div className="text-[9px] font-mono text-cyan-300/80 mt-0.5 flex items-center justify-center gap-1">
+                    <kbd className="px-1 py-0.2 bg-cyan-950/80 rounded border border-cyan-500/40 text-[8px] text-cyan-200">
+                      E
+                    </kbd>
+                    <span>ou clique para ouvir</span>
+                  </div>
+                </div>
+              </Html>
+            )}
+          </group>
+        );
+      })}
+    </group>
+  );
+};

@@ -11,6 +11,10 @@ import { RaceOverlay } from './components/ui/RaceOverlay';
 import { ScreenEdgeBlur } from './components/ui/ScreenEdgeBlur';
 import { AchievementToast } from './components/ui/AchievementToast';
 import { SecretMessageModal, SecretType } from './components/ui/SecretMessageModal';
+import { WhisperReaderModal } from './components/ui/WhisperReaderModal';
+import { DropWhisperModal } from './components/ui/DropWhisperModal';
+import { WhispersListModal } from './components/ui/WhispersListModal';
+import { whispersService } from './services/whispersService';
 import { useKonamiCode } from './hooks/useKonamiCode';
 import { SPEED_RINGS } from './components/3d/SpeedRings';
 import {
@@ -19,7 +23,7 @@ import {
   BADGES_DATA,
   formatRaceTime,
 } from './data/portfolioData';
-import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge } from './types';
+import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
 import { sounds } from './audio/soundManager';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
@@ -107,6 +111,27 @@ export default function App() {
   const [secretModalType, setSecretModalType] = useState<SecretType | null>(null);
   const [isMatrixGlitchActive, setIsMatrixGlitchActive] = useState<boolean>(false);
   const avatarClickCountRef = useRef<number>(0);
+
+  // Cosmic Whispers & Social Presence State
+  const [whispers, setWhispers] = useState<CosmicWhisper[]>([]);
+  const [presenceCount, setPresenceCount] = useState<number>(4);
+  const [selectedWhisper, setSelectedWhisper] = useState<CosmicWhisper | null>(null);
+  const [showDropWhisperModal, setShowDropWhisperModal] = useState<boolean>(false);
+  const [showWhispersListModal, setShowWhispersListModal] = useState<boolean>(false);
+
+  // Subscribe to Cosmic Whispers network & Presence
+  useEffect(() => {
+    const unsubWhispers = whispersService.subscribeToWhispers((list) => {
+      setWhispers(list);
+    });
+    const unsubPresence = whispersService.subscribeToPresence((count) => {
+      setPresenceCount(count);
+    });
+    return () => {
+      unsubWhispers();
+      unsubPresence();
+    };
+  }, []);
 
   // Sync stats to localStorage
   useEffect(() => {
@@ -436,6 +461,23 @@ export default function App() {
     }
   }, [addXp]);
 
+  // Transmissão de novo Sussurro Cósmico
+  const handleBroadcastWhisper = useCallback((newWhisper: CosmicWhisper) => {
+    whispersService.addWhisper(newWhisper);
+    addXp(150);
+    confetti({
+      particleCount: 110,
+      spread: 75,
+      origin: { y: 0.6 },
+      colors: ['#06b6d4', '#67e8f9', '#a855f7', '#fbbf24', '#10b981'],
+    });
+  }, [addXp]);
+
+  // Curtir / Ressoar Sussurro Cósmico
+  const handleLikeWhisper = useCallback((id: string) => {
+    whispersService.likeWhisper(id);
+  }, []);
+
   // Handle entering game from landing screen with cinematic fly-in
   const handleStartGame = () => {
     setGameMode('entering');
@@ -590,7 +632,27 @@ export default function App() {
   const isModalOpen =
     gameMode === 'inspecting' ||
     Boolean(activeChallengeIsland) ||
-    showSettingsModal;
+    showSettingsModal ||
+    Boolean(secretModalType) ||
+    Boolean(selectedWhisper) ||
+    showDropWhisperModal ||
+    showWhispersListModal;
+
+  // Global key handler for transmission [T]
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+
+      if ((e.key === 't' || e.key === 'T') && gameMode === 'driving' && !isModalOpen) {
+        e.preventDefault();
+        sounds.playClick();
+        setShowDropWhisperModal(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [gameMode, isModalOpen]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#070b14] text-white">
@@ -620,6 +682,8 @@ export default function App() {
         onRecoverCargo={handleRecoverCargo}
         onCinematicComplete={handleCinematicComplete}
         onDiscoverSecret={handleDiscoverSecret}
+        whispers={whispers}
+        onInspectWhisper={setSelectedWhisper}
       />
 
       {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
@@ -651,6 +715,10 @@ export default function App() {
             onOpenSettings={() => handleOpenSettingsModal('options')}
             onOpenAchievements={() => handleOpenSettingsModal('achievements')}
             onAvatarClick={handleAvatarClick}
+            onOpenDropWhisper={() => setShowDropWhisperModal(true)}
+            onOpenWhispersList={() => setShowWhispersListModal(true)}
+            whispers={whispers}
+            presenceCount={presenceCount}
             recentXpGained={recentXpGained}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
@@ -750,6 +818,33 @@ export default function App() {
       <SecretMessageModal
         type={secretModalType}
         onClose={() => setSecretModalType(null)}
+      />
+
+      {/* Modais da Rede Social Cósmica (Whispers / Mensagens Estelares) */}
+      <WhisperReaderModal
+        whisper={selectedWhisper}
+        onClose={() => setSelectedWhisper(null)}
+        onLike={handleLikeWhisper}
+      />
+
+      <DropWhisperModal
+        isOpen={showDropWhisperModal}
+        onClose={() => setShowDropWhisperModal(false)}
+        currentPosition={vehiclePos}
+        onBroadcastWhisper={handleBroadcastWhisper}
+      />
+
+      <WhispersListModal
+        isOpen={showWhispersListModal}
+        onClose={() => setShowWhispersListModal(false)}
+        whispers={whispers}
+        vehiclePos={vehiclePos}
+        presenceCount={presenceCount}
+        onSelectWhisper={(w) => {
+          setShowWhispersListModal(false);
+          setSelectedWhisper(w);
+        }}
+        onOpenDropModal={() => setShowDropWhisperModal(true)}
       />
 
       {/* Easter Egg 5: Matrix Glitch Cyber Rain Overlay */}
