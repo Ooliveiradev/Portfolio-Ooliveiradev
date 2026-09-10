@@ -14,6 +14,7 @@ interface HUDProps {
   onResetVehicle?: () => void;
   onReturnToLanding: () => void;
   onOpenSettings?: () => void;
+  onOpenAchievements?: () => void;
   recentXpGained: number | null;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
@@ -30,6 +31,7 @@ export const HUD: React.FC<HUDProps> = ({
   onSelectIsland,
   onReturnToLanding,
   onOpenSettings,
+  onOpenAchievements,
   recentXpGained,
   vehiclePos,
   vehicleRotation,
@@ -141,6 +143,21 @@ export const HUD: React.FC<HUDProps> = ({
               >
                 <MaterialIcon name="settings" className="text-sky-400" size={18} />
                 <span className="hidden sm:inline">Menu</span>
+              </button>
+            )}
+
+            {/* Direct Achievements / Trophy Button */}
+            {onOpenAchievements && (
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  onOpenAchievements();
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-amber-300 hover:text-amber-200 border border-slate-800/80 hover:border-amber-400/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg font-mono text-xs font-semibold"
+                title="Conquistas & Badges Galácticas"
+              >
+                <MaterialIcon name="military_tech" fill className="text-amber-400" size={18} />
+                <span>{stats.unlockedBadges.length}</span>
               </button>
             )}
           </div>

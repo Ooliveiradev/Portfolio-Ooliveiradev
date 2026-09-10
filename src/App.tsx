@@ -9,6 +9,7 @@ import { ChallengeModal } from './components/ui/ChallengeModal';
 import { GameSettingsModal, SettingsTab } from './components/ui/GameSettingsModal';
 import { RaceOverlay } from './components/ui/RaceOverlay';
 import { ScreenEdgeBlur } from './components/ui/ScreenEdgeBlur';
+import { AchievementToast } from './components/ui/AchievementToast';
 import { SPEED_RINGS } from './components/3d/SpeedRings';
 import {
   ISLANDS_CONFIG,
@@ -16,7 +17,7 @@ import {
   BADGES_DATA,
   formatRaceTime,
 } from './data/portfolioData';
-import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQuality, RaceLeaderboardEntry, GameMode } from './types';
+import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge } from './types';
 import { sounds } from './audio/soundManager';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
@@ -96,6 +97,9 @@ export default function App() {
   // Recent XP notification popup
   const [recentXpGained, setRecentXpGained] = useState<number | null>(null);
   const xpTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Latest unlocked achievement popup toast
+  const [latestUnlockedBadge, setLatestUnlockedBadge] = useState<Badge | null>(null);
 
   // Sync stats to localStorage
   useEffect(() => {
@@ -281,54 +285,105 @@ export default function App() {
     sounds.playBadgeUnlocked();
   }, [raceElapsedTime]);
 
-  // Check and unlock badges automatically
-  const checkBadges = useCallback((currentStats: UserStats) => {
+  // Check and unlock badges automatically with cinematic toast notifications
+  const checkBadges = useCallback((currentStats: UserStats, extraBadgeId?: string) => {
     const unlocked = new Set(currentStats.unlockedBadges);
-    let newlyUnlocked = false;
+    let newlyUnlockedBadge: Badge | null = null;
 
-    // Badge 2: Cosmo Navegador (visited all 5 islands)
-    if (currentStats.visitedIslands.length >= 5 && !unlocked.has('badge-explorer')) {
-      unlocked.add('badge-explorer');
-      newlyUnlocked = true;
-      addXp(300);
+    const tryUnlock = (badgeId: string) => {
+      if (!unlocked.has(badgeId)) {
+        unlocked.add(badgeId);
+        const b = BADGES_DATA.find((item) => item.id === badgeId);
+        if (b) {
+          newlyUnlockedBadge = b;
+          addXp(b.xpReward);
+        }
+      }
+    };
+
+    if (extraBadgeId) {
+      tryUnlock(extraBadgeId);
     }
 
-    // Badge 3: Mestre dos Desafios (completed 2+ challenges)
-    if (currentStats.completedChallenges.length >= 2 && !unlocked.has('badge-coder')) {
-      unlocked.add('badge-coder');
-      newlyUnlocked = true;
-      addXp(250);
+    // 1. Cosmo Navegador (todas as 5 ilhas)
+    if (currentStats.visitedIslands.length >= 5) {
+      tryUnlock('badge-explorer');
     }
 
-    // Badge 4: Coletor Cósmico (collected 5 crystals)
-    if (currentStats.collectedCrystals.length >= 5 && !unlocked.has('badge-crystal')) {
-      unlocked.add('badge-crystal');
-      newlyUnlocked = true;
-      addXp(200);
+    // 2. Mestre dos Desafios (2+ desafios)
+    if (currentStats.completedChallenges.length >= 2) {
+      tryUnlock('badge-coder');
     }
 
-    // Badge 5: Inspetor de Projetos (viewed project details)
-    if (currentStats.viewedProjects.length >= 1 && !unlocked.has('badge-inspector')) {
-      unlocked.add('badge-inspector');
-      newlyUnlocked = true;
-      addXp(150);
+    // 3. Minerador Estelar (3+ cristais)
+    if (currentStats.collectedCrystals.length >= 3) {
+      tryUnlock('badge-crystal-novice');
     }
 
-    // Badge 6: Comunicação Estabelecida (visited about island)
-    if (currentStats.visitedIslands.includes('about') && !unlocked.has('badge-contact')) {
-      unlocked.add('badge-contact');
-      newlyUnlocked = true;
-      addXp(200);
+    // 4. Coletor Cósmico (todos os 8 cristais)
+    if (currentStats.collectedCrystals.length >= 8) {
+      tryUnlock('badge-crystal');
     }
 
-    if (newlyUnlocked) {
-      sounds.playBadgeUnlocked();
+    // 5. Arquiteto de Software (inspecionou projeto)
+    if (currentStats.viewedProjects.length >= 1) {
+      tryUnlock('badge-inspector');
+    }
+
+    // 6. Comunicação Estabelecida (visitou about)
+    if (currentStats.visitedIslands.includes('about')) {
+      tryUnlock('badge-contact');
+    }
+
+    // 7. Mente Brilhante (visitou education)
+    if (currentStats.visitedIslands.includes('education')) {
+      tryUnlock('badge-scholar');
+    }
+
+    // 8. Engenheiro Fullstack (visitou skills)
+    if (currentStats.visitedIslands.includes('skills')) {
+      tryUnlock('badge-technologist');
+    }
+
+    // 9. Lenda da Galáxia (10+ conquistas)
+    if (unlocked.size >= 10) {
+      tryUnlock('badge-perfectionist');
+    }
+
+    if (newlyUnlockedBadge) {
+      setLatestUnlockedBadge(newlyUnlockedBadge);
       setStats((prev) => ({
         ...prev,
         unlockedBadges: Array.from(unlocked),
       }));
     }
   }, [addXp]);
+
+  // Listener para boost turbo (Conquista Hyperdrive)
+  useEffect(() => {
+    const handleBoost = () => {
+      setStats((prev) => {
+        if (!prev.unlockedBadges.includes('badge-boost-master')) {
+          checkBadges(prev, 'badge-boost-master');
+        }
+        return prev;
+      });
+    };
+    window.addEventListener('app:boost-vehicle', handleBoost);
+    return () => window.removeEventListener('app:boost-vehicle', handleBoost);
+  }, [checkBadges]);
+
+  // Listener para exploração espacial: Drifter Solar e Espaço Profundo
+  useEffect(() => {
+    if (gameMode !== 'driving') return;
+    const distToCenter = Math.hypot(vehiclePos[0], vehiclePos[2]);
+    if (distToCenter < 10.5 && !stats.unlockedBadges.includes('badge-orbit-drifter')) {
+      checkBadges(stats, 'badge-orbit-drifter');
+    }
+    if (distToCenter > 95 && !stats.unlockedBadges.includes('badge-secret-voyager')) {
+      checkBadges(stats, 'badge-secret-voyager');
+    }
+  }, [vehiclePos, gameMode, stats, checkBadges]);
 
   // Handle entering game from landing screen with cinematic fly-in
   const handleStartGame = () => {
@@ -542,6 +597,7 @@ export default function App() {
             onResetVehicle={handleResetVehicle}
             onReturnToLanding={handleReturnToLanding}
             onOpenSettings={() => handleOpenSettingsModal('options')}
+            onOpenAchievements={() => handleOpenSettingsModal('achievements')}
             recentXpGained={recentXpGained}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
@@ -626,9 +682,16 @@ export default function App() {
             initialTab={settingsModalTab}
             graphicsQuality={graphicsQuality}
             onSelectGraphicsQuality={handleSelectGraphicsQuality}
+            onUpdateStats={(newStats) => setStats(newStats)}
           />
         )}
       </AnimatePresence>
+
+      {/* Notificação Cinematográfica Flutuante de Conquistas Desbloqueadas */}
+      <AchievementToast
+        achievement={latestUnlockedBadge}
+        onClose={() => setLatestUnlockedBadge(null)}
+      />
     </div>
   );
 }

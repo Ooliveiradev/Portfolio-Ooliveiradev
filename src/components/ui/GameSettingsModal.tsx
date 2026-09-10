@@ -22,6 +22,7 @@ interface GameSettingsModalProps {
   initialTab?: SettingsTab;
   graphicsQuality?: GraphicsQuality;
   onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
+  onUpdateStats?: (newStats: UserStats) => void;
 }
 
 export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
@@ -38,6 +39,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   initialTab = 'options',
   graphicsQuality = 'mid',
   onSelectGraphicsQuality,
+  onUpdateStats,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>('keyboard');
@@ -90,16 +92,81 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
       case 'badge-explorer':
         return <MaterialIcon name="public" size={20} />;
       case 'badge-coder':
-        return <MaterialIcon name="memory" size={20} />;
+        return <MaterialIcon name="code" size={20} />;
+      case 'badge-crystal-novice':
+        return <MaterialIcon name="diamond" size={20} />;
       case 'badge-crystal':
         return <MaterialIcon name="auto_awesome" size={20} />;
       case 'badge-inspector':
         return <MaterialIcon name="manage_search" size={20} />;
       case 'badge-contact':
         return <MaterialIcon name="send" size={20} />;
+      case 'badge-speedster':
+        return <MaterialIcon name="flag" size={20} />;
+      case 'badge-supersonic':
+        return <MaterialIcon name="bolt" size={20} />;
+      case 'badge-boost-master':
+        return <MaterialIcon name="rocket_launch" size={20} />;
+      case 'badge-orbit-drifter':
+        return <MaterialIcon name="wb_sunny" size={20} />;
+      case 'badge-easter-asteroid':
+        return <MaterialIcon name="filter_drama" size={20} />;
+      case 'badge-secret-voyager':
+        return <MaterialIcon name="near_me" size={20} />;
+      case 'badge-scholar':
+        return <MaterialIcon name="school" size={20} />;
+      case 'badge-technologist':
+        return <MaterialIcon name="terminal" size={20} />;
+      case 'badge-perfectionist':
+        return <MaterialIcon name="military_tech" size={20} />;
       default:
         return <MaterialIcon name="military_tech" size={20} />;
     }
+  };
+
+  const handleExportSaveGame = () => {
+    const backupData = {
+      version: 1,
+      exportDate: new Date().toISOString(),
+      stats,
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `galactic-portfolio-save-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    sounds.playCoin();
+  };
+
+  const handleImportSaveGame = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+        if (parsed && parsed.stats && typeof parsed.stats.xp === 'number') {
+          onUpdateStats?.(parsed.stats);
+          sounds.playBadgeUnlocked();
+          confetti({
+            particleCount: 50,
+            spread: 70,
+            origin: { y: 0.5 },
+          });
+          alert('Progresso galáctico restaurado com sucesso!');
+        } else {
+          alert('Arquivo de save inválido.');
+        }
+      } catch {
+        alert('Erro ao ler arquivo de progresso.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleSaveScore = (e: React.FormEvent) => {
@@ -824,6 +891,40 @@ Confira em: ${window.location.href}`;
                           💎
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Backup & Save Game Progression (Export/Import) */}
+                  <div className="mt-3.5 p-3 bg-[#111622]/50 border border-slate-800/60 rounded-xl flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-mono font-bold text-slate-200 block">
+                        Backup de Progresso (Save Game)
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Exporte ou restaure suas conquistas e XP em qualquer dispositivo
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleExportSaveGame}
+                        className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-sky-400/40 text-xs font-mono font-medium transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        title="Baixar arquivo de progresso JSON"
+                      >
+                        <MaterialIcon name="download" size={15} className="text-sky-400" />
+                        <span>Exportar</span>
+                      </button>
+
+                      <label className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-emerald-400/40 text-xs font-mono font-medium transition flex items-center gap-1.5 cursor-pointer shadow-sm">
+                        <MaterialIcon name="upload" size={15} className="text-emerald-400" />
+                        <span>Importar</span>
+                        <input
+                          type="file"
+                          accept=".json"
+                          className="hidden"
+                          onChange={handleImportSaveGame}
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>
