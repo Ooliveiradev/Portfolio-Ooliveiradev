@@ -240,7 +240,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   <text x="6" y="102" textAnchor="middle">O</text>
                 </g>
 
-                {/* 2. Planetary Orbits (Thin, clean circular tracks) */}
+                {/* 2. Planetary Orbits (Círculos orbitais contínuos e translúcidos o tempo todo) */}
                 {islands.map((island) => {
                   const orbitR = island.orbitRadius * scale;
                   const isHovered = hoveredIsland?.id === island.id;
@@ -254,9 +254,8 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                       r={orbitR}
                       fill="none"
                       stroke={island.color}
-                      strokeWidth={isSelected || isHovered ? '0.9' : '0.45'}
-                      strokeDasharray={isSelected ? '2 1.5' : '1.5 2.5'}
-                      opacity={isSelected ? 0.8 : isHovered ? 0.6 : 0.22}
+                      strokeWidth={isSelected || isHovered ? '0.85' : '0.45'}
+                      opacity={isSelected ? 0.85 : isHovered ? 0.65 : 0.3}
                     />
                   );
                 })}
