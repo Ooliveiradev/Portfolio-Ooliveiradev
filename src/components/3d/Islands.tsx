@@ -110,14 +110,14 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
     };
   }, [isReady]);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!groupRef.current) return;
 
     // Retrieve mathematical synchronized real-time position
     const [x, baseY, z] = getIslandLivePosition(config);
     const y =
       baseY +
-      (hovered ? 0.5 : Math.sin(Date.now() * 0.0015 + config.angleOffset) * 0.18);
+      (hovered ? 0.5 : Math.sin(state.clock.elapsedTime * 1.5 + config.angleOffset) * 0.18);
 
     groupRef.current.position.set(x, y, z);
 
@@ -127,7 +127,8 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
     }
 
     const dist = Math.hypot(vehiclePos[0] - x, vehiclePos[2] - z);
-    setIsNear(dist < 16.0);
+    const near = dist < 16.0;
+    setIsNear((prev) => (prev !== near ? near : prev));
   });
 
   const handlePointerOver = (e: { stopPropagation: () => void }) => {

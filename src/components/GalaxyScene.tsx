@@ -12,6 +12,7 @@ import { CosmicDust } from './3d/CosmicDust';
 import { ShootingStars } from './3d/ShootingStars';
 import { CelestialHorizon } from './3d/CelestialHorizon';
 import { SpeedRings } from './3d/SpeedRings';
+import { VehicleThrusterTrails } from './3d/VehicleThrusterTrails';
 import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode } from '../types';
 
 interface GalaxySceneProps {
@@ -115,7 +116,7 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
       >
         <Suspense fallback={null}>
           <color attach="background" args={['#070b14']} />
-          <fog attach="fog" args={['#070b14', 90, 360]} />
+          <fog attach="fog" args={['#070b14', 50, 210]} />
 
           {/* ==========================================================
               ILUMINAÇÃO DE ESTÚDIO CÓSMICO (PADRÃO BRUNO SIMON)
@@ -243,6 +244,14 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
               onReachCheckpoint={onReachCheckpoint}
               onNearStartGate={onNearStartGate}
             />
+
+            {/* Trilhas e Fitas de Plasma Luminescente da Nave (Skidmarks Cósmicos) */}
+            {gameMode !== 'landing' && (
+              <VehicleThrusterTrails
+                sharedVehiclePos={sharedVehiclePos}
+                graphicsQuality={graphicsQuality}
+              />
+            )}
 
             {/* Gerenciador de Explosões Low-Poly estilo Bruno Simon */}
             <LowPolyExplosions graphicsQuality={graphicsQuality} />

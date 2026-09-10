@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { useRapier } from './RapierPhysicsContext';
+import { useRapier, usePostPhysics } from './RapierPhysicsContext';
 
 export type ColliderShape =
   | { type: 'cuboid'; halfExtents: [number, number, number] }
@@ -125,8 +124,8 @@ export function useRapierBody<T extends THREE.Object3D>(
     };
   }, [isReady]);
 
-  // Synchronize mesh visual transform with physics simulation
-  useFrame(() => {
+  // Sincronização visual em fase Post-Physics: executado exatamente após o step do Rapier
+  usePostPhysics(() => {
     if (!bodyRef.current || !ref.current || options.type === 'fixed') return;
 
     const t = bodyRef.current.translation();

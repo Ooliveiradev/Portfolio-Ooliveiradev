@@ -8,6 +8,7 @@ import { IslandModal } from './components/ui/IslandModal';
 import { ChallengeModal } from './components/ui/ChallengeModal';
 import { GameSettingsModal, SettingsTab } from './components/ui/GameSettingsModal';
 import { RaceOverlay } from './components/ui/RaceOverlay';
+import { ScreenEdgeBlur } from './components/ui/ScreenEdgeBlur';
 import { SPEED_RINGS } from './components/3d/SpeedRings';
 import {
   ISLANDS_CONFIG,
@@ -513,6 +514,9 @@ export default function App() {
         onRecoverCargo={handleRecoverCargo}
         onCinematicComplete={handleCinematicComplete}
       />
+
+      {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
+      <ScreenEdgeBlur graphicsQuality={graphicsQuality} />
 
       {/* Screen 1: Initial Landing Screen Overlay with Centered Orbiting Galaxy in Background */}
       <AnimatePresence>

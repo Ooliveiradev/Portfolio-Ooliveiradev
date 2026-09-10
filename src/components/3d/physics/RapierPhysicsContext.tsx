@@ -1,20 +1,56 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import RAPIER from '@dimforge/rapier3d-compat';
+
+type PhysicsCallback = (delta: number) => void;
 
 interface RapierContextType {
   rapier: typeof RAPIER | null;
   world: RAPIER.World | null;
   isReady: boolean;
+  registerPrePhysics: (cb: PhysicsCallback) => () => void;
+  registerPostPhysics: (cb: PhysicsCallback) => () => void;
 }
 
 const RapierContext = createContext<RapierContextType>({
   rapier: null,
   world: null,
   isReady: false,
+  registerPrePhysics: () => () => {},
+  registerPostPhysics: () => () => {},
 });
 
 export const useRapier = () => useContext(RapierContext);
+
+/**
+ * usePrePhysics Hook
+ * Inspiração: Folio-2025 (Bruno Simon "Player:pre-physics" & "PhysicalVehicle:pre-physics").
+ * Executado rigorosamente ANTES do world.step() do Rapier.
+ */
+export const usePrePhysics = (callback: PhysicsCallback) => {
+  const { registerPrePhysics } = useRapier();
+  const cbRef = useRef(callback);
+  cbRef.current = callback;
+
+  useEffect(() => {
+    return registerPrePhysics((dt) => cbRef.current(dt));
+  }, [registerPrePhysics]);
+};
+
+/**
+ * usePostPhysics Hook
+ * Inspiração: Folio-2025 (Bruno Simon "PhysicalVehicle:post-physics" & "Objects").
+ * Executado rigorosamente DEPOIS do world.step() do Rapier e antes do render da câmera.
+ */
+export const usePostPhysics = (callback: PhysicsCallback) => {
+  const { registerPostPhysics } = useRapier();
+  const cbRef = useRef(callback);
+  cbRef.current = callback;
+
+  useEffect(() => {
+    return registerPostPhysics((dt) => cbRef.current(dt));
+  }, [registerPostPhysics]);
+};
 
 interface RapierPhysicsProviderProps {
   children: React.ReactNode;
@@ -28,6 +64,24 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
   const [isReady, setIsReady] = useState(false);
   const rapierRef = useRef<typeof RAPIER | null>(null);
   const worldRef = useRef<RAPIER.World | null>(null);
+
+  // Fila sequencial de callbacks rigorosamente sincronizados
+  const prePhysicsListeners = useRef<Set<PhysicsCallback>>(new Set());
+  const postPhysicsListeners = useRef<Set<PhysicsCallback>>(new Set());
+
+  const registerPrePhysics = useCallback((cb: PhysicsCallback) => {
+    prePhysicsListeners.current.add(cb);
+    return () => {
+      prePhysicsListeners.current.delete(cb);
+    };
+  }, []);
+
+  const registerPostPhysics = useCallback((cb: PhysicsCallback) => {
+    postPhysicsListeners.current.add(cb);
+    return () => {
+      postPhysicsListeners.current.delete(cb);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -57,14 +111,38 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
     };
   }, [gravity[0], gravity[1], gravity[2]]);
 
-  // Physics simulation loop strictly in sync with requestAnimationFrame
+  // Game Loop Sequenciado (Folio-2025 Architecture):
+  // 1. Time / Delta Clamp
+  // 2. Pre-Physics (Inputs -> Forças e Impulsos)
+  // 3. Physics Simulation (Rapier Step)
+  // 4. Post-Physics (Visual Sync dos Corpos Rígidos)
   useFrame((_, delta) => {
+    // Delta time clampado para prevenir saltos em quedas de quadros
+    const dt = Math.min(delta, 0.05);
+
+    // 1. Executa estágio Pre-Physics
+    prePhysicsListeners.current.forEach((fn) => {
+      try {
+        fn(dt);
+      } catch (e) {
+        console.error('Pre-physics callback error:', e);
+      }
+    });
+
+    // 2. Executa o passo físico da simulação
     if (worldRef.current && isReady) {
-      // Step the physics world with capped delta time for stability
-      const dt = Math.min(delta, 0.05);
       worldRef.current.timestep = dt;
       worldRef.current.step();
     }
+
+    // 3. Executa estágio Post-Physics (sync de transforms)
+    postPhysicsListeners.current.forEach((fn) => {
+      try {
+        fn(dt);
+      } catch (e) {
+        console.error('Post-physics callback error:', e);
+      }
+    });
   });
 
   return (
@@ -73,6 +151,8 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
         rapier: rapierRef.current,
         world: worldRef.current,
         isReady,
+        registerPrePhysics,
+        registerPostPhysics,
       }}
     >
       {children}
