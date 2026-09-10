@@ -13,6 +13,7 @@ import { ShootingStars } from './3d/ShootingStars';
 import { CelestialHorizon } from './3d/CelestialHorizon';
 import { SpeedRings } from './3d/SpeedRings';
 import { VehicleThrusterTrails } from './3d/VehicleThrusterTrails';
+import { PostProcessingPipeline } from './3d/postprocessing/PostProcessingPipeline';
 import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode } from '../types';
 
 interface GalaxySceneProps {
@@ -255,6 +256,9 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
 
             {/* Gerenciador de Explosões Low-Poly estilo Bruno Simon */}
             <LowPolyExplosions graphicsQuality={graphicsQuality} />
+
+            {/* Pipeline de Pós-Processamento Cinematográfico: Unreal Bloom & Aberração Cromática */}
+            <PostProcessingPipeline graphicsQuality={graphicsQuality} />
           </RapierPhysicsProvider>
         </Suspense>
       </Canvas>
