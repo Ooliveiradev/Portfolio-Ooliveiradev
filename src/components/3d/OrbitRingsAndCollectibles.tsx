@@ -6,6 +6,7 @@ import { sounds } from '../../audio/soundManager';
 
 import { LowPolySun } from './LowPolySun';
 import { HolographicMaterial } from './shaders/HolographicMaterial';
+import { InstancedAsteroidBelt } from './InstancedAsteroidBelt';
 
 interface OrbitRingsAndCollectiblesProps {
   islands?: IslandConfig[];
@@ -81,11 +82,11 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
 
   return (
     <group>
-      {/* ==========================================================
-          CENTRAL STAR / SUN OF THE SOLAR SYSTEM
-          Faceted Low-Poly Sun with 36 Erupting Solar Particles & Fiery Glow
-         ========================================================== */}
+      {/* Central Low-Poly Sun */}
       <LowPolySun graphicsQuality={graphicsQuality} />
+
+      {/* Cinturão de Asteroides Instanciado (Tier 3 - #18: 120+ asteroides em 1 Draw Call) */}
+      <InstancedAsteroidBelt graphicsQuality={graphicsQuality} />
 
       {/* Starfield Particles */}
       <points>

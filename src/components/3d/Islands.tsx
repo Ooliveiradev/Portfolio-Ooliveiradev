@@ -76,6 +76,7 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [isNear, setIsNear] = useState(false);
+  const [isFar, setIsFar] = useState(false);
   const { rapier, world, isReady } = useRapier();
   const rigidBodyRef = useRef<RAPIER.RigidBody | null>(null);
 
@@ -128,7 +129,9 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
 
     const dist = Math.hypot(vehiclePos[0] - x, vehiclePos[2] - z);
     const near = dist < 16.0;
+    const far = dist > 62.0;
     setIsNear((prev) => (prev !== near ? near : prev));
+    setIsFar((prev) => (prev !== far ? far : prev));
   });
 
   const handlePointerOver = (e: { stopPropagation: () => void }) => {
@@ -160,20 +163,26 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
     >
       {/* Dynamic Scale pop on hover with customized island diorama scale */}
       <group scale={currentScale}>
-        {/* Render the bespoke themed 3D island model */}
-        {config.id === 'education' && <EducationIsland />}
-        {config.id === 'skills' && <SkillsIsland />}
-        {config.id === 'projects' && <ProjectsIsland />}
-        {config.id === 'experience' && <ExperienceIsland />}
-        {config.id === 'about' && <AboutIsland />}
+        {/* Dynamic LOD (Tier 3 - #14): Distant islands render low-poly proxy; approaching renders full bespoke model */}
+        {isFar && !hovered && !isModalOpen ? (
+          <LowPolyIslandProxy config={config} />
+        ) : (
+          <>
+            {config.id === 'education' && <EducationIsland />}
+            {config.id === 'skills' && <SkillsIsland />}
+            {config.id === 'projects' && <ProjectsIsland />}
+            {config.id === 'experience' && <ExperienceIsland />}
+            {config.id === 'about' && <AboutIsland />}
 
-        {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
-        {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && (
-          <IslandLife
-            islandId={config.id}
-            themeColor={config.color}
-            isNear={isNear}
-          />
+            {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
+            {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && (
+              <IslandLife
+                islandId={config.id}
+                themeColor={config.color}
+                isNear={isNear}
+              />
+            )}
+          </>
         )}
       </group>
 
@@ -456,3 +465,56 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
     </group>
   );
 };
+
+interface LowPolyIslandProxyProps {
+  config: IslandConfig;
+}
+
+/**
+ * LowPolyIslandProxy
+ * Versão simplificada (LOD - Tier 3 #14) renderizada para ilhas distantes (> 62 unidades).
+ * Reduz drasticamente geometrias e chamadas de desenho sem quebrar a silhueta ou cor temática.
+ */
+const LowPolyIslandProxy: React.FC<LowPolyIslandProxyProps> = ({ config }) => {
+  return (
+    <group>
+      {/* Platô Octogonal Simplificado */}
+      <mesh castShadow receiveShadow position={[0, 0.4, 0]}>
+        <cylinderGeometry args={[4.8, 5.4, 0.9, 8]} />
+        <meshStandardMaterial
+          color="#1e293b"
+          roughness={0.6}
+          metalness={0.2}
+          flatShading
+        />
+      </mesh>
+
+      {/* Monólito Holográfico Icônico com a Cor da Ilha */}
+      <mesh position={[0, 2.4, 0]}>
+        <octahedronGeometry args={[1.8, 0]} />
+        <meshStandardMaterial
+          color={config.color}
+          emissive={config.color}
+          emissiveIntensity={1.4}
+          roughness={0.2}
+          metalness={0.8}
+          transparent
+          opacity={0.85}
+          flatShading
+        />
+      </mesh>
+
+      {/* Quilha Basáltica Inferior Low-Poly */}
+      <mesh position={[0, -1.6, 0]}>
+        <coneGeometry args={[4.6, 3.2, 7]} />
+        <meshStandardMaterial
+          color="#0f172a"
+          roughness={0.8}
+          metalness={0.3}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+};
+

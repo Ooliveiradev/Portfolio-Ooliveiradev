@@ -38,7 +38,6 @@ export const GoldenSecretAsteroid: React.FC<GoldenSecretAsteroidProps> = ({
 
       if (distSq < 4.4 * 4.4) {
         setDiscovered(true);
-        sounds.playBadgeUnlocked();
         onDiscover();
       }
     }
@@ -52,8 +51,8 @@ export const GoldenSecretAsteroid: React.FC<GoldenSecretAsteroidProps> = ({
         castShadow
         onClick={(e) => {
           e.stopPropagation();
+          if (discovered) return;
           setDiscovered(true);
-          sounds.playBadgeUnlocked();
           onDiscover();
         }}
         onPointerOver={() => (document.body.style.cursor = 'pointer')}

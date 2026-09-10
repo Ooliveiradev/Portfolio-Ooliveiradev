@@ -49,6 +49,7 @@ export const CosmicRubberDuck: React.FC<CosmicRubberDuckProps> = ({
 
   const handleInteraction = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
+    if (discovered) return;
     setDiscovered(true);
     sounds.playCoin();
     onDiscover();

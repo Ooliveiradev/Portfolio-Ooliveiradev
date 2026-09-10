@@ -23,23 +23,11 @@ export const ScreenEdgeBlur: React.FC<ScreenEdgeBlurProps> = ({
     return null;
   }
 
-  const blurAmount = graphicsQuality === 'high' ? '14px' : '10px';
-
   return (
     <div
       className="fixed inset-0 pointer-events-none z-20 select-none overflow-hidden"
       aria-hidden="true"
     >
-      {/* 1. Camada de Desfoque Periférico (Tilt-Shift Lens Blur) */}
-      <div
-        className="absolute inset-0 w-full h-full"
-        style={{
-          backdropFilter: `blur(${blurAmount})`,
-          WebkitBackdropFilter: `blur(${blurAmount})`,
-          maskImage: 'radial-gradient(ellipse 72% 65% at 50% 50%, transparent 55%, black 100%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 72% 65% at 50% 50%, transparent 55%, black 100%)',
-        }}
-      />
 
       {/* 2. Vinheta de Profundidade Cósmica Suave */}
       <div

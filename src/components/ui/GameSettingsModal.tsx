@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
 import { CameraViewMode, UserStats, CrystalCollectible, LeaderboardEntry, RaceLeaderboardEntry, GraphicsQuality } from '../../types';
 import { PERSONAL_INFO, BADGES_DATA, INITIAL_LEADERBOARD, INITIAL_RACE_LEADERBOARD } from '../../data/portfolioData';
+import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetector';
 
 export type SettingsTab = 'home' | 'options' | 'controls' | 'achievements' | 'ranking' | 'behind' | 'about';
 
@@ -45,6 +46,13 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>('keyboard');
+
+  // WebGPU & Hardware Telemetry (Issue 16)
+  const [gpuCapability, setGpuCapability] = useState<WebGPUCapability | null>(null);
+
+  useEffect(() => {
+    detectWebGPUSupport().then(setGpuCapability);
+  }, []);
 
   // Ranking & Leaderboard state
   const [rankingCategory, setRankingCategory] = useState<'xp' | 'race'>('xp');
@@ -617,10 +625,10 @@ Confira em: ${window.location.href}`;
                         </span>
                         <span className="text-[11px] text-slate-400">
                           {graphicsQuality === 'low'
-                            ? 'Low: Sem sombras, render leve e máxima taxa de quadros'
+                            ? 'Low: Render nativo super leve sem sombras, máxima taxa de quadros'
                             : graphicsQuality === 'mid'
                             ? 'Mid: Gráficos padrão equilibrados com sombras suaves'
-                            : 'High: Alta fidelidade com sombras 2K e partículas densas'}
+                            : 'High: Alta fidelidade com sombras, partículas e efeitos visuais'}
                         </span>
                       </div>
                       <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-0.5 shrink-0 self-start sm:self-auto">
@@ -640,6 +648,57 @@ Confira em: ${window.location.href}`;
                             {tier === 'low' ? 'Low' : tier === 'mid' ? 'Mid' : 'High'}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* WebGPU & Hardware Telemetry (Issue 16: Future-Proofing) */}
+                    <div className="flex flex-col p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MaterialIcon name="memory" className="text-purple-400" size={18} />
+                          <div>
+                            <span className="text-sm font-medium text-slate-200 font-mono block">
+                              Pipeline Gráfica & Hardware
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Motor gráfico de última geração com fallback automático
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border shrink-0 ${
+                            gpuCapability?.isSupported
+                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+                              : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                          }`}
+                        >
+                          {gpuCapability
+                            ? gpuCapability.isSupported
+                              ? '🔮 WebGPU Nativo'
+                              : '⚡ WebGL 2.0 Ativo'
+                            : 'Detectando...'}
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 flex flex-col gap-1.5 text-[11px] font-mono">
+                        <div className="flex justify-between items-center text-slate-400">
+                          <span>Adaptador GPU:</span>
+                          <span className="text-slate-200 truncate max-w-[220px] text-right font-medium">
+                            {gpuCapability?.adapterName || 'Detectando GPU...'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-400">
+                          <span>Backend Gráfico:</span>
+                          <span className="text-emerald-400 font-medium">
+                            {gpuCapability?.backend || 'WebGL 2.0 (DirectX/Metal/Vulkan)'}
+                          </span>
+                        </div>
+                        {gpuCapability?.isSupported && (
+                          <div className="flex justify-between items-center text-slate-400 pt-1 border-t border-slate-800/50">
+                            <span>Formato de Cores:</span>
+                            <span className="text-purple-300">{gpuCapability.preferredFormat}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

@@ -1,5 +1,6 @@
-import React, { Suspense, useRef, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, useRef, useEffect, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Preload } from '@react-three/drei';
 import * as THREE from 'three';
 import { SpaceVehicle } from './3d/SpaceVehicle';
 import { Islands } from './3d/Islands';
@@ -19,6 +20,7 @@ import { CosmicRubberDuck } from './3d/secrets/CosmicRubberDuck';
 import { SecretVoidIsland } from './3d/secrets/SecretVoidIsland';
 import { CosmicWhispers } from './3d/whispers/CosmicWhispers';
 import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode, CosmicWhisper } from '../types';
+import { getClamped1080pDpr } from '../utils/resolutionLimiter';
 
 interface GalaxySceneProps {
   gameMode: GameMode;
@@ -47,6 +49,35 @@ interface GalaxySceneProps {
   onDiscoverSecret?: (type: 'asteroid' | 'void-island' | 'duck') => void;
   whispers?: CosmicWhisper[];
   onInspectWhisper?: (whisper: CosmicWhisper) => void;
+  onSceneReady?: () => void;
+}
+
+/**
+ * ScenePrewarmer:
+ * Pré-compila todos os shaders, pipelines de materiais e buffers na GPU antes
+ * do primeiro frame de jogo interativo, eliminando travamentos de compilação.
+ */
+function ScenePrewarmer({ onSceneReady }: { onSceneReady?: () => void }) {
+  const { gl, scene, camera } = useThree();
+  const hasPrewarmed = useRef(false);
+
+  useEffect(() => {
+    if (hasPrewarmed.current) return;
+    hasPrewarmed.current = true;
+
+    try {
+      gl.compile(scene, camera);
+    } catch (e) {
+      console.warn('GPU pipeline prewarm warning:', e);
+    }
+
+    const rafId = requestAnimationFrame(() => {
+      onSceneReady?.();
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [gl, scene, camera, onSceneReady]);
+
+  return <Preload all />;
 }
 
 export const GalaxyScene: React.FC<GalaxySceneProps> = ({
@@ -76,6 +107,7 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
   onDiscoverSecret,
   whispers = [],
   onInspectWhisper,
+  onSceneReady,
 }) => {
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
@@ -87,16 +119,25 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
     }
   }, [gameMode]);
 
-  const dprVal: number | [number, number] =
-    graphicsQuality === 'low' ? 1 : graphicsQuality === 'high' ? [1, 2] : [1, 1.5];
+  // Trava a resolução física da GPU em no máximo 1080p (Full HD: 1920x1080)
+  const [clampedDpr, setClampedDpr] = useState<number>(() => getClamped1080pDpr(graphicsQuality));
+
+  useEffect(() => {
+    const handleResize = () => {
+      setClampedDpr(getClamped1080pDpr(graphicsQuality));
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [graphicsQuality]);
 
   return (
     <div className="w-full h-full absolute inset-0 select-none overflow-hidden bg-[#070b14]">
       <Canvas
-        key={graphicsQuality}
+        key={`${graphicsQuality}-${clampedDpr}`}
         shadows={graphicsQuality !== 'low' ? { type: THREE.PCFSoftShadowMap } : false}
         camera={{ position: [38, 42, 38], fov: 30, far: 1000 }}
-        dpr={dprVal}
+        dpr={clampedDpr}
         gl={{
           antialias: graphicsQuality !== 'low',
           toneMapping: THREE.ACESFilmicToneMapping,
@@ -121,8 +162,7 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
           }
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.1;
-          const maxDpr = graphicsQuality === 'low' ? 1 : graphicsQuality === 'high' ? 2 : 1.5;
-          gl.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
+          gl.setPixelRatio(clampedDpr);
         }}
       >
         <Suspense fallback={null}>
@@ -144,8 +184,8 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
             intensity={2.6}
             color="#fffdf5"
             castShadow={graphicsQuality !== 'low'}
-            shadow-mapSize-width={graphicsQuality === 'high' ? 2048 : 1024}
-            shadow-mapSize-height={graphicsQuality === 'high' ? 2048 : 1024}
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
             shadow-camera-near={8}
             shadow-camera-far={260}
             shadow-camera-left={-85}
@@ -291,7 +331,12 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
             )}
 
             {/* Pipeline de Pós-Processamento Cinematográfico: Unreal Bloom & Aberração Cromática */}
-            <PostProcessingPipeline graphicsQuality={graphicsQuality} />
+            {graphicsQuality !== 'low' && (
+              <PostProcessingPipeline graphicsQuality={graphicsQuality} />
+            )}
+
+            {/* Pré-compilação e Aquecimento de Shaders GPU */}
+            <ScenePrewarmer onSceneReady={onSceneReady} />
           </RapierPhysicsProvider>
         </Suspense>
       </Canvas>

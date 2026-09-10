@@ -1,22 +1,28 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GalaxyScene } from './components/GalaxyScene';
 import { LandingOverlay } from './components/ui/LandingOverlay';
 import { HUD } from './components/ui/HUD';
 import { MobileControls } from './components/ui/MobileControls';
-import { IslandModal } from './components/ui/IslandModal';
-import { ChallengeModal } from './components/ui/ChallengeModal';
-import { GameSettingsModal, SettingsTab } from './components/ui/GameSettingsModal';
+import { SettingsTab } from './components/ui/GameSettingsModal';
 import { RaceOverlay } from './components/ui/RaceOverlay';
 import { ScreenEdgeBlur } from './components/ui/ScreenEdgeBlur';
 import { AchievementToast } from './components/ui/AchievementToast';
-import { SecretMessageModal, SecretType } from './components/ui/SecretMessageModal';
-import { WhisperReaderModal } from './components/ui/WhisperReaderModal';
-import { DropWhisperModal } from './components/ui/DropWhisperModal';
-import { WhispersListModal } from './components/ui/WhispersListModal';
+import { SecretType } from './components/ui/SecretMessageModal';
 import { whispersService } from './services/whispersService';
 import { useKonamiCode } from './hooks/useKonamiCode';
+import { useFPSQualityGuard } from './hooks/useFPSQualityGuard';
 import { SPEED_RINGS } from './components/3d/SpeedRings';
+import { Preloader } from './components/ui/Preloader';
+
+// Heavy UI Modals loaded on-demand (Tier 3 - #9: Code Splitting)
+const IslandModal = lazy(() => import('./components/ui/IslandModal').then(m => ({ default: m.IslandModal })));
+const ChallengeModal = lazy(() => import('./components/ui/ChallengeModal').then(m => ({ default: m.ChallengeModal })));
+const GameSettingsModal = lazy(() => import('./components/ui/GameSettingsModal').then(m => ({ default: m.GameSettingsModal })));
+const SecretMessageModal = lazy(() => import('./components/ui/SecretMessageModal').then(m => ({ default: m.SecretMessageModal })));
+const WhisperReaderModal = lazy(() => import('./components/ui/WhisperReaderModal').then(m => ({ default: m.WhisperReaderModal })));
+const DropWhisperModal = lazy(() => import('./components/ui/DropWhisperModal').then(m => ({ default: m.DropWhisperModal })));
+const WhispersListModal = lazy(() => import('./components/ui/WhispersListModal').then(m => ({ default: m.WhispersListModal })));
 import {
   ISLANDS_CONFIG,
   CRYSTALS_DATA,
@@ -29,6 +35,10 @@ import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
 
 export default function App() {
+  // Preloading & System Certification: certifica Rapier WASM, shaders GPU e fontes antes de liberar jogabilidade
+  const [isPreloading, setIsPreloading] = useState<boolean>(true);
+  const [isSceneReady, setIsSceneReady] = useState<boolean>(false);
+
   // Game mode: landing screen, free driving exploration, island inspection, or cinematic transitions
   const [gameMode, setGameMode] = useState<GameMode>('landing');
   // Keep track of which screen the user was on before inspecting an island
@@ -70,6 +80,20 @@ export default function App() {
     }
   };
 
+  // Adaptive Performance & 60 FPS Guard (Tier 3 - #14)
+  useFPSQualityGuard({
+    currentQuality: graphicsQuality,
+    onAutoAdjustQuality: (newQuality) => {
+      setGraphicsQuality(newQuality);
+      try {
+        localStorage.setItem('galactic_portfolio_graphics', newQuality);
+      } catch {
+        // fallback
+      }
+    },
+    enabled: !isPreloading,
+  });
+
   // Active modals
   const [selectedIslandId, setSelectedIslandId] = useState<IslandId | null>(null);
   const [activeChallengeIsland, setActiveChallengeIsland] = useState<IslandId | null>(null);
@@ -84,7 +108,14 @@ export default function App() {
     try {
       const saved = localStorage.getItem('galactic_portfolio_stats');
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.unlockedBadges)) {
+          return {
+            ...parsed,
+            unlockedBadges: Array.from(new Set(['badge-ignition', ...parsed.unlockedBadges])),
+          };
+        }
+        return parsed;
       }
     } catch {
       // fallback
@@ -100,12 +131,52 @@ export default function App() {
     };
   });
 
+  // Strict synchronous in-memory set to guarantee achievements only unlock ONCE
+  const unlockedBadgesRef = useRef<Set<string>>(new Set(stats.unlockedBadges));
+
+  // Sync ref whenever stats.unlockedBadges updates
+  useEffect(() => {
+    for (const b of stats.unlockedBadges) {
+      unlockedBadgesRef.current.add(b);
+    }
+  }, [stats.unlockedBadges]);
+
+  // Track duck secret discovery
+  const duckDiscoveredRef = useRef<boolean>(false);
+  useEffect(() => {
+    try {
+      duckDiscoveredRef.current = localStorage.getItem('galactic_portfolio_duck_discovered') === 'true';
+    } catch {
+      // fallback
+    }
+  }, []);
+
   // Recent XP notification popup
   const [recentXpGained, setRecentXpGained] = useState<number | null>(null);
   const xpTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Latest unlocked achievement popup toast
-  const [latestUnlockedBadge, setLatestUnlockedBadge] = useState<Badge | null>(null);
+  // Achievement toast queue & currently active toast badge
+  const [badgeToastQueue, setBadgeToastQueue] = useState<Badge[]>([]);
+  const [activeToastBadge, setActiveToastBadge] = useState<Badge | null>(null);
+
+  // Process next achievement in queue when current toast is closed
+  useEffect(() => {
+    if (!activeToastBadge && badgeToastQueue.length > 0) {
+      const timer = setTimeout(() => {
+        setBadgeToastQueue((prevQueue) => {
+          if (prevQueue.length === 0) return prevQueue;
+          const [nextBadge, ...rest] = prevQueue;
+          setActiveToastBadge(nextBadge);
+          return rest;
+        });
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [activeToastBadge, badgeToastQueue.length]);
+
+  const handleDismissToast = useCallback(() => {
+    setActiveToastBadge(null);
+  }, []);
 
   // Easter Eggs & Secret Regions State
   const [secretModalType, setSecretModalType] = useState<SecretType | null>(null);
@@ -145,6 +216,7 @@ export default function App() {
   // ESC key handler for closing modals or opening settings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isPreloading) return;
       if (e.key === 'Escape') {
         if (showSettingsModal) {
           setShowSettingsModal(false);
@@ -161,6 +233,7 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
+    isPreloading,
     showSettingsModal,
     activeChallengeIsland,
     selectedIslandId,
@@ -189,6 +262,60 @@ export default function App() {
       };
     });
   }, []);
+
+  // Centralized achievement unlock handler with strict single-unlock guarantee
+  const unlockBadge = useCallback(
+    (badgeId: string) => {
+      // 1. Rigorous check: If already unlocked in ref, CAN NEVER BE UNLOCKED AGAIN.
+      if (unlockedBadgesRef.current.has(badgeId)) {
+        return false;
+      }
+
+      const badge = BADGES_DATA.find((item) => item.id === badgeId);
+      if (!badge) return false;
+
+      // 2. Mark immediately in synchronous ref so no concurrent frame/event can re-trigger
+      unlockedBadgesRef.current.add(badgeId);
+
+      // 3. Queue toast notification
+      setBadgeToastQueue((prev) => {
+        if (prev.some((b) => b.id === badgeId)) return prev;
+        return [...prev, badge];
+      });
+
+      // 4. Award XP for unlocking the achievement
+      addXp(badge.xpReward);
+
+      // 5. Atomically update stats state & localStorage
+      setStats((prev) => {
+        const updatedBadges = Array.from(new Set([...prev.unlockedBadges, badgeId]));
+        const updated = {
+          ...prev,
+          unlockedBadges: updatedBadges,
+        };
+        try {
+          localStorage.setItem('galactic_portfolio_stats', JSON.stringify(updated));
+        } catch {
+          // fallback
+        }
+        return updated;
+      });
+
+      // 6. Meta-Achievement check: Lenda da Galáxia (10+ conquistas)
+      if (
+        badgeId !== 'badge-perfectionist' &&
+        unlockedBadgesRef.current.size >= 10 &&
+        !unlockedBadgesRef.current.has('badge-perfectionist')
+      ) {
+        setTimeout(() => {
+          unlockBadge('badge-perfectionist');
+        }, 500);
+      }
+
+      return true;
+    },
+    [addXp]
+  );
 
   // Cosmic Time Trial Race State
   const [isNearStartGate, setIsNearStartGate] = useState<boolean>(false);
@@ -262,6 +389,12 @@ export default function App() {
         });
         addXp(200);
 
+        // Conquistas exclusivas da corrida (apenas primeiro desbloqueio)
+        unlockBadge('badge-speedster');
+        if (finalTime < 28) {
+          unlockBadge('badge-supersonic');
+        }
+
         setBestRaceTime((prev) => {
           if (prev === null || finalTime < prev) {
             try {
@@ -277,7 +410,7 @@ export default function App() {
         setCurrentCheckpoint((prev) => prev + 1);
       }
     }
-  }, [currentCheckpoint, totalCheckpoints, addXp]);
+  }, [currentCheckpoint, totalCheckpoints, addXp, unlockBadge]);
 
   const handleCancelRace = useCallback(() => {
     setRaceState('idle');
@@ -317,105 +450,88 @@ export default function App() {
     sounds.playBadgeUnlocked();
   }, [raceElapsedTime]);
 
-  // Check and unlock badges automatically with cinematic toast notifications
-  const checkBadges = useCallback((currentStats: UserStats, extraBadgeId?: string) => {
-    const unlocked = new Set(currentStats.unlockedBadges);
-    let newlyUnlockedBadge: Badge | null = null;
-
-    const tryUnlock = (badgeId: string) => {
-      if (!unlocked.has(badgeId)) {
-        unlocked.add(badgeId);
-        const b = BADGES_DATA.find((item) => item.id === badgeId);
-        if (b) {
-          newlyUnlockedBadge = b;
-          addXp(b.xpReward);
-        }
+  // Check island milestones and exploration achievements
+  const checkMilestoneBadges = useCallback(
+    (currentStats: UserStats) => {
+      // 1. Cosmo Navegador (todas as 5 ilhas)
+      if (currentStats.visitedIslands.length >= 5) {
+        unlockBadge('badge-explorer');
       }
-    };
 
-    if (extraBadgeId) {
-      tryUnlock(extraBadgeId);
-    }
+      // 2. Mestre dos Desafios (2+ desafios)
+      if (currentStats.completedChallenges.length >= 2) {
+        unlockBadge('badge-coder');
+      }
 
-    // 1. Cosmo Navegador (todas as 5 ilhas)
-    if (currentStats.visitedIslands.length >= 5) {
-      tryUnlock('badge-explorer');
-    }
+      // 3. Minerador Estelar (3+ cristais)
+      if (currentStats.collectedCrystals.length >= 3) {
+        unlockBadge('badge-crystal-novice');
+      }
 
-    // 2. Mestre dos Desafios (2+ desafios)
-    if (currentStats.completedChallenges.length >= 2) {
-      tryUnlock('badge-coder');
-    }
+      // 4. Coletor Cósmico (todos os 8 cristais)
+      if (currentStats.collectedCrystals.length >= 8) {
+        unlockBadge('badge-crystal');
+      }
 
-    // 3. Minerador Estelar (3+ cristais)
-    if (currentStats.collectedCrystals.length >= 3) {
-      tryUnlock('badge-crystal-novice');
-    }
+      // 5. Arquiteto de Software (inspecionou projeto)
+      if (currentStats.viewedProjects.length >= 1) {
+        unlockBadge('badge-inspector');
+      }
 
-    // 4. Coletor Cósmico (todos os 8 cristais)
-    if (currentStats.collectedCrystals.length >= 8) {
-      tryUnlock('badge-crystal');
-    }
+      // 6. Comunicação Estabelecida (visitou about)
+      if (currentStats.visitedIslands.includes('about')) {
+        unlockBadge('badge-contact');
+      }
 
-    // 5. Arquiteto de Software (inspecionou projeto)
-    if (currentStats.viewedProjects.length >= 1) {
-      tryUnlock('badge-inspector');
-    }
+      // 7. Mente Brilhante (visitou education)
+      if (currentStats.visitedIslands.includes('education')) {
+        unlockBadge('badge-scholar');
+      }
 
-    // 6. Comunicação Estabelecida (visitou about)
-    if (currentStats.visitedIslands.includes('about')) {
-      tryUnlock('badge-contact');
-    }
+      // 8. Engenheiro Fullstack (visitou skills)
+      if (currentStats.visitedIslands.includes('skills')) {
+        unlockBadge('badge-technologist');
+      }
 
-    // 7. Mente Brilhante (visitou education)
-    if (currentStats.visitedIslands.includes('education')) {
-      tryUnlock('badge-scholar');
-    }
+      // 9. Lenda da Galáxia (10+ conquistas)
+      if (unlockedBadgesRef.current.size >= 10) {
+        unlockBadge('badge-perfectionist');
+      }
+    },
+    [unlockBadge]
+  );
 
-    // 8. Engenheiro Fullstack (visitou skills)
-    if (currentStats.visitedIslands.includes('skills')) {
-      tryUnlock('badge-technologist');
-    }
+  // Monitor de marcos galácticos: reage imediatamente e de forma limpa a qualquer atualização de estatísticas
+  useEffect(() => {
+    checkMilestoneBadges(stats);
+  }, [
+    stats.visitedIslands,
+    stats.completedChallenges,
+    stats.collectedCrystals,
+    stats.viewedProjects,
+    checkMilestoneBadges,
+  ]);
 
-    // 9. Lenda da Galáxia (10+ conquistas)
-    if (unlocked.size >= 10) {
-      tryUnlock('badge-perfectionist');
-    }
-
-    if (newlyUnlockedBadge) {
-      setLatestUnlockedBadge(newlyUnlockedBadge);
-      setStats((prev) => ({
-        ...prev,
-        unlockedBadges: Array.from(unlocked),
-      }));
-    }
-  }, [addXp]);
-
-  // Listener para boost turbo (Conquista Hyperdrive)
+  // Listener para boost turbo (Conquista Hyperdrive) - trava síncrona garante disparo ÚNICO na vida útil
   useEffect(() => {
     const handleBoost = () => {
-      setStats((prev) => {
-        if (!prev.unlockedBadges.includes('badge-boost-master')) {
-          checkBadges(prev, 'badge-boost-master');
-        }
-        return prev;
-      });
+      unlockBadge('badge-boost-master');
     };
     window.addEventListener('app:boost-vehicle', handleBoost);
     return () => window.removeEventListener('app:boost-vehicle', handleBoost);
-  }, [checkBadges]);
+  }, [unlockBadge]);
 
-  // Listener para exploração espacial: Drifter Solar e Espaço Profundo
+  // Listener para exploração espacial: Drifter Solar e Espaço Profundo (garantido disparo único)
   useEffect(() => {
     if (gameMode !== 'driving') return;
     const distToCenter = Math.hypot(vehiclePos[0], vehiclePos[2]);
-    if (distToCenter < 10.5 && !stats.unlockedBadges.includes('badge-orbit-drifter')) {
-      checkBadges(stats, 'badge-orbit-drifter');
+    if (distToCenter < 10.5 && !unlockedBadgesRef.current.has('badge-orbit-drifter')) {
+      unlockBadge('badge-orbit-drifter');
     }
-    if (distToCenter > 95 && !stats.unlockedBadges.includes('badge-secret-voyager')) {
-      checkBadges(stats, 'badge-secret-voyager');
+    if (distToCenter > 95 && !unlockedBadgesRef.current.has('badge-secret-voyager')) {
+      unlockBadge('badge-secret-voyager');
     }
-  }, [vehiclePos, gameMode, stats, checkBadges]);
+  }, [vehiclePos, gameMode, unlockBadge]);
 
   // Easter Egg 3: Konami Code (↑ ↑ ↓ ↓ ← → ← → B A)
   useKonamiCode(
@@ -433,19 +549,28 @@ export default function App() {
     }, [addXp])
   );
 
-  // Descoberta de segredos 3D (Asteroide Dourado, Ilha Oculta, Pato de Depuração)
-  const handleDiscoverSecret = useCallback((type: SecretType) => {
-    setSecretModalType(type);
-    if (type === 'asteroid') {
-      addXp(200);
-      checkBadges(stats, 'badge-easter-asteroid');
-    } else if (type === 'void-island') {
-      addXp(300);
-      checkBadges(stats, 'badge-secret-voyager');
-    } else if (type === 'duck') {
-      addXp(100);
-    }
-  }, [addXp, checkBadges, stats]);
+  // Descoberta de segredos 3D (Asteroide Dourado, Ilha Oculta, Pato de Depuração) - trava rigorosa de 1x
+  const handleDiscoverSecret = useCallback(
+    (type: SecretType) => {
+      setSecretModalType(type);
+      if (type === 'asteroid') {
+        unlockBadge('badge-easter-asteroid');
+      } else if (type === 'void-island') {
+        unlockBadge('badge-secret-voyager');
+      } else if (type === 'duck') {
+        if (!duckDiscoveredRef.current) {
+          duckDiscoveredRef.current = true;
+          try {
+            localStorage.setItem('galactic_portfolio_duck_discovered', 'true');
+          } catch {
+            // fallback
+          }
+          addXp(100);
+        }
+      }
+    },
+    [addXp, unlockBadge]
+  );
 
   // Easter Egg 5: Matrix Glitch ao clicar 5 vezes no Avatar DR
   const handleAvatarClick = useCallback(() => {
@@ -501,12 +626,10 @@ export default function App() {
     setStats((prev) => {
       if (!prev.visitedIslands.includes(id)) {
         addXp(100);
-        const updated = {
+        return {
           ...prev,
           visitedIslands: [...prev.visitedIslands, id],
         };
-        setTimeout(() => checkBadges(updated), 500);
-        return updated;
       }
       return prev;
     });
@@ -545,12 +668,10 @@ export default function App() {
     setStats((prev) => {
       if (!prev.collectedCrystals.includes(id)) {
         addXp(25);
-        const updated = {
+        return {
           ...prev,
           collectedCrystals: [...prev.collectedCrystals, id],
         };
-        setTimeout(() => checkBadges(updated), 500);
-        return updated;
       }
       return prev;
     });
@@ -561,12 +682,10 @@ export default function App() {
     setStats((prev) => {
       if (!prev.viewedProjects.includes(projectId)) {
         addXp(50);
-        const updated = {
+        return {
           ...prev,
           viewedProjects: [...prev.viewedProjects, projectId],
         };
-        setTimeout(() => checkBadges(updated), 500);
-        return updated;
       }
       return prev;
     });
@@ -578,12 +697,10 @@ export default function App() {
     setStats((prev) => {
       if (!prev.completedChallenges.includes(islandId)) {
         addXp(150);
-        const updated = {
+        return {
           ...prev,
           completedChallenges: [...prev.completedChallenges, islandId],
         };
-        setTimeout(() => checkBadges(updated), 500);
-        return updated;
       }
       return prev;
     });
@@ -630,6 +747,7 @@ export default function App() {
   };
 
   const isModalOpen =
+    isPreloading ||
     gameMode === 'inspecting' ||
     Boolean(activeChallengeIsland) ||
     showSettingsModal ||
@@ -684,14 +802,25 @@ export default function App() {
         onDiscoverSecret={handleDiscoverSecret}
         whispers={whispers}
         onInspectWhisper={setSelectedWhisper}
+        onSceneReady={() => setIsSceneReady(true)}
       />
 
       {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
       <ScreenEdgeBlur graphicsQuality={graphicsQuality} />
 
+      {/* Tela 0: Preloader Cinematográfico de Inicialização e Certificação de Sistemas */}
+      <AnimatePresence>
+        {isPreloading && (
+          <Preloader
+            isSceneReady={isSceneReady}
+            onComplete={() => setIsPreloading(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Screen 1: Initial Landing Screen Overlay with Centered Orbiting Galaxy in Background */}
       <AnimatePresence>
-        {gameMode === 'landing' && (
+        {!isPreloading && gameMode === 'landing' && (
           <LandingOverlay
             onStartGame={handleStartGame}
             islands={ISLANDS_CONFIG}
@@ -759,94 +888,108 @@ export default function App() {
       {/* Island Content Detail Modal */}
       <AnimatePresence>
         {gameMode === 'inspecting' && selectedIslandId && (
-          <IslandModal
-            island={ISLANDS_CONFIG.find((i) => i.id === selectedIslandId)!}
-            stats={stats}
-            onClose={() => {
-              setGameMode('takeoff');
-            }}
-            onStartChallenge={(id) => setActiveChallengeIsland(id)}
-            onInspectProject={handleInspectProject}
-          />
+          <Suspense fallback={null}>
+            <IslandModal
+              island={ISLANDS_CONFIG.find((i) => i.id === selectedIslandId)!}
+              stats={stats}
+              onClose={() => {
+                setGameMode('takeoff');
+              }}
+              onStartChallenge={(id) => setActiveChallengeIsland(id)}
+              onInspectProject={handleInspectProject}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* Technical Challenge Interactive Minigame Modal */}
       <AnimatePresence>
         {activeChallengeIsland && (
-          <ChallengeModal
-            islandId={activeChallengeIsland}
-            onComplete={handleCompleteChallenge}
-            onClose={() => setActiveChallengeIsland(null)}
-          />
+          <Suspense fallback={null}>
+            <ChallengeModal
+              islandId={activeChallengeIsland}
+              onComplete={handleCompleteChallenge}
+              onClose={() => setActiveChallengeIsland(null)}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* System Settings & Options Modal */}
       <AnimatePresence>
         {showSettingsModal && (
-          <GameSettingsModal
-            isOpen={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-            isMuted={isMuted}
-            onToggleMute={() => setIsMuted(sounds.toggleMute())}
-            cameraViewMode={cameraViewMode}
-            onSelectCameraMode={setCameraViewMode}
-            onRespawnVehicle={handleRespawnVehicle}
-            onResetCrystals={() => {
-              setCrystals((prev) => prev.map((c) => ({ ...c, collected: false })));
-              setStats((prev) => ({ ...prev, collectedCrystals: [] }));
-              sounds.playCoin();
-            }}
-            stats={stats}
-            crystals={crystals}
-            initialTab={settingsModalTab}
-            graphicsQuality={graphicsQuality}
-            onSelectGraphicsQuality={handleSelectGraphicsQuality}
-            onUpdateStats={(newStats) => setStats(newStats)}
-            onAvatarClick={handleAvatarClick}
-          />
+          <Suspense fallback={null}>
+            <GameSettingsModal
+              isOpen={showSettingsModal}
+              onClose={() => setShowSettingsModal(false)}
+              isMuted={isMuted}
+              onToggleMute={() => setIsMuted(sounds.toggleMute())}
+              cameraViewMode={cameraViewMode}
+              onSelectCameraMode={setCameraViewMode}
+              onRespawnVehicle={handleRespawnVehicle}
+              onResetCrystals={() => {
+                setCrystals((prev) => prev.map((c) => ({ ...c, collected: false })));
+                setStats((prev) => ({ ...prev, collectedCrystals: [] }));
+                sounds.playCoin();
+              }}
+              stats={stats}
+              crystals={crystals}
+              initialTab={settingsModalTab}
+              graphicsQuality={graphicsQuality}
+              onSelectGraphicsQuality={handleSelectGraphicsQuality}
+              onUpdateStats={(newStats) => setStats(newStats)}
+              onAvatarClick={handleAvatarClick}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* Notificação Cinematográfica Flutuante de Conquistas Desbloqueadas */}
       <AchievementToast
-        achievement={latestUnlockedBadge}
-        onClose={() => setLatestUnlockedBadge(null)}
+        achievement={activeToastBadge}
+        onClose={handleDismissToast}
       />
 
       {/* Modal de Descobertas e Segredos Cósmicos */}
-      <SecretMessageModal
-        type={secretModalType}
-        onClose={() => setSecretModalType(null)}
-      />
+      <Suspense fallback={null}>
+        <SecretMessageModal
+          type={secretModalType}
+          onClose={() => setSecretModalType(null)}
+        />
+      </Suspense>
 
       {/* Modais da Rede Social Cósmica (Whispers / Mensagens Estelares) */}
-      <WhisperReaderModal
-        whisper={selectedWhisper}
-        onClose={() => setSelectedWhisper(null)}
-        onLike={handleLikeWhisper}
-      />
+      <Suspense fallback={null}>
+        <WhisperReaderModal
+          whisper={selectedWhisper}
+          onClose={() => setSelectedWhisper(null)}
+          onLike={handleLikeWhisper}
+        />
+      </Suspense>
 
-      <DropWhisperModal
-        isOpen={showDropWhisperModal}
-        onClose={() => setShowDropWhisperModal(false)}
-        currentPosition={vehiclePos}
-        onBroadcastWhisper={handleBroadcastWhisper}
-      />
+      <Suspense fallback={null}>
+        <DropWhisperModal
+          isOpen={showDropWhisperModal}
+          onClose={() => setShowDropWhisperModal(false)}
+          currentPosition={vehiclePos}
+          onBroadcastWhisper={handleBroadcastWhisper}
+        />
+      </Suspense>
 
-      <WhispersListModal
-        isOpen={showWhispersListModal}
-        onClose={() => setShowWhispersListModal(false)}
-        whispers={whispers}
-        vehiclePos={vehiclePos}
-        presenceCount={presenceCount}
-        onSelectWhisper={(w) => {
-          setShowWhispersListModal(false);
-          setSelectedWhisper(w);
-        }}
-        onOpenDropModal={() => setShowDropWhisperModal(true)}
-      />
+      <Suspense fallback={null}>
+        <WhispersListModal
+          isOpen={showWhispersListModal}
+          onClose={() => setShowWhispersListModal(false)}
+          whispers={whispers}
+          vehiclePos={vehiclePos}
+          presenceCount={presenceCount}
+          onSelectWhisper={(w) => {
+            setShowWhispersListModal(false);
+            setSelectedWhisper(w);
+          }}
+          onOpenDropModal={() => setShowDropWhisperModal(true)}
+        />
+      </Suspense>
 
       {/* Easter Egg 5: Matrix Glitch Cyber Rain Overlay */}
       <AnimatePresence>

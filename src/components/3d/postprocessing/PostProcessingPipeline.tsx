@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GraphicsQuality } from '../../../types';
+import { getClamped1080pDpr } from '../../../utils/resolutionLimiter';
 
 interface PostProcessingPipelineProps {
   graphicsQuality?: GraphicsQuality;
@@ -59,6 +60,18 @@ const ChromaticAberrationShader = {
 export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
   graphicsQuality = 'mid',
 }) => {
+  // Na qualidade 'low', desativa completamente o pós-processamento e não registra useFrame com prioridade,
+  // permitindo que o renderizador nativo do Three.js / R3F execute com brilho total e zero overhead.
+  if (graphicsQuality === 'low') {
+    return null;
+  }
+
+  return <ActivePostProcessingPipeline graphicsQuality={graphicsQuality} />;
+};
+
+const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }> = ({
+  graphicsQuality,
+}) => {
   const { gl, scene, camera, size } = useThree();
   const composerRef = useRef<EffectComposer | null>(null);
   const bloomPassRef = useRef<UnrealBloomPass | null>(null);
@@ -79,34 +92,34 @@ export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
     };
 
     window.addEventListener('app:boost-vehicle', handleBoostStart);
-    window.addEventListener('keyup', (e) => {
+    const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         targetChromaOffset.current = 0.0;
       }
-    });
+    };
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       window.removeEventListener('app:boost-vehicle', handleBoostStart);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [graphicsQuality]);
 
-  // Inicializa o EffectComposer
+  // Inicializa o EffectComposer travado a no máximo 1080p (Full HD)
   useEffect(() => {
-    if (graphicsQuality === 'low') {
-      composerRef.current = null;
-      return;
-    }
+    const dpr = getClamped1080pDpr(graphicsQuality);
+    const rtWidth = Math.min(1920, Math.round(size.width * dpr));
+    const rtHeight = Math.min(1080, Math.round(size.height * dpr));
 
-    const dpr = Math.min(window.devicePixelRatio, graphicsQuality === 'high' ? 2 : 1.5);
     const renderTarget = new THREE.WebGLRenderTarget(
-      size.width * dpr,
-      size.height * dpr,
+      rtWidth,
+      rtHeight,
       {
         type: THREE.HalfFloatType,
         format: THREE.RGBAFormat,
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
-        samples: graphicsQuality === 'high' ? 4 : 0,
+        samples: 0, // Desativa MSAA no render target HDR para eliminar gargalo de fill-rate
       }
     );
 
@@ -150,16 +163,22 @@ export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
     };
   }, [gl, scene, camera, size, graphicsQuality]);
 
-  // Redimensionamento responsivo
+  // Redimensionamento responsivo travado em 1080p
   useEffect(() => {
     if (composerRef.current) {
+      const dpr = getClamped1080pDpr(graphicsQuality);
+      composerRef.current.setPixelRatio(dpr);
       composerRef.current.setSize(size.width, size.height);
     }
-  }, [size]);
+  }, [size, graphicsQuality]);
 
   // Loop de Renderização do Pós-Processamento com prioridade 1 (substitui o render padrão do R3F)
-  useFrame((_, delta) => {
-    if (!composerRef.current || graphicsQuality === 'low') return;
+  useFrame((state, delta) => {
+    if (!composerRef.current) {
+      // Failsafe: se o composer ainda não estiver pronto, renderiza normalmente via WebGL
+      state.gl.render(state.scene, state.camera);
+      return;
+    }
 
     // Interpolação suave do efeito de aberração cromática
     currentChromaOffset.current = THREE.MathUtils.lerp(
