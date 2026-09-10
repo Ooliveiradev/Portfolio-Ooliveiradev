@@ -211,6 +211,35 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   <circle key={`star-${i}`} cx={sx} cy={sy} r="0.6" fill="#7dd3fc" opacity="0.3" />
                 ))}
 
+                {/* 1.5 Retícula Tática Holográfica & Anéis de Alcance */}
+                <g opacity="0.35">
+                  {/* Linhas cruzadas táticas centralizadas */}
+                  <line x1="100" y1="12" x2="100" y2="188" stroke="#38bdf8" strokeWidth="0.4" strokeDasharray="2 3" />
+                  <line x1="12" y1="100" x2="188" y2="100" stroke="#38bdf8" strokeWidth="0.4" strokeDasharray="2 3" />
+
+                  {/* Anéis concêntricos de alcance estelar */}
+                  {[0.25, 0.5, 0.75, 1.0].map((fraction, idx) => (
+                    <circle
+                      key={`range-ring-${idx}`}
+                      cx="100"
+                      cy="100"
+                      r={RADAR_RADIUS * fraction}
+                      fill="none"
+                      stroke="#0284c7"
+                      strokeWidth="0.35"
+                      strokeDasharray="1 3"
+                    />
+                  ))}
+                </g>
+
+                {/* Marcadores Cardeais de Bússola Tática */}
+                <g className="font-mono text-[6px] fill-sky-400 font-bold select-none" opacity="0.75">
+                  <text x="100" y="9" textAnchor="middle">N</text>
+                  <text x="100" y="196" textAnchor="middle">S</text>
+                  <text x="194" y="102" textAnchor="middle">L</text>
+                  <text x="6" y="102" textAnchor="middle">O</text>
+                </g>
+
                 {/* 2. Planetary Orbits (Thin, clean circular tracks) */}
                 {islands.map((island) => {
                   const orbitR = island.orbitRadius * scale;
@@ -538,6 +567,23 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                 </g>
               </svg>
 
+              {/* Feixe Cônico Holográfico de Varredura (Radar Ping Sweep) */}
+              <div
+                className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden mix-blend-screen opacity-45"
+                style={{
+                  maskImage: 'radial-gradient(circle at 50% 50%, black 72%, transparent 95%)',
+                  WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 72%, transparent 95%)',
+                }}
+              >
+                <div
+                  className="w-full h-full animate-[spin_4.5s_linear_infinite]"
+                  style={{
+                    background:
+                      'conic-gradient(from 0deg, rgba(56, 189, 248, 0.45) 0deg, rgba(14, 165, 233, 0.12) 40deg, transparent 80deg, transparent 360deg)',
+                  }}
+                />
+              </div>
+
               {/* Minimalist Hover Tooltip */}
               {hoveredIsland && (
                 <div className="absolute bottom-2 left-2 right-2 bg-[#0c1017]/95 border border-slate-700/80 px-2.5 py-1.5 rounded-xl pointer-events-none shadow-xl flex items-center justify-between z-30">
@@ -554,10 +600,15 @@ export const MiniMap: React.FC<MiniMapProps> = ({
               )}
             </div>
 
-            {/* Minimalist Bottom Bar: Progress summary */}
-            <div className="flex items-center justify-between px-1.5 pt-1.5 text-[9px] font-mono text-slate-400">
-              <span>{visitedCount}/5 Conhecidas</span>
-              <span className="text-slate-500">Clique nas ilhas para navegar</span>
+            {/* Minimalist Bottom Bar: Progress summary & Telemetry */}
+            <div className="flex items-center justify-between px-1.5 pt-1.5 text-[9px] font-mono text-slate-400 border-t border-slate-800/60 mt-1">
+              <span className="flex items-center gap-1 text-slate-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {visitedCount}/5 Conhecidas
+              </span>
+              <span className="text-slate-500 font-mono">
+                X:{Math.round(vehiclePos[0])} Z:{Math.round(vehiclePos[2])}
+              </span>
             </div>
           </motion.div>
         )}
