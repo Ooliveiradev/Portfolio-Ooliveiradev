@@ -412,6 +412,44 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   />
                 )}
 
+                {/* 6.8 Marcadores Secretos e Easter Eggs no Radar */}
+                {/* Asteroide Dourado Secreto */}
+                {(() => {
+                  const aPos = toSvg(62, -58);
+                  return (
+                    <g opacity="0.85">
+                      <circle cx={aPos.x} cy={aPos.y} r="1.4" fill="#fbbf24" stroke="#f59e0b" strokeWidth="0.4" />
+                    </g>
+                  );
+                })()}
+
+                {/* Ilha Oculta do Vazio (Sinal Anômalo ?) */}
+                {(() => {
+                  const vPos = toSvg(-105, 88);
+                  return (
+                    <g opacity="0.9">
+                      <circle
+                        cx={vPos.x}
+                        cy={vPos.y}
+                        r="3.5"
+                        fill="none"
+                        stroke="#c084fc"
+                        strokeWidth="0.5"
+                        strokeDasharray="1.5 1.5"
+                      />
+                      <circle cx={vPos.x} cy={vPos.y} r="1.6" fill="#a855f7" stroke="#e879f9" strokeWidth="0.4" />
+                      <text
+                        x={vPos.x}
+                        y={vPos.y - 4.5}
+                        textAnchor="middle"
+                        className="font-mono text-[5px] fill-purple-400 font-bold select-none"
+                      >
+                        ? SINAL
+                      </text>
+                    </g>
+                  );
+                })()}
+
                 {/* 7. Planetary Islands (Top-Down Diorama Platforms + Bruno Simon Diamond Markers) */}
                 {islands.map((island) => {
                   const [ix, , iz] = getIslandLivePosition(island);

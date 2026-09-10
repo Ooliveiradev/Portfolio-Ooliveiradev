@@ -15,6 +15,7 @@ interface HUDProps {
   onReturnToLanding: () => void;
   onOpenSettings?: () => void;
   onOpenAchievements?: () => void;
+  onAvatarClick?: () => void;
   recentXpGained: number | null;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
@@ -32,6 +33,7 @@ export const HUD: React.FC<HUDProps> = ({
   onReturnToLanding,
   onOpenSettings,
   onOpenAchievements,
+  onAvatarClick,
   recentXpGained,
   vehiclePos,
   vehicleRotation,
@@ -67,7 +69,14 @@ export const HUD: React.FC<HUDProps> = ({
         {/* Profile & XP Status Widget */}
         <div className="flex items-center gap-3 bg-[#0c1017]/90 backdrop-blur-xl border border-slate-800/80 p-2 sm:p-2.5 rounded-2xl shadow-2xl">
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-mono font-bold text-sm shadow-md border border-sky-400/30">
+            <div
+              onClick={() => {
+                sounds.playClick();
+                onAvatarClick?.();
+              }}
+              className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-mono font-bold text-sm shadow-md border border-sky-400/30 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+              title="Perfil de Danilo Ribeiro (Clique para surpresa!)"
+            >
               DR
             </div>
             <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-[#0c1017] text-[8px] font-bold text-black">

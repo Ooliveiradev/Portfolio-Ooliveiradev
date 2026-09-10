@@ -14,6 +14,9 @@ import { CelestialHorizon } from './3d/CelestialHorizon';
 import { SpeedRings } from './3d/SpeedRings';
 import { VehicleThrusterTrails } from './3d/VehicleThrusterTrails';
 import { PostProcessingPipeline } from './3d/postprocessing/PostProcessingPipeline';
+import { GoldenSecretAsteroid } from './3d/secrets/GoldenSecretAsteroid';
+import { CosmicRubberDuck } from './3d/secrets/CosmicRubberDuck';
+import { SecretVoidIsland } from './3d/secrets/SecretVoidIsland';
 import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode } from '../types';
 
 interface GalaxySceneProps {
@@ -40,6 +43,7 @@ interface GalaxySceneProps {
   onNearStartGate?: (isNear: boolean) => void;
   onRecoverCargo?: (id: string) => void;
   onCinematicComplete?: (finishedMode: GameMode) => void;
+  onDiscoverSecret?: (type: 'asteroid' | 'void-island' | 'duck') => void;
 }
 
 export const GalaxyScene: React.FC<GalaxySceneProps> = ({
@@ -66,6 +70,7 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
   onNearStartGate,
   onRecoverCargo,
   onCinematicComplete,
+  onDiscoverSecret,
 }) => {
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
@@ -256,6 +261,20 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
 
             {/* Gerenciador de Explosões Low-Poly estilo Bruno Simon */}
             <LowPolyExplosions graphicsQuality={graphicsQuality} />
+
+            {/* Regiões Secretas e Easter Eggs Cósmicos */}
+            <GoldenSecretAsteroid
+              sharedVehiclePos={sharedVehiclePos}
+              onDiscover={() => onDiscoverSecret?.('asteroid')}
+            />
+            <CosmicRubberDuck
+              sharedVehiclePos={sharedVehiclePos}
+              onDiscover={() => onDiscoverSecret?.('duck')}
+            />
+            <SecretVoidIsland
+              sharedVehiclePos={sharedVehiclePos}
+              onEnterSecretIsland={() => onDiscoverSecret?.('void-island')}
+            />
 
             {/* Pipeline de Pós-Processamento Cinematográfico: Unreal Bloom & Aberração Cromática */}
             <PostProcessingPipeline graphicsQuality={graphicsQuality} />

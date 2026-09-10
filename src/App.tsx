@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { GalaxyScene } from './components/GalaxyScene';
 import { LandingOverlay } from './components/ui/LandingOverlay';
 import { HUD } from './components/ui/HUD';
@@ -10,6 +10,8 @@ import { GameSettingsModal, SettingsTab } from './components/ui/GameSettingsModa
 import { RaceOverlay } from './components/ui/RaceOverlay';
 import { ScreenEdgeBlur } from './components/ui/ScreenEdgeBlur';
 import { AchievementToast } from './components/ui/AchievementToast';
+import { SecretMessageModal, SecretType } from './components/ui/SecretMessageModal';
+import { useKonamiCode } from './hooks/useKonamiCode';
 import { SPEED_RINGS } from './components/3d/SpeedRings';
 import {
   ISLANDS_CONFIG,
@@ -100,6 +102,11 @@ export default function App() {
 
   // Latest unlocked achievement popup toast
   const [latestUnlockedBadge, setLatestUnlockedBadge] = useState<Badge | null>(null);
+
+  // Easter Eggs & Secret Regions State
+  const [secretModalType, setSecretModalType] = useState<SecretType | null>(null);
+  const [isMatrixGlitchActive, setIsMatrixGlitchActive] = useState<boolean>(false);
+  const avatarClickCountRef = useRef<number>(0);
 
   // Sync stats to localStorage
   useEffect(() => {
@@ -385,6 +392,50 @@ export default function App() {
     }
   }, [vehiclePos, gameMode, stats, checkBadges]);
 
+  // Easter Egg 3: Konami Code (↑ ↑ ↓ ↓ ← → ← → B A)
+  useKonamiCode(
+    useCallback(() => {
+      sounds.playBadgeUnlocked();
+      confetti({
+        particleCount: 140,
+        spread: 90,
+        origin: { y: 0.4 },
+        colors: ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7'],
+      });
+      addXp(150);
+      window.dispatchEvent(new CustomEvent('app:boost-vehicle'));
+      alert('🎮 CÓDIGO KONAMI ATIVADO! MODO HYPERDRIVE ARCO-ÍRIS SUPREMO (+150 XP)!');
+    }, [addXp])
+  );
+
+  // Descoberta de segredos 3D (Asteroide Dourado, Ilha Oculta, Pato de Depuração)
+  const handleDiscoverSecret = useCallback((type: SecretType) => {
+    setSecretModalType(type);
+    if (type === 'asteroid') {
+      addXp(200);
+      checkBadges(stats, 'badge-easter-asteroid');
+    } else if (type === 'void-island') {
+      addXp(300);
+      checkBadges(stats, 'badge-secret-voyager');
+    } else if (type === 'duck') {
+      addXp(100);
+    }
+  }, [addXp, checkBadges, stats]);
+
+  // Easter Egg 5: Matrix Glitch ao clicar 5 vezes no Avatar DR
+  const handleAvatarClick = useCallback(() => {
+    avatarClickCountRef.current += 1;
+    if (avatarClickCountRef.current >= 5) {
+      avatarClickCountRef.current = 0;
+      setIsMatrixGlitchActive(true);
+      sounds.playBadgeUnlocked();
+      addXp(100);
+      setTimeout(() => {
+        setIsMatrixGlitchActive(false);
+      }, 3500);
+    }
+  }, [addXp]);
+
   // Handle entering game from landing screen with cinematic fly-in
   const handleStartGame = () => {
     setGameMode('entering');
@@ -568,6 +619,7 @@ export default function App() {
         onNearStartGate={setIsNearStartGate}
         onRecoverCargo={handleRecoverCargo}
         onCinematicComplete={handleCinematicComplete}
+        onDiscoverSecret={handleDiscoverSecret}
       />
 
       {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
@@ -598,6 +650,7 @@ export default function App() {
             onReturnToLanding={handleReturnToLanding}
             onOpenSettings={() => handleOpenSettingsModal('options')}
             onOpenAchievements={() => handleOpenSettingsModal('achievements')}
+            onAvatarClick={handleAvatarClick}
             recentXpGained={recentXpGained}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
@@ -692,6 +745,34 @@ export default function App() {
         achievement={latestUnlockedBadge}
         onClose={() => setLatestUnlockedBadge(null)}
       />
+
+      {/* Modal de Descobertas e Segredos Cósmicos */}
+      <SecretMessageModal
+        type={secretModalType}
+        onClose={() => setSecretModalType(null)}
+      />
+
+      {/* Easter Egg 5: Matrix Glitch Cyber Rain Overlay */}
+      <AnimatePresence>
+        {isMatrixGlitchActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 pointer-events-none flex flex-col items-center justify-center bg-emerald-950/20 backdrop-invert-[0.08]"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] opacity-40 animate-pulse" />
+            <div className="relative z-10 px-6 py-4 rounded-2xl bg-black/90 border border-emerald-500/80 shadow-[0_0_50px_rgba(16,185,129,0.5)] text-center font-mono">
+              <div className="text-emerald-400 font-bold tracking-widest text-lg animate-pulse mb-1">
+                SYSTEM OVERRIDE: MATRIX DEVELOPER MODE
+              </div>
+              <p className="text-xs text-emerald-200/80">
+                Você descobriu o segredo do terminal de Danilo Ribeiro! (+100 XP)
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
