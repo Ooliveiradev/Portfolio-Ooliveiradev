@@ -12,17 +12,17 @@ interface CosmicDustProps {
 // Textura de partícula circular suave gerada proceduralmente uma única vez
 function createGlowPointTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 32;
-  canvas.height = 32;
+  canvas.width = 64;
+  canvas.height = 64;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    gradient.addColorStop(0.35, 'rgba(255, 255, 255, 0.7)');
-    gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.15)');
+    gradient.addColorStop(0.25, 'rgba(255, 255, 255, 0.85)');
+    gradient.addColorStop(0.55, 'rgba(255, 255, 255, 0.3)');
     gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 32, 32);
+    ctx.fillRect(0, 0, 64, 64);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
@@ -30,12 +30,10 @@ function createGlowPointTexture(): THREE.CanvasTexture {
 }
 
 /**
- * CosmicDust (Arquitetura Folio-2025 Bruno Simon - GPU Accelerated)
- * 
- * Todo o cálculo de deriva (drift), flutuação e brilho estelar roda 100% no VERTEX SHADER da GPU.
- * - CPU Load: 0.0% (sem iteração em array por frame).
- * - PCIe Bus: 0 bytes transferidos por frame (elimina needsUpdate = true).
- * - Garbage Collection: 0 alocações de memória RAM.
+ * CosmicDust (Poeira Estelar Eérea e Leve - 100% GPU Accelerated)
+ *
+ * Configurada com baixa densidade e alta elegância visual para transmitir sensação
+ * de voo no vácuo estelar sem poluir a cena ou prejudicar a leitura do cenário.
  */
 export const CosmicDust: React.FC<CosmicDustProps> = ({
   sharedVehiclePos,
@@ -51,10 +49,11 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     };
   }, [pointTexture]);
 
+  // Densidade reduzida e equilibrada (bem levezinha)
   const count = useMemo(() => {
-    if (graphicsQuality === 'low') return 300;
-    if (graphicsQuality === 'high') return 1200;
-    return 650;
+    if (graphicsQuality === 'low') return 110;
+    if (graphicsQuality === 'high') return 380;
+    return 220;
   }, [graphicsQuality]);
 
   // Inicializa atributos estáticos apenas uma vez
@@ -66,33 +65,33 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     const phases = new Float32Array(count);
     const scales = new Float32Array(count);
 
-    const boxSize = 160.0;
-    const boxHeight = 50.0;
+    const boxSize = 190.0;
+    const boxHeight = 42.0;
 
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
 
-      // Posição inicial no espaço cósmico
+      // Posição inicial no espaço cósmico com distribuição ampla
       positions[idx] = (Math.random() - 0.5) * boxSize;
-      positions[idx + 1] = (Math.random() - 0.5) * boxHeight + 4.0;
+      positions[idx + 1] = (Math.random() - 0.5) * boxHeight + 3.0;
       positions[idx + 2] = (Math.random() - 0.5) * boxSize;
 
-      // Vetor de deriva orgânica (drift no vácuo)
-      driftDirs[idx] = (Math.random() - 0.5) * 0.4;
-      driftDirs[idx + 1] = (Math.random() - 0.5) * 0.25;
-      driftDirs[idx + 2] = (Math.random() - 0.5) * 0.4;
+      // Deriva suave no vácuo
+      driftDirs[idx] = (Math.random() - 0.5) * 0.22;
+      driftDirs[idx + 1] = (Math.random() - 0.5) * 0.12;
+      driftDirs[idx + 2] = (Math.random() - 0.5) * 0.22;
 
-      // Fase de pulso estelar e escala
+      // Fase de pulsação e escala
       phases[i] = Math.random() * Math.PI * 2;
-      scales[i] = 0.5 + Math.random() * 0.9;
+      scales[i] = 0.6 + Math.random() * 0.7;
 
-      // Paleta minimalista galáctica: Sky Blue (70%), Ice White (20%), Solar Amber (10%)
+      // Paleta cósmica suave: Cyan Pastel (65%), Branco Estelar (25%), Âmbar Suave (10%)
       const rand = Math.random();
-      let r = 0.22, g = 0.74, b = 0.97;
-      if (rand > 0.88) {
-        r = 0.99; g = 0.88; b = 0.28;
-      } else if (rand > 0.68) {
-        r = 0.95; g = 0.96; b = 1.0;
+      let r = 0.38, g = 0.78, b = 0.98;
+      if (rand > 0.9) {
+        r = 0.98; g = 0.86; b = 0.38;
+      } else if (rand > 0.65) {
+        r = 0.96; g = 0.98; b = 1.0;
       }
 
       colors[idx] = r;
@@ -133,7 +132,7 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
         void main() {
           vColor = color;
 
-          // Deriva na GPU com o tempo
+          // Deriva sutil na GPU com o tempo
           vec3 p = position + aDrift * uTime;
 
           // Toroidal wrapping relativo ao centro da nave
@@ -146,13 +145,13 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
           vec4 mvPosition = viewMatrix * vec4(finalPos, 1.0);
           gl_Position = projectionMatrix * mvPosition;
 
-          // Pulso estelar sutil
-          float twinkle = sin(uTime * 1.8 + aPhase) * 0.25 + 0.75;
-          vAlpha = twinkle * 0.65;
+          // Pulso estelar cintilante e sutil
+          float twinkle = sin(uTime * 1.4 + aPhase) * 0.3 + 0.7;
+          vAlpha = twinkle * 0.44;
 
-          // Tamanho responsivo à distância com atenuação de perspectiva
-          float basePointSize = 42.0 * aScale;
-          gl_PointSize = basePointSize * (1.0 / -mvPosition.z);
+          // Tamanho com atenuação de perspectiva e clamp para máxima delicadeza
+          float basePointSize = 34.0 * aScale;
+          gl_PointSize = clamp(basePointSize * (1.0 / max(-mvPosition.z, 1.0)), 2.0, 9.0);
         }
       `,
       fragmentShader: `
@@ -170,7 +169,7 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     return { geometry: geo, material: mat };
   }, [count, pointTexture]);
 
-  // Loop de alta eficiência: atualiza apenas o uniform uTime e uCenter na GPU
+  // Loop de alta eficiência: atualiza apenas uTime e uCenter na GPU
   useFrame((state) => {
     if (!material) return;
     material.uniforms.uTime.value = state.clock.elapsedTime;
@@ -178,7 +177,7 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     const isLanding = gameMode === 'landing' || gameMode === 'exiting';
     if (isLanding) {
       material.uniforms.uCenter.value.set(0, 4, 0);
-    } else if (sharedVehiclePos) {
+    } else if (sharedVehiclePos && sharedVehiclePos.current) {
       material.uniforms.uCenter.value.copy(sharedVehiclePos.current);
     }
   });
