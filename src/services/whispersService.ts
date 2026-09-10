@@ -150,12 +150,8 @@ class WhispersService {
   }
 
   private calculateEstimatedPresence(): number {
-    // Simula tráfego orgânico global de viajantes (entre 3 e 7 exploradores no quadrante)
-    // somado ao número de abas ativas reais do visitante
-    const hour = new Date().getHours();
-    const baseHourTraffic = Math.floor(3 + Math.sin((hour / 24) * Math.PI * 2) * 2);
-    const realTabsCount = Math.max(1, this.activeTabs.size);
-    return baseHourTraffic + realTabsCount;
+    // Retorna a contagem real de conexões ativas
+    return Math.max(1, this.activeTabs.size);
   }
 
   private notifyWhispers() {

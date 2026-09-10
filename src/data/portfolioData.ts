@@ -766,19 +766,11 @@ export const BADGES_DATA: Badge[] = [
 ];
 
 export const INITIAL_LEADERBOARD: LeaderboardEntry[] = [
-  { id: '1', name: 'Danilo Ribeiro', score: 1450, badgesCount: 6, title: 'Comandante Supremo', date: 'Hoje' },
-  { id: '2', name: 'Bruno Simon Fan', score: 1200, badgesCount: 5, title: 'Piloto Estelar', date: 'Ontem' },
-  { id: '3', name: 'Recrutador Tech', score: 950, badgesCount: 4, title: 'Avaliador Galáctico', date: '3 dias atrás' },
-  { id: '4', name: 'Explorador 404', score: 750, badgesCount: 3, title: 'Navegador Espacial', date: '5 dias atrás' },
-  { id: '5', name: 'Visitante Curioso', score: 450, badgesCount: 2, title: 'Cadete Estelar', date: '1 sem atrás' },
+  { id: '1', name: 'Danilo Ribeiro', score: 1450, badgesCount: 6, title: 'Desenvolvedor & Criador', date: 'Oficial' },
 ];
 
 export const INITIAL_RACE_LEADERBOARD: RaceLeaderboardEntry[] = [
-  { id: '1', name: 'Danilo Ribeiro', timeSeconds: 18.42, formattedTime: '00:18.42', date: 'Hoje' },
-  { id: '2', name: 'Piloto Galáctico', timeSeconds: 22.15, formattedTime: '00:22.15', date: 'Ontem' },
-  { id: '3', name: 'Cosmic Ace', timeSeconds: 25.80, formattedTime: '00:25.80', date: '2 dias atrás' },
-  { id: '4', name: 'Speedster 404', timeSeconds: 28.95, formattedTime: '00:28.95', date: '4 dias atrás' },
-  { id: '5', name: 'Cadete Espacial', timeSeconds: 33.60, formattedTime: '00:33.60', date: '1 sem atrás' },
+  { id: '1', name: 'Danilo Ribeiro', timeSeconds: 22.40, formattedTime: '00:22.40', date: 'Recorde do Criador' },
 ];
 
 export const formatRaceTime = (seconds: number): string => {

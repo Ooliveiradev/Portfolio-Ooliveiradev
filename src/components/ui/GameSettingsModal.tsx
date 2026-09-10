@@ -23,6 +23,7 @@ interface GameSettingsModalProps {
   graphicsQuality?: GraphicsQuality;
   onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
   onUpdateStats?: (newStats: UserStats) => void;
+  onAvatarClick?: () => void;
 }
 
 export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
@@ -40,6 +41,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   graphicsQuality = 'mid',
   onSelectGraphicsQuality,
   onUpdateStats,
+  onAvatarClick,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>('keyboard');
@@ -483,8 +485,15 @@ Confira em: ${window.location.href}`;
 
               {activeTab === 'about' && (
                 <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-full border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative">
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)]">
+                  <div
+                    onClick={() => {
+                      sounds.playClick();
+                      onAvatarClick?.();
+                    }}
+                    className="w-44 h-44 rounded-full border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                    title="Avatar de Danilo Ribeiro (Clique para surpresa!)"
+                  >
+                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)] select-none">
                       👨‍💻
                     </div>
                   </div>

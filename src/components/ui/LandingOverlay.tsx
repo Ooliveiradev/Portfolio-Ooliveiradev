@@ -32,15 +32,8 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="flex items-center justify-between w-full max-w-7xl mx-auto pointer-events-auto"
+        className="flex items-center justify-end w-full max-w-7xl mx-auto pointer-events-auto"
       >
-        <div className="flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-          <span className="text-xs font-mono tracking-widest uppercase text-slate-300 font-semibold">
-            {PERSONAL_INFO.name}
-          </span>
-        </div>
-
         {/* Top Right: Single Clean Settings & Menu Button */}
         {onOpenSettings && (
           <button

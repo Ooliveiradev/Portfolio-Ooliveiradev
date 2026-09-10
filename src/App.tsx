@@ -804,6 +804,7 @@ export default function App() {
             graphicsQuality={graphicsQuality}
             onSelectGraphicsQuality={handleSelectGraphicsQuality}
             onUpdateStats={(newStats) => setStats(newStats)}
+            onAvatarClick={handleAvatarClick}
           />
         )}
       </AnimatePresence>
