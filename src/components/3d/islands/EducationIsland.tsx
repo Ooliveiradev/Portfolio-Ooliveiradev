@@ -2,6 +2,7 @@ import React, { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
+import { CosmicPond, CosmicWaterfall } from '../shaders/CosmicWater';
 
 export const EducationIsland: React.FC = () => {
   // Animation refs
@@ -272,19 +273,8 @@ export const EducationIsland: React.FC = () => {
           />
         </mesh>
 
-        {/* Coluna principal da cascata facetada em queda vertical */}
-        <mesh position={[0, -3.8, 0]}>
-          <cylinderGeometry args={[0.42, 0.28, 7.6, 6]} />
-          <meshStandardMaterial
-            color="#38bdf8"
-            emissive="#0284c7"
-            emissiveIntensity={1.4}
-            roughness={0.15}
-            transparent
-            opacity={0.82}
-            flatShading
-          />
-        </mesh>
+        {/* Coluna principal da cascata com shader procedural de fluxo contínuo */}
+        <CosmicWaterfall position={[0, -0.2, 0]} height={7.4} width={0.85} />
 
         {/* Facho interno de luz translúcida cristalina */}
         <mesh position={[0, -3.8, 0]}>
@@ -292,10 +282,10 @@ export const EducationIsland: React.FC = () => {
           <meshStandardMaterial
             color="#e0f2fe"
             emissive="#bae6fd"
-            emissiveIntensity={2.0}
+            emissiveIntensity={1.5}
             roughness={0.1}
             transparent
-            opacity={0.9}
+            opacity={0.7}
             flatShading
           />
         </mesh>
@@ -375,6 +365,9 @@ export const EducationIsland: React.FC = () => {
           </group>
         ))}
       </group>
+
+      {/* Lago sagrado de reflexão com shader procedural de ondulação cósmica */}
+      <CosmicPond position={[-0.2, 0.18, -0.7]} scale={[0.9, 1, 0.9]} />
 
       {/* Leito do riacho cristalino que cruza o platô e alimenta a cascata */}
       <group position={[-1.2, 0.08, 0.5]} rotation={[0, 0.45, 0]}>

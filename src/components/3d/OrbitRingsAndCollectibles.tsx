@@ -5,6 +5,7 @@ import { IslandConfig, CrystalCollectible, GraphicsQuality } from '../../types';
 import { sounds } from '../../audio/soundManager';
 
 import { LowPolySun } from './LowPolySun';
+import { HolographicMaterial } from './shaders/HolographicMaterial';
 
 interface OrbitRingsAndCollectiblesProps {
   islands?: IslandConfig[];
@@ -157,14 +158,25 @@ const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect, grap
         onPointerOut={() => (document.body.style.cursor = 'auto')}
       >
         <octahedronGeometry args={[0.9, 0]} />
-        <meshStandardMaterial
-          color="#38bdf8"
-          emissive="#0284c7"
-          emissiveIntensity={0.65}
-          roughness={0.7}
-          metalness={0.1}
-          flatShading
-        />
+        {graphicsQuality === 'low' ? (
+          <meshStandardMaterial
+            color="#38bdf8"
+            emissive="#0284c7"
+            emissiveIntensity={0.65}
+            roughness={0.7}
+            metalness={0.1}
+            flatShading
+          />
+        ) : (
+          <HolographicMaterial
+            baseColor="#38bdf8"
+            fresnelColor="#e879f9"
+            fresnelPower={2.5}
+            scanlineDensity={26.0}
+            iridescenceSpeed={0.9}
+            opacity={0.95}
+          />
+        )}
       </mesh>
       {graphicsQuality !== 'low' && (
         <pointLight color="#38bdf8" intensity={1.5} distance={6} />
