@@ -68,10 +68,10 @@ export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
   const currentChromaOffset = useRef<number>(0);
   const targetChromaOffset = useRef<number>(0);
 
-  // Escuta os eventos globais de boost para disparar o impacto visual da lente
+  // Escuta os eventos globais de boost para disparar o impacto visual da lente (sutil e elegante)
   useEffect(() => {
     const handleBoostStart = () => {
-      targetChromaOffset.current = graphicsQuality === 'high' ? 0.016 : 0.011;
+      targetChromaOffset.current = graphicsQuality === 'high' ? 0.0032 : 0.002;
     };
 
     const handleBoostEnd = () => {
@@ -118,10 +118,10 @@ export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    // 2. Pass de Unreal Bloom Seletivo
-    const bloomStrength = graphicsQuality === 'high' ? 0.72 : 0.48;
-    const bloomRadius = 0.4;
-    const bloomThreshold = 0.82; // Apenas elementos fortemente emissivos recebem o halo de luz
+    // 2. Pass de Unreal Bloom Altamente Seletivo e Suave (não estoura a cena)
+    const bloomStrength = graphicsQuality === 'high' ? 0.22 : 0.15;
+    const bloomRadius = 0.22;
+    const bloomThreshold = 0.94; // Threshold alto: apenas elementos ultra-incandescentes emitem brilho
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(size.width, size.height),

@@ -159,10 +159,10 @@ const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect, grap
         <octahedronGeometry args={[0.9, 0]} />
         <meshStandardMaterial
           color="#38bdf8"
-          emissive="#38bdf8"
-          emissiveIntensity={1.4}
-          roughness={0.65}
-          metalness={0.15}
+          emissive="#0284c7"
+          emissiveIntensity={0.65}
+          roughness={0.7}
+          metalness={0.1}
           flatShading
         />
       </mesh>
