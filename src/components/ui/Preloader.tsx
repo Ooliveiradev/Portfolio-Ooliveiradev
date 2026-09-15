@@ -4,6 +4,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
 import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetector';
+import { PERSONAL_INFO } from '../../data/portfolioData';
 
 interface PreloaderProps {
   isSceneReady: boolean;
@@ -79,7 +80,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsCelestialReady(true);
-    }, 400);
+    }, 100);
     return () => clearTimeout(timer);
   }, []);
 
@@ -90,18 +91,26 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
     });
   }, []);
 
+  // 6. Failsafe: nunca prende o usuário por mais de 250ms sob nenhuma condição
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setIsReadyToEnter(true);
+    }, 250);
+    return () => clearTimeout(safetyTimer);
+  }, []);
+
   // Cálculo da porcentagem alvo baseada nos subsistemas certificados
   const targetProgress = (() => {
-    let p = 15; // Base de carregamento do bundle JS React 19
+    let p = 25; // Base de carregamento do bundle JS React 19
     if (isFontsReady) p += 15;
     if (isAudioReady) p += 15;
     if (isCelestialReady) p += 15;
-    if (isRapierReady) p += 20;
-    if (isSceneReady) p += 20;
+    if (isRapierReady) p += 15;
+    if (isSceneReady) p += 15;
     return Math.min(100, p);
   })();
 
-  // LERP suave do progresso em 60 FPS
+  // LERP suave e rápido do progresso em 60 FPS
   useEffect(() => {
     let animationFrameId: number;
     const animate = () => {
@@ -113,8 +122,8 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
           }
           return targetProgress;
         }
-        // Interpolação suave para sensação de calibragem de telemetria de alta precisão
-        return prev + diff * 0.12;
+        // Interpolação rápida e responsiva
+        return prev + diff * 0.55;
       });
       animationFrameId = requestAnimationFrame(animate);
     };
@@ -123,19 +132,21 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
     return () => cancelAnimationFrame(animationFrameId);
   }, [targetProgress, isReadyToEnter]);
 
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   // Transição automática imediata assim que a calibragem atinge 100%
   useEffect(() => {
     if (isReadyToEnter && !isExiting) {
+      setIsExiting(true);
       const timer = setTimeout(() => {
-        setIsExiting(true);
-        sounds.playBoost();
-        setTimeout(() => {
-          onComplete();
-        }, 450);
-      }, 250);
+        onCompleteRef.current();
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isReadyToEnter, isExiting, onComplete]);
+  }, [isReadyToEnter, isExiting]);
 
   const subsystems: SubsystemStatus[] = [
     {
@@ -182,7 +193,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
     <motion.div
       initial={{ opacity: 1 }}
       animate={{ opacity: isExiting ? 0 : 1, scale: isExiting ? 1.05 : 1 }}
-      transition={{ duration: 0.45, ease: 'easeInOut' }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
       className="fixed inset-0 z-50 flex flex-col items-center justify-between p-6 sm:p-10 select-none bg-[#070b14] overflow-hidden"
     >
       {/* Luzes cósmicas de fundo estilo nebulosa */}
@@ -214,9 +225,19 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
       </header>
 
       {/* Centro: Reator de Telemetria e Progresso Circular */}
-      <div className="relative z-10 flex flex-col items-center justify-center max-w-xl w-full my-auto py-6">
+      <div className="relative z-10 flex flex-col items-center justify-center max-w-xl w-full my-auto py-4">
+        {/* Instant LCP Title: Paints immediately matching LandingOverlay exact geometry */}
+        <div className="flex flex-col items-center text-center mb-4 sm:mb-6">
+          <h1 className="text-4xl sm:text-6xl font-sans font-bold text-slate-100 tracking-tight leading-none mb-3 drop-shadow-lg">
+            {PERSONAL_INFO.name}
+          </h1>
+          <p className="text-sm sm:text-base text-slate-300 font-medium tracking-wide max-w-lg">
+            {PERSONAL_INFO.title}
+          </p>
+        </div>
+
         {/* Anel Holográfico de Carregamento */}
-        <div className="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center mb-8">
+        <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center mb-6">
           {/* Brilho externo */}
           <div className="absolute inset-0 rounded-full bg-sky-500/15 blur-2xl animate-pulse" />
 

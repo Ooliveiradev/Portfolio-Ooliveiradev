@@ -31,11 +31,14 @@ class SoundEngine {
   }
 
   public async warmup(): Promise<void> {
-    try {
+    if (typeof window === 'undefined') return;
+    const unlockAudio = () => {
       this.initCtx();
-    } catch {
-      // AudioContext safe fallback
-    }
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+    window.addEventListener('keydown', unlockAudio, { once: true, passive: true });
   }
 
   public toggleMute(): boolean {

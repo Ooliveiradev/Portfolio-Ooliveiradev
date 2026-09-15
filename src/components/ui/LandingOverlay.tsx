@@ -29,9 +29,9 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
     <div className="absolute inset-0 z-30 pointer-events-none flex flex-col justify-between p-4 sm:p-8 select-none">
       {/* Minimalist Top Bar */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
+        initial={{ opacity: 0.9, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
+        transition={{ duration: 0.3 }}
         className="flex items-center justify-end w-full max-w-7xl mx-auto pointer-events-auto"
       >
         {/* Top Right: Single Clean Settings & Menu Button */}
@@ -52,12 +52,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
 
       {/* Minimalist Center Hero */}
       <div className="flex flex-col items-center justify-center max-w-xl mx-auto text-center pointer-events-auto my-auto py-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.1 }}
-          className="flex flex-col items-center"
-        >
+        <div className="flex flex-col items-center">
           <h1 className="text-4xl sm:text-6xl font-sans font-bold text-slate-100 tracking-tight leading-none mb-3 drop-shadow-lg">
             {PERSONAL_INFO.name}
           </h1>
@@ -143,7 +138,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
               <span>Email</span>
             </a>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Minimalist Bottom Footnote */}

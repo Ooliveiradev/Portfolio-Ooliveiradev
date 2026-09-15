@@ -1,11 +1,56 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
 
-export const SkillsIsland: React.FC = () => {
+interface SkillsIslandProps {
+  isNear?: boolean;
+}
+
+const HeatsinkFinsMesh: React.FC<{ fins: { x: number; y: number; height: number; depth: number }[] }> = ({ fins }) => {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    if (!meshRef.current) return;
+    const tempMatrix = new THREE.Matrix4();
+    const tempPos = new THREE.Vector3();
+    const tempQuat = new THREE.Quaternion();
+    const tempScale = new THREE.Vector3();
+
+    fins.forEach((fin, idx) => {
+      tempPos.set(fin.x, fin.y, 0);
+      tempScale.set(0.07, fin.height, fin.depth);
+      tempMatrix.compose(tempPos, tempQuat, tempScale);
+      meshRef.current!.setMatrixAt(idx, tempMatrix);
+    });
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  }, [fins]);
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, fins.length]}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial
+        color="#1e293b"
+        metalness={0.88}
+        roughness={0.25}
+      />
+    </instancedMesh>
+  );
+};
+
+const SkillsIslandComponent: React.FC<SkillsIslandProps> = () => {
+  // Discrete state for click reactivity (Updated only on click/timeout, NEVER in useFrame)
+  const [gpuBoosted, setGpuBoosted] = useState(false);
+  const [waterblockPulse, setWaterblockPulse] = useState(0);
+  const [quantumBurst, setQuantumBurst] = useState(0);
+
   // =========================================================
-  // REFS & INTERACTIVE STATES
+  // REFS & INTERACTIVE STATES (Zero React Re-renders in 60FPS loop)
   // =========================================================
   const fan1Ref = useRef<THREE.Group>(null);
   const fan2Ref = useRef<THREE.Group>(null);
@@ -27,12 +72,12 @@ export const SkillsIsland: React.FC = () => {
   // NVMe Activity
   const nvmeLedRef = useRef<THREE.Mesh>(null);
 
-  // Interactive states & timers
-  const [gpuBoosted, setGpuBoosted] = useState(false);
+  // Interactive timer refs
+  const gpuBoostedRef = useRef(false);
   const gpuSpeedRef = useRef(12);
-  const [waterblockPulse, setWaterblockPulse] = useState(0);
-  const [quantumBurst, setQuantumBurst] = useState(0);
-  const [nvmeBenchmark, setNvmeBenchmark] = useState(0);
+  const waterblockPulseRef = useRef(0);
+  const quantumBurstRef = useRef(0);
+  const nvmeBenchmarkRef = useRef(0);
 
   // =========================================================
   // ANIMATION LOOP (60FPS)
@@ -41,7 +86,7 @@ export const SkillsIsland: React.FC = () => {
     const time = Date.now() * 0.001;
 
     // 1. GPU Triple-Fan Rotation with dynamic boost acceleration
-    const targetSpeed = gpuBoosted ? 52 : 12;
+    const targetSpeed = gpuBoostedRef.current ? 52 : 12;
     gpuSpeedRef.current = THREE.MathUtils.lerp(gpuSpeedRef.current, targetSpeed, delta * 3.5);
 
     if (fan1Ref.current) fan1Ref.current.rotation.z += delta * gpuSpeedRef.current;
@@ -69,12 +114,12 @@ export const SkillsIsland: React.FC = () => {
 
     // Expanding holographic shockwave ring decay
     if (quantumShockwaveRef.current) {
-      if (quantumBurst > 0) {
-        const progress = 1 - quantumBurst;
+      if (quantumBurstRef.current > 0) {
+        const progress = 1 - quantumBurstRef.current;
         const scale = 0.4 + progress * 2.8;
         quantumShockwaveRef.current.scale.set(scale, scale, scale);
         const mat = quantumShockwaveRef.current.material as THREE.MeshStandardMaterial;
-        mat.opacity = quantumBurst * 0.85;
+        mat.opacity = quantumBurstRef.current * 0.85;
       } else {
         quantumShockwaveRef.current.scale.set(0.001, 0.001, 0.001);
       }
@@ -85,15 +130,15 @@ export const SkillsIsland: React.FC = () => {
     if (coolerRing2Ref.current) coolerRing2Ref.current.rotation.z += delta * 2.2;
     if (coolerRing3Ref.current) coolerRing3Ref.current.rotation.z -= delta * 3.0;
 
-    // Decay interactive timers
-    if (waterblockPulse > 0) {
-      setWaterblockPulse((prev) => Math.max(0, prev - delta * 1.8));
+    // Decay interactive timers directly in refs (zero React re-renders)
+    if (waterblockPulseRef.current > 0) {
+      waterblockPulseRef.current = Math.max(0, waterblockPulseRef.current - delta * 1.8);
     }
-    if (quantumBurst > 0) {
-      setQuantumBurst((prev) => Math.max(0, prev - delta * 1.4));
+    if (quantumBurstRef.current > 0) {
+      quantumBurstRef.current = Math.max(0, quantumBurstRef.current - delta * 1.4);
     }
-    if (nvmeBenchmark > 0) {
-      setNvmeBenchmark((prev) => Math.max(0, prev - delta * 2.2));
+    if (nvmeBenchmarkRef.current > 0) {
+      nvmeBenchmarkRef.current = Math.max(0, nvmeBenchmarkRef.current - delta * 2.2);
       if (nvmeLedRef.current) {
         const mat = nvmeLedRef.current.material as THREE.MeshStandardMaterial;
         mat.emissiveIntensity = Math.sin(time * 35) > 0 ? 3.5 : 0.2;
@@ -208,6 +253,23 @@ export const SkillsIsland: React.FC = () => {
     ];
   }, []);
 
+  // Precomputed TubeGeometries for watercooling loops and power cables
+  const tubeGeometries = useMemo(() => {
+    return hardTubeCurves.map((tube) => new THREE.TubeGeometry(tube.curve, 48, tube.radius, 10, false));
+  }, [hardTubeCurves]);
+
+  const cableGeometries = useMemo(() => {
+    return powerCables.map((cable) => new THREE.TubeGeometry(cable.curve, 32, cable.radius, 8, false));
+  }, [powerCables]);
+
+  // Clean up geometries on unmount
+  useEffect(() => {
+    return () => {
+      tubeGeometries.forEach((g) => g.dispose());
+      cableGeometries.forEach((g) => g.dispose());
+    };
+  }, [tubeGeometries, cableGeometries]);
+
   // Heatsink Fin Array Parameters (22 Monolithic Fins)
   const heatsinkFins = useMemo(() => {
     const fins = [];
@@ -239,50 +301,53 @@ export const SkillsIsland: React.FC = () => {
   }, []);
 
   // =========================================================
-  // INTERACTION HANDLERS
+  // INTERACTION HANDLERS (Zero 60FPS overhead)
   // =========================================================
   const handleGpuClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
+    gpuBoostedRef.current = true;
     setGpuBoosted(true);
     sounds.playGpuTurbineBoost();
-    setTimeout(() => setGpuBoosted(false), 2400);
+    setTimeout(() => {
+      gpuBoostedRef.current = false;
+      setGpuBoosted(false);
+    }, 2400);
   };
 
   const handleWaterblockClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
-    setWaterblockPulse(1.0);
+    waterblockPulseRef.current = 1.0;
+    setWaterblockPulse(1);
     sounds.playWaterblockPulse();
+    setTimeout(() => {
+      setWaterblockPulse(0);
+    }, 1200);
   };
 
   const handleQuantumClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
-    setQuantumBurst(1.0);
+    quantumBurstRef.current = 1.0;
+    setQuantumBurst(1);
     sounds.playQuantumPulse();
+    setTimeout(() => {
+      setQuantumBurst(0);
+    }, 1500);
   };
 
   const handleNvmeClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
-    setNvmeBenchmark(1.0);
+    nvmeBenchmarkRef.current = 1.0;
     sounds.playNvmeBenchmark();
   };
 
   return (
     <group>
       {/* =========================================================
-          1. QUILHA INFERIOR: DISSIPADOR MONOLÍTICO DE CALOR
+          1. QUILHA INFERIOR: DISSIPADOR MONOLÍTICO DE CALOR - 1 DRAW CALL VIA INSTANCED MESH
          ========================================================= */}
       <group position={[0, 0, 0]}>
-        {/* Monolithic Heatsink Parallel Vertical Fins */}
-        {heatsinkFins.map((fin, idx) => (
-          <mesh key={idx} position={[fin.x, fin.y, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.07, fin.height, fin.depth]} />
-            <meshStandardMaterial
-              color={idx % 2 === 0 ? '#0f172a' : '#1e293b'}
-              metalness={0.88}
-              roughness={0.25}
-            />
-          </mesh>
-        ))}
+        {/* Monolithic Heatsink Parallel Vertical Fins via InstancedMesh */}
+        <HeatsinkFinsMesh fins={heatsinkFins} />
 
         {/* Cross-Braced Copper Heatpipes piercing the fins */}
         {[-1.6, -0.5, 0.5, 1.6].map((hz, idx) => (
@@ -882,8 +947,7 @@ export const SkillsIsland: React.FC = () => {
       {/* Hard Watercooling Tubes */}
       {hardTubeCurves.map((tube, idx) => (
         <group key={idx}>
-          <mesh castShadow>
-            <tubeGeometry args={[tube.curve, 48, tube.radius, 10, false]} />
+          <mesh geometry={tubeGeometries[idx]} castShadow>
             <meshStandardMaterial
               color={waterblockPulse > 0 ? '#f43f5e' : tube.color}
               emissive={waterblockPulse > 0 ? '#e11d48' : tube.color}
@@ -908,8 +972,7 @@ export const SkillsIsland: React.FC = () => {
 
       {/* Braided Sleeved High-Density Power Cables */}
       {powerCables.map((cable, idx) => (
-        <mesh key={idx} castShadow>
-          <tubeGeometry args={[cable.curve, 32, cable.radius, 8, false]} />
+        <mesh key={idx} geometry={cableGeometries[idx]} castShadow>
           <meshStandardMaterial
             color={cable.color}
             roughness={0.4}
@@ -942,4 +1005,6 @@ export const SkillsIsland: React.FC = () => {
     </group>
   );
 };
+
+export const SkillsIsland = React.memo(SkillsIslandComponent);
 

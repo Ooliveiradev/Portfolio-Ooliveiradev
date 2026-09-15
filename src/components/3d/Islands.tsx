@@ -19,41 +19,16 @@ interface IslandsProps {
   visitedIslands: IslandId[];
   onSelectIsland: (id: IslandId) => void;
   orbitActive: boolean;
-  vehiclePos: [number, number, number];
+  sharedVehiclePos?: React.RefObject<THREE.Vector3>;
   isModalOpen: boolean;
 }
-
-export const Islands: React.FC<IslandsProps> = ({
-  islands,
-  visitedIslands,
-  onSelectIsland,
-  orbitActive,
-  vehiclePos,
-  isModalOpen,
-}) => {
-  return (
-    <group>
-      {islands.map((island) => (
-        <ThematicIsland
-          key={island.id}
-          config={island}
-          isVisited={visitedIslands.includes(island.id)}
-          onSelect={() => onSelectIsland(island.id)}
-          orbitActive={orbitActive}
-          vehiclePos={vehiclePos}
-          isModalOpen={isModalOpen}
-        />
-      ))}
-    </group>
-  );
-};
 
 interface ThematicIslandProps {
   config: IslandConfig;
   isVisited: boolean;
   onSelect: () => void;
   orbitActive: boolean;
-  vehiclePos: [number, number, number];
+  sharedVehiclePos?: React.RefObject<THREE.Vector3>;
   isModalOpen: boolean;
 }
 
@@ -65,18 +40,18 @@ const ISLAND_SCALES: Record<string, [number, number, number]> = {
   about: [0.92, 1.0, 0.92],       // Intimate developer workstation
 };
 
-const ThematicIsland: React.FC<ThematicIslandProps> = ({
+const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
   config,
   isVisited,
   onSelect,
   orbitActive,
-  vehiclePos,
+  sharedVehiclePos,
   isModalOpen,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [isNear, setIsNear] = useState(false);
-  const [isFar, setIsFar] = useState(false);
+  const lastDistCheck = useRef(0);
   const { rapier, world, isReady } = useRapier();
   const rigidBodyRef = useRef<RAPIER.RigidBody | null>(null);
 
@@ -127,11 +102,15 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
       rigidBodyRef.current.setNextKinematicTranslation({ x, y: baseY - 0.4, z });
     }
 
-    const dist = Math.hypot(vehiclePos[0] - x, vehiclePos[2] - z);
-    const near = dist < 16.0;
-    const far = dist > 62.0;
-    setIsNear((prev) => (prev !== near ? near : prev));
-    setIsFar((prev) => (prev !== far ? far : prev));
+    // Throttle distance check to every 4th frame to minimize CPU math
+    if (state.clock.elapsedTime - lastDistCheck.current > 0.08) {
+      lastDistCheck.current = state.clock.elapsedTime;
+      const vx = sharedVehiclePos?.current?.x ?? 0;
+      const vz = sharedVehiclePos?.current?.z ?? 0;
+      const dist = Math.hypot(vx - x, vz - z);
+      const near = dist < 25.0;
+      setIsNear((prev) => (prev !== near ? near : prev));
+    }
   });
 
   const handlePointerOver = (e: { stopPropagation: () => void }) => {
@@ -155,34 +134,33 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
   const showCard = (isNear || hovered) && !orbitActive && !isModalOpen;
 
   return (
-    <group
-      ref={groupRef}
-      onPointerOver={handlePointerOver}
-      onPointerOut={handlePointerOut}
-      onClick={handleClick}
-    >
+    <group ref={groupRef}>
+      {/* Invisible Low-Poly Hit Proxy for Ultra-Fast Raycasting (1 check per island instead of 100s) */}
+      <mesh
+        position={[0, 1.5, 0]}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+      >
+        <cylinderGeometry args={[6.5, 6.5, 4.0, 12]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
       {/* Dynamic Scale pop on hover with customized island diorama scale */}
       <group scale={currentScale}>
-        {/* Dynamic LOD (Tier 3 - #14): Distant islands render low-poly proxy; approaching renders full bespoke model */}
-        {isFar && !hovered && !isModalOpen ? (
-          <LowPolyIslandProxy config={config} />
-        ) : (
-          <>
-            {config.id === 'education' && <EducationIsland />}
-            {config.id === 'skills' && <SkillsIsland />}
-            {config.id === 'projects' && <ProjectsIsland />}
-            {config.id === 'experience' && <ExperienceIsland />}
-            {config.id === 'about' && <AboutIsland />}
+        {config.id === 'education' && <EducationIsland isNear={isNear} />}
+        {config.id === 'skills' && <SkillsIsland isNear={isNear} />}
+        {config.id === 'projects' && <ProjectsIsland isNear={isNear} />}
+        {config.id === 'experience' && <ExperienceIsland isNear={isNear} />}
+        {config.id === 'about' && <AboutIsland isNear={isNear} />}
 
-            {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
-            {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && (
-              <IslandLife
-                islandId={config.id}
-                themeColor={config.color}
-                isNear={isNear}
-              />
-            )}
-          </>
+        {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
+        {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && (
+          <IslandLife
+            islandId={config.id}
+            themeColor={config.color}
+            isNear={isNear}
+          />
         )}
       </group>
 
@@ -459,62 +437,39 @@ const ThematicIsland: React.FC<ThematicIslandProps> = ({
       <pointLight
         position={[0, 3.5, 0]}
         color={config.color}
-        intensity={hovered ? 3.8 : 2.2}
-        distance={15}
+        intensity={hovered ? 3.6 : (orbitActive ? 1.8 : (isNear ? 2.5 : 1.2))}
+        distance={18}
       />
     </group>
   );
 };
 
-interface LowPolyIslandProxyProps {
-  config: IslandConfig;
-}
+const ThematicIsland = React.memo(ThematicIslandComponent);
 
-/**
- * LowPolyIslandProxy
- * Versão simplificada (LOD - Tier 3 #14) renderizada para ilhas distantes (> 62 unidades).
- * Reduz drasticamente geometrias e chamadas de desenho sem quebrar a silhueta ou cor temática.
- */
-const LowPolyIslandProxy: React.FC<LowPolyIslandProxyProps> = ({ config }) => {
+const IslandsComponent: React.FC<IslandsProps> = ({
+  islands,
+  visitedIslands,
+  onSelectIsland,
+  orbitActive,
+  sharedVehiclePos,
+  isModalOpen,
+}) => {
   return (
     <group>
-      {/* Platô Octogonal Simplificado */}
-      <mesh castShadow receiveShadow position={[0, 0.4, 0]}>
-        <cylinderGeometry args={[4.8, 5.4, 0.9, 8]} />
-        <meshStandardMaterial
-          color="#1e293b"
-          roughness={0.6}
-          metalness={0.2}
-          flatShading
+      {islands.map((island) => (
+        <ThematicIsland
+          key={island.id}
+          config={island}
+          isVisited={visitedIslands.includes(island.id)}
+          onSelect={() => onSelectIsland(island.id)}
+          orbitActive={orbitActive}
+          sharedVehiclePos={sharedVehiclePos}
+          isModalOpen={isModalOpen}
         />
-      </mesh>
-
-      {/* Monólito Holográfico Icônico com a Cor da Ilha */}
-      <mesh position={[0, 2.4, 0]}>
-        <octahedronGeometry args={[1.8, 0]} />
-        <meshStandardMaterial
-          color={config.color}
-          emissive={config.color}
-          emissiveIntensity={1.4}
-          roughness={0.2}
-          metalness={0.8}
-          transparent
-          opacity={0.85}
-          flatShading
-        />
-      </mesh>
-
-      {/* Quilha Basáltica Inferior Low-Poly */}
-      <mesh position={[0, -1.6, 0]}>
-        <coneGeometry args={[4.6, 3.2, 7]} />
-        <meshStandardMaterial
-          color="#0f172a"
-          roughness={0.8}
-          metalness={0.3}
-          flatShading
-        />
-      </mesh>
+      ))}
     </group>
   );
 };
+
+export const Islands = React.memo(IslandsComponent);
 

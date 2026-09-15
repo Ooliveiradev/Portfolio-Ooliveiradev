@@ -15,7 +15,7 @@ export const MAX_RENDER_HEIGHT = 1080;
  * Retorna o Device Pixel Ratio (DPR) exato para que a resolução da GPU
  * nunca ultrapasse 1920x1080.
  */
-export function getClamped1080pDpr(quality: GraphicsQuality = 'mid'): number {
+export function getClamped1080pDpr(quality: GraphicsQuality = 'high'): number {
   if (typeof window === 'undefined') return 1;
 
   const width = window.innerWidth || MAX_RENDER_WIDTH;
@@ -45,7 +45,7 @@ export function getClamped1080pDpr(quality: GraphicsQuality = 'mid'): number {
 /**
  * Retorna as dimensões finais em pixels físicos renderizados (sempre <= 1920x1080)
  */
-export function getClampedResolution(quality: GraphicsQuality = 'mid'): {
+export function getClampedResolution(quality: GraphicsQuality = 'high'): {
   width: number;
   height: number;
   dpr: number;

@@ -6,6 +6,7 @@ import { GraphicsQuality } from '../../types';
 interface VehicleThrusterTrailsProps {
   sharedVehiclePos: React.MutableRefObject<THREE.Vector3>;
   graphicsQuality?: GraphicsQuality;
+  visible?: boolean;
 }
 
 const TRAIL_POINTS = 32;
@@ -26,6 +27,7 @@ const _worldRight = new THREE.Vector3();
 export const VehicleThrusterTrails: React.FC<VehicleThrusterTrailsProps> = ({
   sharedVehiclePos,
   graphicsQuality = 'mid',
+  visible = true,
 }) => {
   const lineLeftRef = useRef<THREE.Line>(null);
   const lineRightRef = useRef<THREE.Line>(null);
@@ -79,7 +81,7 @@ export const VehicleThrusterTrails: React.FC<VehicleThrusterTrailsProps> = ({
   }, [geometryLeft, geometryRight, material]);
 
   useFrame(() => {
-    if (!sharedVehiclePos) return;
+    if (!visible || !sharedVehiclePos) return;
 
     const shipPos = sharedVehiclePos.current;
 
@@ -131,14 +133,17 @@ export const VehicleThrusterTrails: React.FC<VehicleThrusterTrailsProps> = ({
     posAttrR.needsUpdate = true;
   });
 
+  const lineLeft = useMemo(() => new THREE.Line(geometryLeft, material), [geometryLeft, material]);
+  const lineRight = useMemo(() => new THREE.Line(geometryRight, material), [geometryRight, material]);
+
   if (graphicsQuality === 'low') {
     return null;
   }
 
   return (
-    <group>
-      <primitive object={new THREE.Line(geometryLeft, material)} ref={lineLeftRef} />
-      <primitive object={new THREE.Line(geometryRight, material)} ref={lineRightRef} />
+    <group visible={visible}>
+      <primitive object={lineLeft} ref={lineLeftRef} />
+      <primitive object={lineRight} ref={lineRightRef} />
     </group>
   );
 };

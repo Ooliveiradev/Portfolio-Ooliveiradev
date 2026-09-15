@@ -43,9 +43,8 @@ export async function detectWebGPUSupport(): Promise<WebGPUCapability> {
 
   try {
     const gpu = nav.gpu;
-    const adapter = await gpu.requestAdapter({
-      powerPreference: 'high-performance',
-    });
+    // Sem powerPreference para evitar advertência do Chromium no Windows
+    const adapter = await gpu.requestAdapter();
 
     if (!adapter) {
       cachedCapability = {

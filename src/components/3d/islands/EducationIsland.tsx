@@ -4,7 +4,11 @@ import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
 import { CosmicPond, CosmicWaterfall } from '../shaders/CosmicWater';
 
-export const EducationIsland: React.FC = () => {
+interface EducationIslandProps {
+  isNear?: boolean;
+}
+
+const EducationIslandComponent: React.FC<EducationIslandProps> = () => {
   // Animation refs
   const waterfallRef = useRef<THREE.Group>(null);
   const cloud1Ref = useRef<THREE.Group>(null);
@@ -14,11 +18,11 @@ export const EducationIsland: React.FC = () => {
   const booksRef = useRef<THREE.Group>(null);
   const notebookRef = useRef<THREE.Group>(null);
 
-  // Micro-interaction states
-  const [pencilWiggle, setPencilWiggle] = useState(0);
-  const [capTossTime, setCapTossTime] = useState(0);
-  const [bookHopTime, setBookHopTime] = useState(0);
-  const [notebookFlutter, setNotebookFlutter] = useState(0);
+  // Micro-interaction timer refs (Zero React re-renders)
+  const pencilWiggleRef = useRef(0);
+  const capTossTimeRef = useRef(0);
+  const bookHopTimeRef = useRef(0);
+  const notebookFlutterRef = useRef(0);
 
   // Precomputed waterfall droplets falling into the cosmic void
   const waterfallDroplets = useMemo(() => {
@@ -65,11 +69,11 @@ export const EducationIsland: React.FC = () => {
 
     // 3. Lápis Hexagonal: Wiggle elástico ao clicar
     if (pencilRef.current) {
-      if (pencilWiggle > 0) {
-        const decay = pencilWiggle;
+      if (pencilWiggleRef.current > 0) {
+        const decay = pencilWiggleRef.current;
         pencilRef.current.rotation.z = 0.52 + Math.sin(decay * 24) * 0.18 * (decay / 1.5);
         pencilRef.current.rotation.x = -0.38 + Math.cos(decay * 20) * 0.12 * (decay / 1.5);
-        setPencilWiggle(Math.max(0, pencilWiggle - delta * 2.2));
+        pencilWiggleRef.current = Math.max(0, pencilWiggleRef.current - delta * 2.2);
       } else {
         pencilRef.current.rotation.z = 0.52;
         pencilRef.current.rotation.x = -0.38;
@@ -78,15 +82,15 @@ export const EducationIsland: React.FC = () => {
 
     // 4. Capelo de Formatura: Celebração de lançamento para o ar com rotação 360°
     if (capRef.current) {
-      if (capTossTime > 0) {
-        const progress = (2.0 - capTossTime) / 2.0;
+      if (capTossTimeRef.current > 0) {
+        const progress = (2.0 - capTossTimeRef.current) / 2.0;
         const jumpY = Math.sin(progress * Math.PI) * 2.2;
         const spinY = progress * Math.PI * 4;
         const wobbleZ = Math.sin(progress * Math.PI * 3) * 0.35;
 
         capRef.current.position.set(0.9, 0.42 + jumpY, 0.6);
         capRef.current.rotation.set(0.08, spinY, wobbleZ);
-        setCapTossTime(Math.max(0, capTossTime - delta));
+        capTossTimeRef.current = Math.max(0, capTossTimeRef.current - delta);
       } else {
         capRef.current.position.set(0.9, 0.42, 0.6);
         capRef.current.rotation.set(0.08, 0.25, 0.05);
@@ -95,11 +99,11 @@ export const EducationIsland: React.FC = () => {
 
     // 5. Pilha de Livros: Efeito de acordeom e pulo elástico ao interagir
     if (booksRef.current) {
-      if (bookHopTime > 0) {
-        const progress = (1.2 - bookHopTime) / 1.2;
+      if (bookHopTimeRef.current > 0) {
+        const progress = (1.2 - bookHopTimeRef.current) / 1.2;
         const hop = Math.sin(progress * Math.PI) * 0.22;
         booksRef.current.position.y = 0.15 + hop;
-        setBookHopTime(Math.max(0, bookHopTime - delta * 1.8));
+        bookHopTimeRef.current = Math.max(0, bookHopTimeRef.current - delta * 1.8);
       } else {
         booksRef.current.position.y = 0.15;
       }
@@ -107,35 +111,35 @@ export const EducationIsland: React.FC = () => {
 
     // 6. Caderno Espiral: Folheio de páginas sutil
     if (notebookRef.current) {
-      if (notebookFlutter > 0) {
-        setNotebookFlutter(Math.max(0, notebookFlutter - delta * 2.0));
+      if (notebookFlutterRef.current > 0) {
+        notebookFlutterRef.current = Math.max(0, notebookFlutterRef.current - delta * 2.0);
       }
     }
   });
 
-  // Handlers de micro-interações
+  // Handlers de micro-interações (Zero React re-renders)
   const handlePencilClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playPencilSketch();
-    setPencilWiggle(1.5);
+    pencilWiggleRef.current = 1.5;
   };
 
   const handleCapClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playCapToss();
-    setCapTossTime(2.0);
+    capTossTimeRef.current = 2.0;
   };
 
   const handleBooksClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playBookPageFlip();
-    setBookHopTime(1.2);
+    bookHopTimeRef.current = 1.2;
   };
 
   const handleNotebookClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playBookPageFlip();
-    setNotebookFlutter(1.0);
+    notebookFlutterRef.current = 1.0;
   };
 
   return (
@@ -799,3 +803,5 @@ export const EducationIsland: React.FC = () => {
     </group>
   );
 };
+
+export const EducationIsland = React.memo(EducationIslandComponent);
