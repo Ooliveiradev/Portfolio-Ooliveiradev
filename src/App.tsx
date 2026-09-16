@@ -58,7 +58,7 @@ export default function App() {
   const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>('iso');
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  // Graphics Quality Preset: 'low' (ultra lightweight), 'mid' (balanced default), 'high' (high fidelity)
+  // Graphics Quality Preset: 'low' (ultra lightweight), 'mid' (balanced), 'high' (high fidelity default)
   const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>(() => {
     try {
       const saved = localStorage.getItem('galactic_portfolio_graphics');
@@ -68,7 +68,7 @@ export default function App() {
     } catch {
       // fallback
     }
-    return 'mid';
+    return 'high';
   });
 
   const handleSelectGraphicsQuality = (quality: GraphicsQuality) => {
@@ -746,6 +746,10 @@ export default function App() {
     setCrystals(CRYSTALS_DATA.map((c) => ({ ...c, collected: false })));
   };
 
+  const handlePreloadComplete = useCallback(() => {
+    setIsPreloading(false);
+  }, []);
+
   const isModalOpen =
     isPreloading ||
     gameMode === 'inspecting' ||
@@ -813,14 +817,14 @@ export default function App() {
         {isPreloading && (
           <Preloader
             isSceneReady={isSceneReady}
-            onComplete={() => setIsPreloading(false)}
+            onComplete={handlePreloadComplete}
           />
         )}
       </AnimatePresence>
 
       {/* Screen 1: Initial Landing Screen Overlay with Centered Orbiting Galaxy in Background */}
       <AnimatePresence>
-        {!isPreloading && gameMode === 'landing' && (
+        {gameMode === 'landing' && (
           <LandingOverlay
             onStartGame={handleStartGame}
             islands={ISLANDS_CONFIG}

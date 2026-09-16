@@ -3,7 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
 
-export const AboutIsland: React.FC = () => {
+interface AboutIslandProps {
+  isNear?: boolean;
+}
+
+const AboutIslandComponent: React.FC<AboutIslandProps> = () => {
   // Animation refs
   const paperPlaneRef = useRef<THREE.Group>(null);
   const steamRef = useRef<THREE.Group>(null);
@@ -12,19 +16,15 @@ export const AboutIsland: React.FC = () => {
   const petalsGroupRef = useRef<THREE.Group>(null);
   const waterfallRef = useRef<THREE.Group>(null);
 
-  // Micro-interaction states
-  // 1. Pixar Lamp toggle state
+  // Micro-interaction timer refs (Zero React re-renders)
+  const flightTimerRef = useRef(0);
+  const screenFlashRef = useRef(0);
+  const coffeeBoostRef = useRef(0);
+
+  // Discrete interactive state
   const [lampOn, setLampOn] = useState(true);
-
-  // 2. Monitor Screen Mode state (0: VS Code, 1: Matrix Terminal, 2: Celestial Radar)
   const [screenMode, setScreenMode] = useState(0);
-  const [screenFlash, setScreenFlash] = useState(0);
-
-  // 3. Paper Plane aerobatic flight state (timer > 0 means flying)
-  const [flightTimer, setFlightTimer] = useState(0);
-
-  // 4. Coffee steam boost state
-  const [coffeeBoost, setCoffeeBoost] = useState(0);
+  const [screenFlash, setScreenFlash] = useState(false);
 
   // Precomputed petal particles for the blooming Sakura trees
   const petalData = useMemo(() => {
@@ -60,8 +60,8 @@ export const AboutIsland: React.FC = () => {
 
     // 2. Aviãozinho de Papel: Voo acrobático em looping 3D fluido vs Pouso nas rochas
     if (paperPlaneRef.current) {
-      if (flightTimer > 0) {
-        const flightProgress = (4.0 - flightTimer) / 4.0;
+      if (flightTimerRef.current > 0) {
+        const flightProgress = (4.0 - flightTimerRef.current) / 4.0;
         const flightAngle = flightProgress * Math.PI * 4;
         const orbitRadius = 2.6 + Math.sin(flightProgress * Math.PI * 2) * 1.0;
         const px = Math.cos(flightAngle) * orbitRadius;
@@ -101,8 +101,8 @@ export const AboutIsland: React.FC = () => {
 
     // 5. Rotação suave do vapor do café
     if (steamRef.current) {
-      steamRef.current.rotation.y += delta * (0.6 + coffeeBoost * 2.0);
-      const steamScale = 1.0 + coffeeBoost * 0.7;
+      steamRef.current.rotation.y += delta * (0.6 + coffeeBoostRef.current * 2.0);
+      const steamScale = 1.0 + coffeeBoostRef.current * 0.7;
       steamRef.current.scale.set(steamScale, steamScale * 1.2, steamScale);
     }
 
@@ -116,13 +116,13 @@ export const AboutIsland: React.FC = () => {
       );
     }
 
-    // Timers de decaimento
-    if (flightTimer > 0) setFlightTimer((prev) => Math.max(0, prev - delta));
-    if (screenFlash > 0) setScreenFlash((prev) => Math.max(0, prev - delta * 3.0));
-    if (coffeeBoost > 0) setCoffeeBoost((prev) => Math.max(0, prev - delta * 1.8));
+    // Timers de decaimento em refs (zero React re-renders)
+    if (flightTimerRef.current > 0) flightTimerRef.current = Math.max(0, flightTimerRef.current - delta);
+    if (screenFlashRef.current > 0) screenFlashRef.current = Math.max(0, screenFlashRef.current - delta * 3.0);
+    if (coffeeBoostRef.current > 0) coffeeBoostRef.current = Math.max(0, coffeeBoostRef.current - delta * 1.8);
   });
 
-  // Handlers de micro-interatividades
+  // Handlers de micro-interatividades (zero overhead)
   const handleLampClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     const nextState = !lampOn;
@@ -133,20 +133,21 @@ export const AboutIsland: React.FC = () => {
   const handleScreenClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playTerminalBeep();
-    setScreenFlash(1.0);
+    setScreenFlash(true);
+    setTimeout(() => setScreenFlash(false), 300);
     setScreenMode((prev) => (prev + 1) % 3);
   };
 
   const handlePaperPlaneClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playPaperPlaneWhoosh();
-    setFlightTimer(4.0);
+    flightTimerRef.current = 4.0;
   };
 
   const handleCoffeeClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playSipCoffee();
-    setCoffeeBoost(1.0);
+    coffeeBoostRef.current = 2.0;
   };
 
   return (
@@ -354,8 +355,8 @@ export const AboutIsland: React.FC = () => {
             <planeGeometry args={[1.88, 0.82]} />
             <meshStandardMaterial
               color={screenMode === 1 ? '#022c22' : '#090d16'}
-              emissive={screenFlash > 0 ? '#38bdf8' : screenMode === 1 ? '#064e3b' : screenMode === 2 ? '#0284c7' : '#000000'}
-              emissiveIntensity={screenFlash > 0 ? 1.8 : 0.4}
+              emissive={screenFlash ? '#38bdf8' : screenMode === 1 ? '#064e3b' : screenMode === 2 ? '#0284c7' : '#000000'}
+              emissiveIntensity={screenFlash ? 1.8 : 0.4}
               roughness={0.15}
             />
           </mesh>
@@ -507,3 +508,5 @@ export const AboutIsland: React.FC = () => {
     </group>
   );
 };
+
+export const AboutIsland = React.memo(AboutIslandComponent);

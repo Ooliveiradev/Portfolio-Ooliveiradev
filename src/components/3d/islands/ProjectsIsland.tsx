@@ -3,7 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
 
-export const ProjectsIsland: React.FC = () => {
+interface ProjectsIslandProps {
+  isNear?: boolean;
+}
+
+const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
   // Animation refs
   const rocketRef = useRef<THREE.Group>(null);
   const smokeRef = useRef<THREE.Group>(null);
@@ -16,25 +20,17 @@ export const ProjectsIsland: React.FC = () => {
   const skyCloudRef = useRef<THREE.Group>(null);
   const oreShardsRef = useRef<THREE.Group>(null);
 
-  // Micro-interaction states
-  // 1. Arcade cabinet state
-  const [arcadeFlash, setArcadeFlash] = useState(0); // pulse timer
+  // Micro-interaction discrete states (Only change on click, NEVER in useFrame)
   const [activeBtnIdx, setActiveBtnIdx] = useState<number | null>(null);
   const [joystickTilt, setJoystickTilt] = useState({ x: 0, z: 0 });
-
-  // 2. Rocket & Tower vapor burst state
-  const [ventBurst, setVentBurst] = useState(0); // burst timer 0 -> 1
-
-  // 3. Hologram model switch state (0: Satellite Octahedron, 1: Geodesic Probe Icosahedron, 2: Warp Ring Torus)
   const [holoModel, setHoloModel] = useState(0);
-  const [holoFlash, setHoloFlash] = useState(0);
-
-  // 4. Teclado Magnético (Hall Effect / Rapid Trigger) states
+  const [holoFlash, setHoloFlash] = useState(false);
+  const [ventBurst, setVentBurst] = useState(false);
   const [pressedKey, setPressedKey] = useState<number | null>(null);
-  const [magneticTravel, setMagneticTravel] = useState(0); // 0 -> 1 smooth travel
-  const [magneticPulse, setMagneticPulse] = useState(0); // magnetic induction ring ripple
-  const [encoderAngle, setEncoderAngle] = useState(0); // rotary encoder knob rotation
-  const [rgbThemeIdx, setRgbThemeIdx] = useState(0); // underglow & accent theme
+  const magneticTravel = pressedKey !== null ? 0.85 : 0;
+  const magneticPulse = pressedKey !== null ? 0.85 : 0;
+  const [encoderAngle, setEncoderAngle] = useState(0);
+  const [rgbThemeIdx, setRgbThemeIdx] = useState(0);
 
   // Main frame loop for fluid mechanical and atmospheric animations
   useFrame((_, delta) => {
@@ -42,7 +38,7 @@ export const ProjectsIsland: React.FC = () => {
 
     // --- Levitação e respiração do foguete experimental com tremor de recoil ---
     if (rocketRef.current) {
-      const recoilY = ventBurst > 0 ? Math.sin(ventBurst * Math.PI) * 0.35 : 0;
+      const recoilY = ventBurst ? Math.sin(time * 14.0) * 0.28 : 0;
       rocketRef.current.position.y = 2.6 + Math.sin(time * 2.2) * 0.14 + recoilY;
       rocketRef.current.rotation.z = Math.sin(time * 1.6) * 0.025;
       rocketRef.current.rotation.x = Math.sin(time * 1.9) * 0.015;
@@ -50,8 +46,8 @@ export const ProjectsIsland: React.FC = () => {
 
     // --- Nuvens de vapor volumétrico com expansão na baforada pneumática ---
     if (smokeRef.current) {
-      smokeRef.current.rotation.y += delta * (0.45 + ventBurst * 2.8);
-      const targetScale = 1.0 + ventBurst * 0.85;
+      smokeRef.current.rotation.y += delta * (ventBurst ? 2.6 : 0.45);
+      const targetScale = ventBurst ? 1.65 : 1.0;
       smokeRef.current.scale.set(targetScale, targetScale * 0.9, targetScale);
     }
 
@@ -85,7 +81,7 @@ export const ProjectsIsland: React.FC = () => {
 
     // --- Projeção holográfica na prancheta ---
     if (holoMeshRef.current) {
-      const spinSpeed = holoFlash > 0 ? 4.8 : 1.2;
+      const spinSpeed = holoFlash ? 4.8 : 1.2;
       holoMeshRef.current.rotation.y += delta * spinSpeed;
       holoMeshRef.current.rotation.x += delta * (spinSpeed * 0.45);
       holoMeshRef.current.position.y = 2.25 + Math.sin(time * 2.5) * 0.08;
@@ -99,63 +95,43 @@ export const ProjectsIsland: React.FC = () => {
 
     if (screenGlowRef.current) {
       const baseGlow = 1.4 + Math.sin(time * 4.0) * 0.5;
-      screenGlowRef.current.intensity = baseGlow + arcadeFlash * 3.5;
+      screenGlowRef.current.intensity = baseGlow + (activeBtnIdx !== null ? 2.5 : 0);
     }
 
     if (arcadeScreenRef.current) {
-      arcadeScreenRef.current.emissiveIntensity = 1.0 + arcadeFlash * 2.5;
-    }
-
-    // Decay timers for interactive states
-    if (ventBurst > 0) {
-      setVentBurst((prev) => Math.max(0, prev - delta * 1.5));
-    }
-    if (arcadeFlash > 0) {
-      setArcadeFlash((prev) => Math.max(0, prev - delta * 2.5));
-    }
-    if (holoFlash > 0) {
-      setHoloFlash((prev) => Math.max(0, prev - delta * 2.2));
-    }
-    if (activeBtnIdx !== null && arcadeFlash < 0.05) {
-      setActiveBtnIdx(null);
-      setJoystickTilt({ x: 0, z: 0 });
-    }
-    if (pressedKey !== null) {
-      // Smooth magnetic key recovery
-      setMagneticTravel((prev) => Math.max(0, prev - delta * 4.5));
-      if (magneticTravel <= 0.05) {
-        setPressedKey(null);
-      }
-    }
-    if (magneticPulse > 0) {
-      setMagneticPulse((prev) => Math.max(0, prev - delta * 2.8));
+      arcadeScreenRef.current.emissiveIntensity = 1.0 + (activeBtnIdx !== null ? 2.0 : 0);
     }
   });
 
-  // Micro-interaction handlers
+  // Micro-interaction handlers (Zero React Re-renders for animation loops)
   const handleArcadeClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playArcadeCoin();
-    setArcadeFlash(1.0);
     const randomBtn = Math.floor(Math.random() * 4);
     setActiveBtnIdx(randomBtn);
     setJoystickTilt({
       x: (Math.random() - 0.5) * 0.4,
       z: 0.25 + Math.random() * 0.2,
     });
+    setTimeout(() => {
+      setActiveBtnIdx(null);
+      setJoystickTilt({ x: 0, z: 0 });
+    }, 600);
   };
 
   const handleTowerRocketClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playPneumaticVent();
-    setVentBurst(1.0);
+    setVentBurst(true);
+    setTimeout(() => setVentBurst(false), 1200);
   };
 
   const handleHoloClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playHoloSwitch();
-    setHoloFlash(1.0);
+    setHoloFlash(true);
     setHoloModel((prev) => (prev + 1) % 3);
+    setTimeout(() => setHoloFlash(false), 800);
   };
 
   // Teclado Magnético: Acionamento contínuo Hall Effect com amortecimento tátil e som cremoso
@@ -164,8 +140,7 @@ export const ProjectsIsland: React.FC = () => {
     const pitches = [0.88, 0.94, 1.0, 1.06, 1.12, 1.18];
     sounds.playMagneticSwitch(pitches[keyIdx % pitches.length]);
     setPressedKey(keyIdx);
-    setMagneticTravel(1.0);
-    setMagneticPulse(1.0);
+    setTimeout(() => setPressedKey(null), 250);
   };
 
   // Rotary Encoder do Teclado Magnético: Gira com clique e altera o perfil RGB / Rapid Trigger
@@ -676,7 +651,7 @@ export const ProjectsIsland: React.FC = () => {
         <pointLight
           position={[0, 0.6, 0]}
           color="#f97316"
-          intensity={3.5 + ventBurst * 6.5}
+          intensity={ventBurst ? 10.0 : 3.5}
           distance={8}
         />
       </group>
@@ -912,7 +887,7 @@ export const ProjectsIsland: React.FC = () => {
                 <meshStandardMaterial
                   color="#38bdf8"
                   emissive="#0284c7"
-                  emissiveIntensity={1.8 + holoFlash * 2.0}
+                  emissiveIntensity={holoFlash ? 3.8 : 1.8}
                   roughness={0.2}
                   wireframe
                 />
@@ -937,7 +912,7 @@ export const ProjectsIsland: React.FC = () => {
                 <meshStandardMaterial
                   color="#38bdf8"
                   emissive="#0284c7"
-                  emissiveIntensity={2.0 + holoFlash * 2.0}
+                  emissiveIntensity={holoFlash ? 4.0 : 2.0}
                   roughness={0.2}
                   wireframe
                 />
@@ -961,7 +936,7 @@ export const ProjectsIsland: React.FC = () => {
                 <meshStandardMaterial
                   color="#38bdf8"
                   emissive="#0284c7"
-                  emissiveIntensity={2.0 + holoFlash * 2.0}
+                  emissiveIntensity={holoFlash ? 4.0 : 2.0}
                   roughness={0.2}
                   wireframe
                 />
@@ -982,7 +957,7 @@ export const ProjectsIsland: React.FC = () => {
         <pointLight
           position={[0, 2.2, 0.2]}
           color="#38bdf8"
-          intensity={1.8 + holoFlash * 2.5}
+          intensity={holoFlash ? 4.3 : 1.8}
           distance={4}
         />
       </group>
@@ -1293,3 +1268,5 @@ export const ProjectsIsland: React.FC = () => {
     </group>
   );
 };
+
+export const ProjectsIsland = React.memo(ProjectsIslandComponent);

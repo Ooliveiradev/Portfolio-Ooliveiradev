@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRapierBody } from './useRapierBody';
@@ -217,7 +217,7 @@ export const SpaceCargoBox: React.FC<SpaceCargoBoxProps> = ({
               opacity={0.9}
             />
           </mesh>
-          {graphicsQuality !== 'low' && (
+          {graphicsQuality === 'high' && (
             <pointLight
               color="#fde047"
               intensity={1.2}

@@ -109,6 +109,7 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+      vertexColors: true,
       uniforms: {
         uTime: { value: 0 },
         uTexture: { value: pointTexture },
@@ -182,5 +183,7 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     }
   });
 
-  return <primitive object={new THREE.Points(geometry, material)} ref={pointsRef} />;
+  const pointsObject = useMemo(() => new THREE.Points(geometry, material), [geometry, material]);
+
+  return <primitive object={pointsObject} ref={pointsRef} />;
 };

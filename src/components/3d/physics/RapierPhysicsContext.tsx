@@ -55,11 +55,13 @@ export const usePostPhysics = (callback: PhysicsCallback) => {
 interface RapierPhysicsProviderProps {
   children: React.ReactNode;
   gravity?: [number, number, number];
+  paused?: boolean;
 }
 
 export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
   children,
   gravity = [0, -22, 0],
+  paused = false,
 }) => {
   const [isReady, setIsReady] = useState(false);
   const rapierRef = useRef<typeof RAPIER | null>(null);
@@ -117,6 +119,8 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
   // 3. Physics Simulation (Rapier Step)
   // 4. Post-Physics (Visual Sync dos Corpos Rígidos)
   useFrame((_, delta) => {
+    if (paused) return;
+
     // Delta time clampado para prevenir saltos em quedas de quadros
     const dt = Math.min(delta, 0.05);
 

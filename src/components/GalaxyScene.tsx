@@ -65,22 +65,34 @@ function ScenePrewarmer({ onSceneReady }: { onSceneReady?: () => void }) {
     if (hasPrewarmed.current) return;
     hasPrewarmed.current = true;
 
-    try {
-      gl.compile(scene, camera);
-    } catch (e) {
-      console.warn('GPU pipeline prewarm warning:', e);
-    }
+    // Compilação paralela assíncrona na GPU (Three.js r163+) para não travar a thread principal
+    if (typeof (gl as any).compileAsync === 'function') {
+      (gl as any)
+        .compileAsync(scene, camera)
+        .catch((e: unknown) => {
+          console.warn('GPU pipeline async prewarm warning:', e);
+        })
+        .finally(() => {
+          onSceneReady?.();
+        });
+    } else {
+      try {
+        gl.compile(scene, camera);
+      } catch (e) {
+        console.warn('GPU pipeline prewarm warning:', e);
+      }
 
-    const rafId = requestAnimationFrame(() => {
-      onSceneReady?.();
-    });
-    return () => cancelAnimationFrame(rafId);
+      const rafId = requestAnimationFrame(() => {
+        onSceneReady?.();
+      });
+      return () => cancelAnimationFrame(rafId);
+    }
   }, [gl, scene, camera, onSceneReady]);
 
   return <Preload all />;
 }
 
-export const GalaxyScene: React.FC<GalaxySceneProps> = ({
+const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   gameMode,
   vehiclePos,
   vehicleRotation,
@@ -238,27 +250,26 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
               visitedIslands={visitedIslands}
               onSelectIsland={onSelectIsland}
               orbitActive={gameMode === 'landing'}
-              vehiclePos={vehiclePos}
+              sharedVehiclePos={sharedVehiclePos}
               isModalOpen={isModalOpen}
             />
 
-            {/* Nave Espacial com Corpo Rígido Dinâmico e Colisor Primitivo */}
-            {gameMode !== 'landing' && (
-              <SpaceVehicle
-                position={vehiclePos}
-                targetPosition={targetVehiclePos}
-                onPositionChange={onVehiclePosChange}
-                onRotationChange={onVehicleRotationChange}
-                isDriving={gameMode === 'driving'}
-                virtualInput={virtualInput}
-                onClearTargetPosition={onClearTargetPosition}
-                graphicsQuality={graphicsQuality}
-                sharedVehiclePos={sharedVehiclePos}
-                gameMode={gameMode}
-                selectedIslandId={selectedIslandId}
-                onCinematicComplete={onCinematicComplete}
-              />
-            )}
+            {/* Nave Espacial com Corpo Rígido Dinâmico e Colisor Primitivo (Pré-montada e persistente na GPU) */}
+            <SpaceVehicle
+              visible={gameMode !== 'landing'}
+              position={vehiclePos}
+              targetPosition={targetVehiclePos}
+              onPositionChange={onVehiclePosChange}
+              onRotationChange={onVehicleRotationChange}
+              isDriving={gameMode === 'driving'}
+              virtualInput={virtualInput}
+              onClearTargetPosition={onClearTargetPosition}
+              graphicsQuality={graphicsQuality}
+              sharedVehiclePos={sharedVehiclePos}
+              gameMode={gameMode}
+              selectedIslandId={selectedIslandId}
+              onCinematicComplete={onCinematicComplete}
+            />
 
             {/* Sol Central e Cristais */}
             <OrbitRingsAndCollectibles
@@ -297,12 +308,11 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
             />
 
             {/* Trilhas e Fitas de Plasma Luminescente da Nave (Skidmarks Cósmicos) */}
-            {gameMode !== 'landing' && (
-              <VehicleThrusterTrails
-                sharedVehiclePos={sharedVehiclePos}
-                graphicsQuality={graphicsQuality}
-              />
-            )}
+            <VehicleThrusterTrails
+              sharedVehiclePos={sharedVehiclePos}
+              graphicsQuality={graphicsQuality}
+              visible={gameMode !== 'landing'}
+            />
 
             {/* Gerenciador de Explosões Low-Poly estilo Bruno Simon */}
             <LowPolyExplosions graphicsQuality={graphicsQuality} />
@@ -343,3 +353,19 @@ export const GalaxyScene: React.FC<GalaxySceneProps> = ({
     </div>
   );
 };
+
+export const GalaxyScene = React.memo(GalaxySceneComponent, (prev, next) => {
+  return (
+    prev.gameMode === next.gameMode &&
+    prev.cameraViewMode === next.cameraViewMode &&
+    prev.selectedIslandId === next.selectedIslandId &&
+    prev.graphicsQuality === next.graphicsQuality &&
+    prev.isModalOpen === next.isModalOpen &&
+    prev.isRacing === next.isRacing &&
+    prev.currentCheckpoint === next.currentCheckpoint &&
+    prev.visitedIslands.length === next.visitedIslands.length &&
+    prev.crystals.length === next.crystals.length &&
+    prev.targetVehiclePos === next.targetVehiclePos &&
+    prev.whispers?.length === next.whispers?.length
+  );
+});

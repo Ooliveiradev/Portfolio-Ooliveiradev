@@ -179,9 +179,6 @@ const SingleCrystal: React.FC<SingleCrystalProps> = ({ position, onCollect, grap
           />
         )}
       </mesh>
-      {graphicsQuality !== 'low' && (
-        <pointLight color="#38bdf8" intensity={1.5} distance={6} />
-      )}
     </group>
   );
 };

@@ -1,9 +1,50 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
 
-export const ExperienceIsland: React.FC = () => {
+interface ExperienceIslandProps {
+  isNear?: boolean;
+}
+
+const BasaltKeel: React.FC<{ columns: { x: number; z: number; r: number; h: number; y: number }[] }> = ({ columns }) => {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    if (!meshRef.current) return;
+    const tempMatrix = new THREE.Matrix4();
+    const tempPos = new THREE.Vector3();
+    const tempQuat = new THREE.Quaternion();
+    const tempScale = new THREE.Vector3();
+
+    columns.forEach((col, idx) => {
+      tempPos.set(col.x, col.y, col.z);
+      tempScale.set(col.r, col.h, col.r);
+      tempMatrix.compose(tempPos, tempQuat, tempScale);
+      meshRef.current!.setMatrixAt(idx, tempMatrix);
+    });
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  }, [columns]);
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, columns.length]}
+      receiveShadow
+      castShadow
+    >
+      <cylinderGeometry args={[1, 1, 1, 6]} />
+      <meshStandardMaterial
+        color="#1e293b"
+        roughness={0.92}
+        metalness={0.08}
+        flatShading
+      />
+    </instancedMesh>
+  );
+};
+
+const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
   // Animation refs
   const clockHourRef = useRef<THREE.Mesh>(null);
   const clockMinuteRef = useRef<THREE.Mesh>(null);
@@ -13,10 +54,10 @@ export const ExperienceIsland: React.FC = () => {
   const cloud1Ref = useRef<THREE.Group>(null);
   const cloud2Ref = useRef<THREE.Group>(null);
 
-  // Micro-interaction states
-  const [clockSpinTime, setClockSpinTime] = useState(0);
-  const [briefcaseHopTime, setBriefcaseHopTime] = useState(0);
-  const [skybridgeBoost, setSkybridgeBoost] = useState(0);
+  // Micro-interaction timer refs (Zero React re-renders)
+  const clockSpinTimeRef = useRef(0);
+  const briefcaseHopTimeRef = useRef(0);
+  const skybridgeBoostRef = useRef(0);
 
   // Precomputed basalt columnar hex prisms for the dramatic stepped keel (Giant's Causeway)
   const basaltColumns = useMemo(() => {
@@ -48,16 +89,16 @@ export const ExperienceIsland: React.FC = () => {
 
     // 1. Torre do Relógio Histórico: Rotação suave contínua + Giro acelerado com badalada
     if (clockMinuteRef.current) {
-      if (clockSpinTime > 0) {
+      if (clockSpinTimeRef.current > 0) {
         clockMinuteRef.current.rotation.z -= delta * 24;
       } else {
         clockMinuteRef.current.rotation.z -= delta * 0.6;
       }
     }
     if (clockHourRef.current) {
-      if (clockSpinTime > 0) {
+      if (clockSpinTimeRef.current > 0) {
         clockHourRef.current.rotation.z -= delta * 4;
-        setClockSpinTime(Math.max(0, clockSpinTime - delta));
+        clockSpinTimeRef.current = Math.max(0, clockSpinTimeRef.current - delta);
       } else {
         clockHourRef.current.rotation.z -= delta * 0.05;
       }
@@ -65,24 +106,24 @@ export const ExperienceIsland: React.FC = () => {
 
     // 2. Pulso de Luz da Passarela Suspensa (Skybridge)
     if (skybridgeBeaconRef.current) {
-      const speed = skybridgeBoost > 0 ? 7.5 : 2.5;
+      const speed = skybridgeBoostRef.current > 0 ? 7.5 : 2.5;
       const progress = (t * speed) % 2.4;
       // Posiciona entre a Torre 1 (x = -1.7) e a Torre 2 (x = 0.6), delta ~ 2.3
       skybridgeBeaconRef.current.position.x = -1.6 + progress;
-      if (skybridgeBoost > 0) {
-        setSkybridgeBoost(Math.max(0, skybridgeBoost - delta * 1.5));
+      if (skybridgeBoostRef.current > 0) {
+        skybridgeBoostRef.current = Math.max(0, skybridgeBoostRef.current - delta * 1.5);
       }
     }
 
     // 3. Maleta Executiva: Pulo elástico e balanço ao clicar
     if (briefcaseRef.current) {
-      if (briefcaseHopTime > 0) {
-        const p = (1.2 - briefcaseHopTime) / 1.2;
+      if (briefcaseHopTimeRef.current > 0) {
+        const p = (1.2 - briefcaseHopTimeRef.current) / 1.2;
         const jump = Math.sin(p * Math.PI) * 0.28;
         const wobble = Math.sin(p * Math.PI * 4) * 0.08;
         briefcaseRef.current.position.y = 0.52 + jump;
         briefcaseRef.current.rotation.z = wobble;
-        setBriefcaseHopTime(Math.max(0, briefcaseHopTime - delta * 2.0));
+        briefcaseHopTimeRef.current = Math.max(0, briefcaseHopTimeRef.current - delta * 2.0);
       } else {
         briefcaseRef.current.position.y = 0.52;
         briefcaseRef.current.rotation.z = 0;
@@ -100,49 +141,31 @@ export const ExperienceIsland: React.FC = () => {
     }
   });
 
-  // Interatividade handlers
+  // Interatividade handlers (zero react render overhead)
   const handleClockClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playClockChime();
-    setClockSpinTime(2.2);
+    clockSpinTimeRef.current = 2.2;
   };
 
   const handleBriefcaseClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playBriefcaseClick();
-    setBriefcaseHopTime(1.2);
+    briefcaseHopTimeRef.current = 1.2;
   };
 
   const handleSkybridgeClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playSkybridgePulse();
-    setSkybridgeBoost(2.0);
+    skybridgeBoostRef.current = 2.0;
   };
 
   return (
     <group>
       {/* =========================================================
-          1. 🌋 QUILHA DE BASALTO COLUNAR (GIANT'S CAUSEWAY)
-             Dezenas de prismas hexagonais escalonados em rocha vulcânica
-         ========================================================= */}
-      <group>
-        {basaltColumns.map((col, idx) => (
-          <mesh
-            key={`basalt-${idx}`}
-            position={[col.x, col.y, col.z]}
-            receiveShadow
-            castShadow
-          >
-            <cylinderGeometry args={[col.r, col.r, col.h, 6]} />
-            <meshStandardMaterial
-              color="#1e293b"
-              roughness={0.92}
-              metalness={0.08}
-              flatShading
-            />
-          </mesh>
-        ))}
-      </group>
+          1. 🌋 QUILHA DE BASALTO COLUNAR (GIANT'S CAUSEWAY) - 1 DRAW CALL VIA INSTANCED MESH
+          ========================================================= */}
+      <BasaltKeel columns={basaltColumns} />
 
       {/* =========================================================
           2. 🏗️ FUNDAÇÃO DE CONCRETO, PILARES, VIGAS EM 'I' & GRELHAS
@@ -673,3 +696,5 @@ export const ExperienceIsland: React.FC = () => {
     </group>
   );
 };
+
+export const ExperienceIsland = React.memo(ExperienceIslandComponent);

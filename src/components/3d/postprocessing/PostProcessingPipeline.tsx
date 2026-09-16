@@ -131,13 +131,15 @@ const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    // 2. Pass de Unreal Bloom Altamente Seletivo e Suave (não estoura a cena)
+    // 2. Pass de Unreal Bloom Altamente Seletivo e Suave com buffer otimizado
     const bloomStrength = graphicsQuality === 'high' ? 0.22 : 0.15;
     const bloomRadius = 0.22;
     const bloomThreshold = 0.94; // Threshold alto: apenas elementos ultra-incandescentes emitem brilho
 
+    const bloomResX = Math.max(256, Math.floor(size.width / 2));
+    const bloomResY = Math.max(144, Math.floor(size.height / 2));
     const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(size.width, size.height),
+      new THREE.Vector2(bloomResX, bloomResY),
       bloomStrength,
       bloomRadius,
       bloomThreshold
@@ -197,7 +199,11 @@ const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }
     }
 
     if (chromaPassRef.current) {
-      chromaPassRef.current.uniforms['uOffset'].value = currentChromaOffset.current;
+      const isChromaActive = currentChromaOffset.current > 0.0001;
+      chromaPassRef.current.enabled = isChromaActive;
+      if (isChromaActive) {
+        chromaPassRef.current.uniforms['uOffset'].value = currentChromaOffset.current;
+      }
     }
 
     // Executa a renderização do composer

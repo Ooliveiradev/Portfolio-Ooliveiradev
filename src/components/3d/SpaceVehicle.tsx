@@ -118,6 +118,7 @@ interface SpaceVehicleProps {
   gameMode?: GameMode;
   selectedIslandId?: IslandId | null;
   onCinematicComplete?: (finishedMode: GameMode) => void;
+  visible?: boolean;
 }
 
 export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
@@ -132,6 +133,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   gameMode = 'driving',
   selectedIslandId,
   onCinematicComplete,
+  visible = true,
 }) => {
   const { rapier, world, isReady } = useRapier();
 
@@ -370,6 +372,12 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
+    if (gameMode === 'landing' || visible === false) {
+      groupRef.current.visible = false;
+      return;
+    }
+    groupRef.current.visible = true;
+
     // Detect cinematic mode transition trigger
     if (gameMode !== prevGameModeRef.current) {
       cinematicTimer.current = 0;
@@ -591,7 +599,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       }
 
       const now = performance.now();
-      if (now - lastAppUpdate.current > 50) {
+      if (now - lastAppUpdate.current > 120) {
         lastAppUpdate.current = now;
         onPositionChange([cX, cY, cZ]);
         onRotationChange?.(cYaw);
@@ -829,7 +837,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         }
 
         const now = performance.now();
-        if (now - lastAppUpdate.current > 50) {
+        if (now - lastAppUpdate.current > 120) {
           lastAppUpdate.current = now;
           onPositionChange([pos.current.x, pos.current.y, pos.current.z]);
           onRotationChange?.(rotationY.current);
