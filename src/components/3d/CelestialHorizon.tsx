@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GraphicsQuality } from '../../types';
@@ -21,7 +21,8 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
   const lensingRing1Ref = useRef<THREE.Mesh>(null);
   const lensingRing2Ref = useRef<THREE.Mesh>(null);
   const polarJetsRef = useRef<THREE.Group>(null);
-  const orbitingDustRef = useRef<THREE.Group>(null);
+  const orbitingDustRef = useRef<THREE.InstancedMesh>(null);
+  const dustTransform = useMemo(() => new THREE.Object3D(), []);
 
   // Orbiting accretion plasma motes for smooth low-poly life (subtle & dark)
   const dustCount = graphicsQuality === 'low' ? 20 : graphicsQuality === 'high' ? 56 : 36;
@@ -35,6 +36,25 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
       return { angle, radius, speed, scale, yOffset };
     });
   }, [dustCount]);
+
+  useLayoutEffect(() => {
+    const mesh = orbitingDustRef.current;
+    if (!mesh) return;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const color = new THREE.Color();
+    const palette = ['#f59e0b', '#d97706', '#ea580c'];
+    dustParticles.forEach((particle, i) => {
+      dustTransform.position.set(Math.cos(particle.angle) * particle.radius, Math.sin(particle.angle) * particle.radius, particle.yOffset);
+      dustTransform.scale.setScalar(particle.scale);
+      dustTransform.updateMatrix();
+      mesh.setMatrixAt(i, dustTransform.matrix);
+      mesh.setColorAt(i, color.set(palette[i % palette.length]));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    // The particles orbit inside this fixed local-space volume.
+    mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 92);
+  }, [dustParticles, dustTransform]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
@@ -62,16 +82,17 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
 
     // 3. Orbiting Accretion Plasma Motes
     if (orbitingDustRef.current) {
-      orbitingDustRef.current.children.forEach((child, i) => {
-        const p = dustParticles[i];
-        if (!p) return;
+      dustParticles.forEach((p, i) => {
         p.angle += dt * p.speed;
         const x = Math.cos(p.angle) * p.radius;
         const y = Math.sin(p.angle) * p.radius;
-        child.position.set(x, y, p.yOffset);
-        child.rotation.x += dt * 0.6;
-        child.rotation.y += dt * 0.8;
+        dustTransform.position.set(x, y, p.yOffset);
+        dustTransform.rotation.set(p.angle * 3, p.angle * 4, 0);
+        dustTransform.scale.setScalar(p.scale);
+        dustTransform.updateMatrix();
+        orbitingDustRef.current!.setMatrixAt(i, dustTransform.matrix);
       });
+      orbitingDustRef.current.instanceMatrix.needsUpdate = true;
     }
   });
 
@@ -101,6 +122,7 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
             transparent
             opacity={0.98}
             side={THREE.DoubleSide}
+              forceSinglePass
             fog={false}
           />
         </mesh>
@@ -144,6 +166,7 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
               opacity={0.52}
               blending={THREE.AdditiveBlending}
               side={THREE.DoubleSide}
+              forceSinglePass
               depthWrite={false}
             />
           </mesh>
@@ -157,6 +180,7 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
               opacity={0.40}
               blending={THREE.AdditiveBlending}
               side={THREE.DoubleSide}
+              forceSinglePass
               depthWrite={false}
             />
           </mesh>
@@ -170,6 +194,7 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
               opacity={0.28}
               blending={THREE.AdditiveBlending}
               side={THREE.DoubleSide}
+              forceSinglePass
               depthWrite={false}
             />
           </mesh>
@@ -183,6 +208,7 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
               opacity={0.18}
               blending={THREE.AdditiveBlending}
               side={THREE.DoubleSide}
+              forceSinglePass
               depthWrite={false}
             />
           </mesh>
@@ -196,33 +222,16 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
               opacity={0.09}
               blending={THREE.AdditiveBlending}
               side={THREE.DoubleSide}
+              forceSinglePass
               depthWrite={false}
             />
           </mesh>
 
           {/* Orbiting Plasma Motes (Very subtle, soft floating embers) */}
-          <group ref={orbitingDustRef}>
-            {dustParticles.map((p, i) => (
-              <mesh
-                key={i}
-                position={[
-                  Math.cos(p.angle) * p.radius,
-                  Math.sin(p.angle) * p.radius,
-                  p.yOffset,
-                ]}
-                scale={[p.scale, p.scale, p.scale]}
-              >
-                <octahedronGeometry args={[0.8, 0]} />
-                <meshBasicMaterial
-                  color={i % 3 === 0 ? '#f59e0b' : i % 3 === 1 ? '#d97706' : '#ea580c'}
-                  transparent
-                  opacity={0.35}
-                  blending={THREE.AdditiveBlending}
-                  depthWrite={false}
-                />
-              </mesh>
-            ))}
-          </group>
+          <instancedMesh ref={orbitingDustRef} args={[undefined, undefined, dustCount]}>
+            <octahedronGeometry args={[0.8, 0]} />
+            <meshBasicMaterial transparent opacity={0.35} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </instancedMesh>
         </group>
 
         {/* Double Vertical Gravitational Lensing Arcs (Soft and moody) */}
@@ -239,6 +248,7 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
             opacity={0.34}
             blending={THREE.AdditiveBlending}
             side={THREE.DoubleSide}
+              forceSinglePass
             depthWrite={false}
           />
         </mesh>
@@ -256,19 +266,11 @@ export const CelestialHorizon: React.FC<CelestialHorizonProps> = ({
             opacity={0.16}
             blending={THREE.AdditiveBlending}
             side={THREE.DoubleSide}
+              forceSinglePass
             depthWrite={false}
           />
         </mesh>
 
-        {/* Soft, discreet amber ambient glow */}
-        {graphicsQuality !== 'low' && (
-          <pointLight
-            position={[0, 0, 0]}
-            color="#d97706"
-            intensity={0.6}
-            distance={110}
-          />
-        )}
       </group>
     </group>
   );

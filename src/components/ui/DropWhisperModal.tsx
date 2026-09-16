@@ -4,6 +4,7 @@ import { MaterialIcon } from './MaterialIcon';
 import { CosmicWhisper, WhisperColor } from '../../types';
 import { validateAndSanitizeWhisper } from '../../utils/contentModeration';
 import { sounds } from '../../audio/soundManager';
+import { getVehiclePosition } from '../../utils/vehicleTelemetry';
 
 interface DropWhisperModalProps {
   isOpen: boolean;
@@ -43,15 +44,16 @@ export const DropWhisperModal: React.FC<DropWhisperModalProps> = ({
       return;
     }
 
+    const position = getVehiclePosition();
     const newWhisper: CosmicWhisper = {
       id: `whisper-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       author: validation.sanitizedAuthor,
       origin: validation.sanitizedOrigin,
       message: validation.sanitizedMessage,
       position: [
-        Number(currentPosition[0].toFixed(2)),
-        Number((currentPosition[1] + 0.5).toFixed(2)),
-        Number(currentPosition[2].toFixed(2)),
+        Number(position[0].toFixed(2)),
+        Number((position[1] + 0.5).toFixed(2)),
+        Number(position[2].toFixed(2)),
       ],
       createdAt: new Date().toISOString(),
       likes: 1,

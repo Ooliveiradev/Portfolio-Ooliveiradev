@@ -11,10 +11,8 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
   // Animation refs
   const rocketRef = useRef<THREE.Group>(null);
   const smokeRef = useRef<THREE.Group>(null);
-  const beaconRef = useRef<THREE.PointLight>(null);
-  const navBeaconsRef = useRef<THREE.Group>(null);
+  const beaconRef = useRef<THREE.MeshStandardMaterial>(null);
   const holoMeshRef = useRef<THREE.Group>(null);
-  const screenGlowRef = useRef<THREE.PointLight>(null);
   const arcadeScreenRef = useRef<THREE.MeshStandardMaterial>(null);
   const spriteRef = useRef<THREE.Mesh>(null);
   const skyCloudRef = useRef<THREE.Group>(null);
@@ -33,8 +31,8 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
   const [rgbThemeIdx, setRgbThemeIdx] = useState(0);
 
   // Main frame loop for fluid mechanical and atmospheric animations
-  useFrame((_, delta) => {
-    const time = Date.now() * 0.001;
+  useFrame(({ clock }, delta) => {
+    const time = clock.elapsedTime;
 
     // --- Levitação e respiração do foguete experimental com tremor de recoil ---
     if (rocketRef.current) {
@@ -55,17 +53,7 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
     if (beaconRef.current) {
       // Pulso estroboscópico rápido com duplo flash aéreo
       const strobe = Math.sin(time * 8.0) > 0.4 ? 3.2 : 0.4;
-      beaconRef.current.intensity = strobe;
-    }
-
-    // --- Faróis náuticos âmbar da quilha inferior treliçada ---
-    if (navBeaconsRef.current) {
-      const amberPulse = 1.2 + Math.sin(time * 4.0) * 0.9;
-      navBeaconsRef.current.children.forEach((child) => {
-        if ((child as THREE.PointLight).isPointLight) {
-          (child as THREE.PointLight).intensity = amberPulse;
-        }
-      });
+      beaconRef.current.emissiveIntensity = strobe;
     }
 
     // --- Shards de minério flutuantes abaixo da quilha ---
@@ -93,13 +81,8 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
       spriteRef.current.position.y = 2.22 + (Math.floor(time * 4) % 2) * 0.03;
     }
 
-    if (screenGlowRef.current) {
-      const baseGlow = 1.4 + Math.sin(time * 4.0) * 0.5;
-      screenGlowRef.current.intensity = baseGlow + (activeBtnIdx !== null ? 2.5 : 0);
-    }
-
     if (arcadeScreenRef.current) {
-      arcadeScreenRef.current.emissiveIntensity = 1.0 + (activeBtnIdx !== null ? 2.0 : 0);
+      arcadeScreenRef.current.emissiveIntensity = 1.0 + Math.sin(time * 4) * 0.2 + (activeBtnIdx !== null ? 2.0 : 0);
     }
   });
 
@@ -339,14 +322,14 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
       </group>
 
       {/* Luzes Estroboscópicas e Balizadores Náutico-Espaciais Âmbar */}
-      <group ref={navBeaconsRef}>
+      <group>
         {[0, 1, 2, 3].map((bIdx) => {
           const bAngle = (bIdx * Math.PI) / 2 + Math.PI / 4;
           const bx = Math.cos(bAngle) * 1.7;
           const bz = Math.sin(bAngle) * 1.7;
           return (
             <group key={`nav-light-${bIdx}`} position={[bx, -4.25, bz]}>
-              <pointLight color="#f59e0b" intensity={1.5} distance={7} />
+
               <mesh>
                 <sphereGeometry args={[0.12, 10, 10]} />
                 <meshStandardMaterial
@@ -538,17 +521,12 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
         </group>
 
         {/* Farol estroboscópico de alerta no cume da torre */}
-        <pointLight
-          ref={beaconRef}
-          position={[0, 5.35, 0]}
-          color="#ef4444"
-          intensity={2.2}
-          distance={10}
-        />
+
         <mesh position={[0, 5.3, 0]}>
           <sphereGeometry args={[0.16, 12, 12]} />
           <meshStandardMaterial
             color="#ef4444"
+            ref={beaconRef}
             emissive="#b91c1c"
             emissiveIntensity={2.2}
             roughness={0.2}
@@ -809,14 +787,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
           </mesh>
         ))}
 
-        {/* Luz de projeção da tela no chão */}
-        <pointLight
-          ref={screenGlowRef}
-          position={[0, 2.2, 1.25]}
-          color="#06b6d4"
-          intensity={1.4}
-          distance={5}
-        />
       </group>
 
       {/* ===================================================================
@@ -953,13 +923,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
           )}
         </group>
 
-        {/* Luz holográfica sutil ascendente */}
-        <pointLight
-          position={[0, 2.2, 0.2]}
-          color="#38bdf8"
-          intensity={holoFlash ? 4.3 : 1.8}
-          distance={4}
-        />
       </group>
 
       {/* ===================================================================

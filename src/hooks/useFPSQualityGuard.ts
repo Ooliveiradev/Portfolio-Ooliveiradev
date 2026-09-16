@@ -1,67 +1,57 @@
 import { useState, useEffect, useRef } from 'react';
 import { GraphicsQuality } from '../types';
+import { FrameRateMonitor } from '../utils/frameRateMonitor';
 
 interface UseFPSQualityGuardOptions {
   currentQuality: GraphicsQuality;
   onAutoAdjustQuality?: (newQuality: GraphicsQuality) => void;
   enabled?: boolean;
+  /** Enable React updates only when an FPS readout is actually displayed. */
+  trackFps?: boolean;
 }
 
 export function useFPSQualityGuard({
   currentQuality,
   onAutoAdjustQuality,
   enabled = true,
+  trackFps = false,
 }: UseFPSQualityGuardOptions) {
-  const [fps, setFps] = useState<number>(60);
-  const frameCountRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(performance.now());
-  const lowFpsStartTimeRef = useRef<number | null>(null);
-  const lastDowngradeTimeRef = useRef<number>(Date.now());
+  const [fps, setFps] = useState(60);
+  const callbackRef = useRef(onAutoAdjustQuality);
+  callbackRef.current = onAutoAdjustQuality;
+  const monitorRef = useRef<FrameRateMonitor | null>(null);
+  monitorRef.current ??= new FrameRateMonitor(performance.now());
 
   useEffect(() => {
     if (!enabled) return;
 
-    let animId: number;
+    let animationFrame = 0;
+    const monitor = monitorRef.current!;
+    monitor.reset(performance.now());
 
     const loop = (now: number) => {
-      frameCountRef.current++;
-      const elapsed = now - lastTimeRef.current;
-
-      if (elapsed >= 1000) {
-        const calculatedFps = Math.round((frameCountRef.current * 1000) / elapsed);
-        setFps(calculatedFps);
-        frameCountRef.current = 0;
-        lastTimeRef.current = now;
-
-        // Auto-throttle protection if FPS stays under 34 for > 2.0 seconds
-        if (calculatedFps < 34) {
-          if (!lowFpsStartTimeRef.current) {
-            lowFpsStartTimeRef.current = now;
-          } else if (now - lowFpsStartTimeRef.current > 2000) {
-            // Check cooldown between downgrades (at least 8s)
-            if (Date.now() - lastDowngradeTimeRef.current > 8000) {
-              if (currentQuality === 'high') {
-                onAutoAdjustQuality?.('mid');
-                lastDowngradeTimeRef.current = Date.now();
-                lowFpsStartTimeRef.current = null;
-              } else if (currentQuality === 'mid') {
-                onAutoAdjustQuality?.('low');
-                lastDowngradeTimeRef.current = Date.now();
-                lowFpsStartTimeRef.current = null;
-              }
-            }
-          }
-        } else {
-          lowFpsStartTimeRef.current = null;
-        }
+      if (document.hidden) return;
+      const sample = monitor.recordFrame(now, currentQuality);
+      if (sample) {
+        if (trackFps) setFps(sample.fps);
+        if (sample.suggestedQuality) callbackRef.current?.(sample.suggestedQuality);
       }
-
-      animId = requestAnimationFrame(loop);
+      animationFrame = requestAnimationFrame(loop);
     };
 
-    animId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animId);
-  }, [enabled, currentQuality, onAutoAdjustQuality]);
+    const handleVisibility = () => {
+      cancelAnimationFrame(animationFrame);
+      monitor.reset(performance.now());
+      if (!document.hidden) animationFrame = requestAnimationFrame(loop);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    if (!document.hidden) animationFrame = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [enabled, currentQuality, trackFps]);
 
   return { fps };
 }

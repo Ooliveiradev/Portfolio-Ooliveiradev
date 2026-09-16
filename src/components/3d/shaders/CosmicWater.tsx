@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -21,6 +21,7 @@ export const CosmicPond: React.FC<CosmicPondProps> = ({
     return new THREE.ShaderMaterial({
       transparent: true,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       depthWrite: false,
       uniforms: {
         uTime: { value: 0 },
@@ -102,6 +103,8 @@ export const CosmicPond: React.FC<CosmicPondProps> = ({
     });
   }, []);
 
+  useEffect(() => () => waterMaterial.dispose(), [waterMaterial]);
+
   useFrame((state) => {
     if (pondMatRef.current) {
       pondMatRef.current.uniforms.uTime.value = state.clock.elapsedTime;
@@ -146,6 +149,7 @@ export const CosmicWaterfall: React.FC<CosmicWaterfallProps> = ({
     return new THREE.ShaderMaterial({
       transparent: true,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       depthWrite: false,
       uniforms: {
         uTime: { value: 0 },
@@ -186,6 +190,8 @@ export const CosmicWaterfall: React.FC<CosmicWaterfallProps> = ({
       `,
     });
   }, []);
+
+  useEffect(() => () => waterfallMaterial.dispose(), [waterfallMaterial]);
 
   useFrame((state) => {
     if (fallMatRef.current) {

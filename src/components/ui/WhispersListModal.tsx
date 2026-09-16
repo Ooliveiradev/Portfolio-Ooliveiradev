@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from './MaterialIcon';
 import { CosmicWhisper } from '../../types';
 import { sounds } from '../../audio/soundManager';
+import { getVehiclePosition } from '../../utils/vehicleTelemetry';
+import { useVisibleTick } from '../../hooks/useVisibleTick';
 
 interface WhispersListModalProps {
   isOpen: boolean;
   onClose: () => void;
   whispers: CosmicWhisper[];
-  vehiclePos: [number, number, number];
   onSelectWhisper: (whisper: CosmicWhisper) => void;
   onOpenDropModal: () => void;
   presenceCount: number;
@@ -18,11 +19,12 @@ export const WhispersListModal: React.FC<WhispersListModalProps> = ({
   isOpen,
   onClose,
   whispers,
-  vehiclePos,
   onSelectWhisper,
   onOpenDropModal,
   presenceCount,
 }) => {
+  useVisibleTick(250, isOpen);
+  const vehiclePos = getVehiclePosition();
   if (!isOpen) return null;
 
   const calculateDistance = (pos: [number, number, number]) => {

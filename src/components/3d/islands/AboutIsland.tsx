@@ -50,8 +50,8 @@ const AboutIslandComponent: React.FC<AboutIslandProps> = () => {
     ];
   }, []);
 
-  useFrame((_, delta) => {
-    const t = Date.now() * 0.001;
+  useFrame(({ clock }, delta) => {
+    const t = clock.elapsedTime;
 
     // 1. Cascata Cósmica escorrendo para o vácuo
     if (waterfallRef.current) {
@@ -327,7 +327,7 @@ const AboutIslandComponent: React.FC<AboutIslandProps> = () => {
             <boxGeometry args={[0.26, 0.22, 0.26]} />
             <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={1.5} roughness={0.3} />
           </mesh>
-          <pointLight position={[0, 0.52, 0]} color="#f59e0b" intensity={1.2} distance={3.5} />
+          {/* Emissive fixtures share the island fill light. */}
           <mesh position={[0, 0.72, 0]} castShadow>
             <coneGeometry args={[0.35, 0.18, 6]} />
             <meshStandardMaterial color="#334155" roughness={0.7} flatShading />

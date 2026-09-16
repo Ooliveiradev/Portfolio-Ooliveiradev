@@ -302,10 +302,23 @@ Basta editar esse arquivo para que o portfólio inteiro, os modais 3D e as telas
 
 ## ⚡ Engenharia de Performance
 
-- **Zero Garbage Collection per Frame**: Uso de vetores, matrizes, quatérnions e eulers mutáveis pré-alocados em escopo local nos loops de `useFrame`, evitando quedas de FPS provocadas por coletas periódicas de lixo na memória.
-- **Áudio Procedural Leve**: Ausência de requisições de rede para carregar arquivos pesados de áudio (MP3/WAV/OGG). Toda a ambiência sonora e os ruídos de jato são gerados em tempo real na CPU de forma ultra leve.
-- **Throttling Inteligente da UI**: As coordenadas do veículo são enviadas para a árvore de componentes React através de um limitador a ~20 FPS, desacoplando o loop de renderização 3D (60/120 FPS estáveis) das renderizações de React no HUD e no MiniMap.
-- **Física Rapier Otimizada**: Colisores cinemáticos e corpos rígidos simplificados por primitivas matemáticas (esferas, caixas e cilindros), garantindo tempo de resposta sub-milissegundo em colisões.
+- **Cena persistente:** trocar qualidade e redimensionar a janela mantém o Canvas, o veículo e o mundo físico.
+- **Resolução controlada:** Low limita a 1280×720, Mid a 1600×900 e High a 1920×1080 pixels físicos; o aspecto da tela é preservado.
+- **Qualidade adaptativa:** inicia em Mid quando não existe preferência salva. Quedas sustentadas de FPS reduzem efeitos sem substituir a preferência manual salva.
+- **UI separada da simulação:** radar a 10 Hz e cronômetro a 20 Hz atualizam seus próprios componentes. Posição, rotação e tempo de corrida não provocam renderizações contínuas de App.
+- **GPU e memória:** geometrias repetidas e fragmentos usam instancing; explosões usam um pool fixo; pós-processamento reaproveita buffers e libera os passes ao desmontar.
+- **Áudio e inicialização:** parâmetros do motor mudam apenas nas transições de aceleração/turbo. Rapier inicializa uma vez e o carregamento aguarda a compilação assíncrona dos shaders.
+- **Aba oculta:** renderização e relógios da interface pausam quando a página fica oculta.
+
+Execute as verificações com:
+
+```bash
+npm run lint
+npm run test:performance
+npm run build
+```
+
+Veja [o diagnóstico, os limites e o roteiro de validação](docs/PERFORMANCE.md). As reduções de trabalho são verificadas por código e testes; FPS final depende do dispositivo e do navegador.
 
 ---
 

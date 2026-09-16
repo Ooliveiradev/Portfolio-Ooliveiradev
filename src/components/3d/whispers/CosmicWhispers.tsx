@@ -24,17 +24,24 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
   onInspectWhisper,
 }) => {
   const [nearbyWhisperId, setNearbyWhisperId] = useState<string | null>(null);
+  const nearbyWhisperRef = useRef<string | null>(null);
+  const lastProximityCheck = useRef(-Infinity);
+  const glowLightRef = useRef<THREE.PointLight>(null);
+  const litWhisperRef = useRef<string | null>(null);
   const groupsRef = useRef<{ [id: string]: THREE.Group | null }>({});
 
   // 60/120 FPS frame loop para animações e checagem inercial de proximidade
   useFrame(({ clock }) => {
-    const time = clock.getElapsedTime();
+    const time = clock.elapsedTime;
     const vPos = sharedVehiclePos.current;
+    const checkProximity = time - lastProximityCheck.current >= 0.08;
 
     let closestId: string | null = null;
-    let closestDist = Infinity;
+    let closestDistSq = Infinity;
+    let closestWhisper: CosmicWhisper | null = null;
 
-    whispers.forEach((whisper, idx) => {
+    for (let idx = 0; idx < whispers.length; idx++) {
+      const whisper = whispers[idx];
       const group = groupsRef.current[whisper.id];
       if (group) {
         // Flutuação suave vertical (bobbing)
@@ -44,26 +51,44 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
         group.rotation.y = time * 0.8 + idx;
       }
 
-      if (vPos) {
+      if (checkProximity && vPos) {
         const dx = vPos.x - whisper.position[0];
         const dy = vPos.y - whisper.position[1];
         const dz = vPos.z - whisper.position[2];
-        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const distSq = dx * dx + dy * dy + dz * dz;
 
-        if (dist < 6.0 && dist < closestDist) {
-          closestDist = dist;
-          closestId = whisper.id;
+        if (distSq < closestDistSq) {
+          closestDistSq = distSq;
+          closestWhisper = whisper;
+          closestId = distSq < 36 ? whisper.id : null;
         }
       }
-    });
+    }
 
-    if (closestId !== nearbyWhisperId) {
-      setNearbyWhisperId(closestId);
+    if (checkProximity) {
+      lastProximityCheck.current = time;
+      if (closestId !== nearbyWhisperRef.current) {
+        nearbyWhisperRef.current = closestId;
+        setNearbyWhisperId(closestId);
+      }
+      // One permanent light keeps every lit scene material's shader stable as messages grow.
+      const light = glowLightRef.current;
+      if (light) {
+        const whisper = closestWhisper;
+        litWhisperRef.current = whisper?.id ?? null;
+        light.intensity = whisper ? (closestId ? 2.5 : 1) : 0;
+        if (whisper) light.color.setHex((COLOR_MAP[whisper.color] || COLOR_MAP.cyan).hex);
+      }
+    }
+    const litGroup = litWhisperRef.current ? groupsRef.current[litWhisperRef.current] : null;
+    if (litGroup && glowLightRef.current) {
+      glowLightRef.current.position.copy(litGroup.position);
     }
   });
 
   return (
     <group name="CosmicWhispersGroup">
+      <pointLight ref={glowLightRef} intensity={0} distance={7} decay={2} />
       {whispers.map((whisper, idx) => {
         const colors = COLOR_MAP[whisper.color] || COLOR_MAP.cyan;
         const isNearby = nearbyWhisperId === whisper.id;
@@ -73,7 +98,8 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
             key={whisper.id}
             position={[whisper.position[0], whisper.position[1], whisper.position[2]]}
             ref={(el) => {
-              groupsRef.current[whisper.id] = el;
+              if (el) groupsRef.current[whisper.id] = el;
+              else delete groupsRef.current[whisper.id];
             }}
           >
             {/* 1. Núcleo Bioluminescente Central */}
@@ -120,14 +146,6 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
               <torusGeometry args={[1.05, 0.015, 8, 32]} />
               <meshBasicMaterial color={colors.core} transparent opacity={0.4} />
             </mesh>
-
-            {/* 4. Luz de Ponto para Iluminação Dinâmica em Objetos Próximos */}
-            <pointLight
-              color={colors.hex}
-              intensity={isNearby ? 2.5 : 1.0}
-              distance={7}
-              decay={2}
-            />
 
             {/* 5. Holograma Flutuante de Proximidade */}
             {isNearby && (

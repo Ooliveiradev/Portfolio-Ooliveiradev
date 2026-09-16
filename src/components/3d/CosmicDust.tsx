@@ -170,6 +170,12 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
     return { geometry: geo, material: mat };
   }, [count, pointTexture]);
 
+  // R3F does not dispose resources owned by a primitive when quality changes.
+  useEffect(() => () => {
+    geometry.dispose();
+    material.dispose();
+  }, [geometry, material]);
+
   // Loop de alta eficiência: atualiza apenas uTime e uCenter na GPU
   useFrame((state) => {
     if (!material) return;
@@ -185,5 +191,6 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
 
   const pointsObject = useMemo(() => new THREE.Points(geometry, material), [geometry, material]);
 
-  return <primitive object={pointsObject} ref={pointsRef} />;
+  // Positions wrap around the ship in the vertex shader, outside the CPU geometry bounds.
+  return <primitive object={pointsObject} ref={pointsRef} frustumCulled={false} />;
 };

@@ -20,8 +20,6 @@ interface HUDProps {
   whispers?: CosmicWhisper[];
   presenceCount?: number;
   recentXpGained: number | null;
-  vehiclePos: [number, number, number];
-  vehicleRotation: number;
   crystals?: CrystalCollectible[];
   targetVehiclePos?: [number, number, number] | null;
   isRacing?: boolean;
@@ -42,8 +40,6 @@ export const HUD: React.FC<HUDProps> = ({
   whispers = [],
   presenceCount = 4,
   recentXpGained,
-  vehiclePos,
-  vehicleRotation,
   crystals,
   targetVehiclePos,
   isRacing = false,
@@ -177,8 +173,6 @@ export const HUD: React.FC<HUDProps> = ({
             islands={islands}
             visitedIslands={stats.visitedIslands}
             selectedIslandId={selectedIslandId}
-            vehiclePos={vehiclePos}
-            vehicleRotation={vehicleRotation}
             onSelectIsland={onSelectIsland}
             crystals={crystals}
             targetVehiclePos={targetVehiclePos}

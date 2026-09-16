@@ -2,6 +2,17 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
+import { StaticInstances } from '../StaticInstances';
+
+const WINDOW_ROWS = [-2, -1.2, -0.4, 0.4, 1.2, 2];
+const AZURE_WINDOWS = [true, false].map((warm) => WINDOW_ROWS.flatMap((y, row) =>
+  [-0.6, -0.2, 0.2, 0.6].flatMap((x, column): [number, number, number][] =>
+    ((row + column) % 3 === 0) === warm ? [[x, 2.6 + y, 0.96]] : [])
+));
+const SLATE_WINDOWS = [true, false].map((warm) => WINDOW_ROWS.flatMap((y) =>
+  [-0.55, -0.18, 0.18, 0.55].flatMap((x, column): [number, number, number][] =>
+    (column % 2 === 0) === warm ? [[x, 2.7 + y, 0.96]] : [])
+));
 
 interface ExperienceIslandProps {
   isNear?: boolean;
@@ -84,8 +95,8 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
     return cols;
   }, []);
 
-  useFrame((_, delta) => {
-    const t = Date.now() * 0.001;
+  useFrame(({ clock }, delta) => {
+    const t = clock.elapsedTime;
 
     // 1. Torre do Relógio Histórico: Rotação suave contínua + Giro acelerado com badalada
     if (clockMinuteRef.current) {
@@ -259,7 +270,7 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
             </mesh>
           ))}
           {/* Luz pontual quente emitida pela grelha */}
-          <pointLight position={[0, 0, 0.4]} color="#f59e0b" intensity={0.8} distance={2.5} />
+          {/* Emissive fixtures share the island fill light. */}
         </group>
       ))}
 
@@ -319,23 +330,16 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
         </mesh>
 
         {/* Grade de janelas iluminadas na fachada frontal (+Z) */}
-        {[-2.0, -1.2, -0.4, 0.4, 1.2, 2.0].map((wy, r) => (
-          <group key={`azure-row-${r}`} position={[0, 2.6 + wy, 0.96]}>
-            {[-0.6, -0.2, 0.2, 0.6].map((wx, c) => {
-              const isWarm = (r + c) % 3 === 0;
-              return (
-                <mesh key={`win-a-${c}`} position={[wx, 0, 0]}>
-                  <planeGeometry args={[0.26, 0.38]} />
-                  <meshStandardMaterial
-                    color={isWarm ? '#fef08a' : '#bae6fd'}
-                    emissive={isWarm ? '#fde047' : '#38bdf8'}
-                    emissiveIntensity={isWarm ? 0.9 : 0.6}
-                    roughness={0.2}
-                  />
-                </mesh>
-              );
-            })}
-          </group>
+        {AZURE_WINDOWS.map((positions, index) => (
+          <StaticInstances key={index} positions={positions}>
+            <planeGeometry args={[0.26, 0.38]} />
+            <meshStandardMaterial
+              color={index === 0 ? '#fef08a' : '#bae6fd'}
+              emissive={index === 0 ? '#fde047' : '#38bdf8'}
+              emissiveIntensity={index === 0 ? 0.9 : 0.6}
+              roughness={0.2}
+            />
+          </StaticInstances>
         ))}
       </group>
 
@@ -360,20 +364,16 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
         </mesh>
 
         {/* Janelas verticais corporativas com luz quente */}
-        {[-2.0, -1.2, -0.4, 0.4, 1.2, 2.0].map((wy, r) => (
-          <group key={`slate-row-${r}`} position={[0, 2.7 + wy, 0.96]}>
-            {[-0.55, -0.18, 0.18, 0.55].map((wx, c) => (
-              <mesh key={`win-s-${c}`} position={[wx, 0, 0]}>
-                <planeGeometry args={[0.24, 0.38]} />
-                <meshStandardMaterial
-                  color={c % 2 === 0 ? '#fef08a' : '#94a3b8'}
-                  emissive={c % 2 === 0 ? '#fde047' : '#475569'}
-                  emissiveIntensity={c % 2 === 0 ? 0.8 : 0.2}
-                  roughness={0.3}
-                />
-              </mesh>
-            ))}
-          </group>
+        {SLATE_WINDOWS.map((positions, index) => (
+          <StaticInstances key={index} positions={positions}>
+            <planeGeometry args={[0.24, 0.38]} />
+            <meshStandardMaterial
+              color={index === 0 ? '#fef08a' : '#94a3b8'}
+              emissive={index === 0 ? '#fde047' : '#475569'}
+              emissiveIntensity={index === 0 ? 0.8 : 0.2}
+              roughness={0.3}
+            />
+          </StaticInstances>
         ))}
       </group>
 
@@ -432,7 +432,7 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
               roughness={0.1}
             />
           </mesh>
-          <pointLight color="#facc15" intensity={1.5} distance={3.0} />
+          {/* Emissive fixtures share the island fill light. */}
         </group>
       </group>
 
@@ -514,7 +514,7 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
         </mesh>
 
         {/* Luz quente do mostrador da torre */}
-        <pointLight position={[0, 3.0, 1.0]} color="#fbbf24" intensity={1.2} distance={4.5} />
+        {/* Emissive fixtures share the island fill light. */}
       </group>
 
       {/* =========================================================
@@ -620,7 +620,7 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
               roughness={0.2}
             />
           </mesh>
-          <pointLight position={[0, 1.82, 0]} color="#fbbf24" intensity={1.0} distance={4.5} />
+          {/* Emissive fixtures share the island fill light. */}
         </group>
       ))}
 

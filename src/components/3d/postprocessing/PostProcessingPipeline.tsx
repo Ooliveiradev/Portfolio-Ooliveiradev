@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -7,13 +7,11 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GraphicsQuality } from '../../../types';
-import { getClamped1080pDpr } from '../../../utils/resolutionLimiter';
 
 interface PostProcessingPipelineProps {
   graphicsQuality?: GraphicsQuality;
 }
 
-// Shader de Aberração Cromática Radial e Suave (ativada dinamicamente no Boost da nave)
 const ChromaticAberrationShader = {
   name: 'ChromaticAberrationShader',
   uniforms: {
@@ -31,183 +29,125 @@ const ChromaticAberrationShader = {
     uniform sampler2D tDiffuse;
     uniform float uOffset;
     varying vec2 vUv;
-
     void main() {
-      // Vetor direcional do centro para a borda
       vec2 dir = vUv - vec2(0.5);
-      float dist = length(dir);
-      
-      // Aberração cromática que aumenta quadraticamente em direção às bordas
-      vec2 offset = dir * (dist * dist * uOffset);
-
+      vec2 offset = dir * (dot(dir, dir) * uOffset);
       float r = texture2D(tDiffuse, vUv + offset).r;
       float g = texture2D(tDiffuse, vUv).g;
       float b = texture2D(tDiffuse, vUv - offset).b;
-
       gl_FragColor = vec4(r, g, b, 1.0);
     }
   `,
 };
 
-/**
- * PostProcessingPipeline
- * Inspiração: Folio-2025 (Bruno Simon "Rendering 998") e acabamento AAA.
- * 
- * - Selective Unreal Bloom: Brilho estelar etéreo no Sol, cristais, portais e turbinas.
- * - Dynamic Chromatic Aberration: Distorção de lente de alta velocidade no boost.
- * - Suporte ACESFilmicToneMapping e OutputPass para fidelidade de cores máxima.
- */
+// EffectComposer calls pass.setSize on insertion and every resize. Supplying a
+// smaller constructor resolution alone does not keep bloom buffers smaller.
+class ScaledBloomPass extends UnrealBloomPass {
+  resolutionScale = 0.5;
+
+  override setSize(width: number, height: number) {
+    super.setSize(
+      Math.max(64, Math.floor(width * this.resolutionScale)),
+      Math.max(64, Math.floor(height * this.resolutionScale)),
+    );
+  }
+}
+
 export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
   graphicsQuality = 'mid',
-}) => {
-  // Na qualidade 'low', desativa completamente o pós-processamento e não registra useFrame com prioridade,
-  // permitindo que o renderizador nativo do Three.js / R3F execute com brilho total e zero overhead.
-  if (graphicsQuality === 'low') {
-    return null;
-  }
+}) => graphicsQuality === 'low' ? null : <ActivePostProcessingPipeline graphicsQuality={graphicsQuality} />;
 
-  return <ActivePostProcessingPipeline graphicsQuality={graphicsQuality} />;
-};
-
-const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }> = ({
-  graphicsQuality,
-}) => {
+const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }> = ({ graphicsQuality }) => {
   const { gl, scene, camera, size } = useThree();
+  const dpr = useThree((state) => state.viewport.dpr);
   const composerRef = useRef<EffectComposer | null>(null);
-  const bloomPassRef = useRef<UnrealBloomPass | null>(null);
+  const bloomPassRef = useRef<ScaledBloomPass | null>(null);
   const chromaPassRef = useRef<ShaderPass | null>(null);
+  const currentChromaOffset = useRef(0);
+  const targetChromaOffset = useRef(0);
 
-  // Valor atual interpolado de aberração cromática
-  const currentChromaOffset = useRef<number>(0);
-  const targetChromaOffset = useRef<number>(0);
-
-  // Escuta os eventos globais de boost para disparar o impacto visual da lente (sutil e elegante)
   useEffect(() => {
-    const handleBoostStart = () => {
+    const handleBoost = () => {
       targetChromaOffset.current = graphicsQuality === 'high' ? 0.0032 : 0.002;
     };
-
-    const handleBoostEnd = () => {
-      targetChromaOffset.current = 0.0;
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === ' ') targetChromaOffset.current = 0;
     };
-
-    window.addEventListener('app:boost-vehicle', handleBoostStart);
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') {
-        targetChromaOffset.current = 0.0;
-      }
-    };
+    window.addEventListener('app:boost-vehicle', handleBoost);
     window.addEventListener('keyup', handleKeyUp);
-
     return () => {
-      window.removeEventListener('app:boost-vehicle', handleBoostStart);
+      window.removeEventListener('app:boost-vehicle', handleBoost);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [graphicsQuality]);
 
-  // Inicializa o EffectComposer travado a no máximo 1080p (Full HD)
   useEffect(() => {
-    const dpr = getClamped1080pDpr(graphicsQuality);
-    const rtWidth = Math.min(1920, Math.round(size.width * dpr));
-    const rtHeight = Math.min(1080, Math.round(size.height * dpr));
-
-    const renderTarget = new THREE.WebGLRenderTarget(
-      rtWidth,
-      rtHeight,
-      {
-        type: THREE.HalfFloatType,
-        format: THREE.RGBAFormat,
-        minFilter: THREE.LinearFilter,
-        magFilter: THREE.LinearFilter,
-        samples: 0, // Desativa MSAA no render target HDR para eliminar gargalo de fill-rate
-      }
-    );
-
-    const composer = new EffectComposer(gl, renderTarget);
-    composer.setPixelRatio(dpr);
-    composer.setSize(size.width, size.height);
-
-    // 1. Pass de Renderização da Cena Principal
+    const composer = new EffectComposer(gl);
+    // Work in physical pixels so the renderer and composer share exactly the
+    // same resolution, including fractional DPRs on 4K/ultrawide displays.
+    composer.setPixelRatio(1);
     const renderPass = new RenderPass(scene, camera);
-    composer.addPass(renderPass);
-
-    // 2. Pass de Unreal Bloom Altamente Seletivo e Suave com buffer otimizado
-    const bloomStrength = graphicsQuality === 'high' ? 0.22 : 0.15;
-    const bloomRadius = 0.22;
-    const bloomThreshold = 0.94; // Threshold alto: apenas elementos ultra-incandescentes emitem brilho
-
-    const bloomResX = Math.max(256, Math.floor(size.width / 2));
-    const bloomResY = Math.max(144, Math.floor(size.height / 2));
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(bloomResX, bloomResY),
-      bloomStrength,
-      bloomRadius,
-      bloomThreshold
-    );
-    composer.addPass(bloomPass);
-    bloomPassRef.current = bloomPass;
-
-    // 3. Pass de Aberração Cromática Reativa
+    const bloomPass = new ScaledBloomPass(new THREE.Vector2(64, 64), 0.22, 0.22, 0.94);
     const chromaPass = new ShaderPass(ChromaticAberrationShader);
+    chromaPass.enabled = false;
+    const outputPass = new OutputPass();
+    composer.addPass(renderPass);
+    composer.addPass(bloomPass);
     composer.addPass(chromaPass);
+    composer.addPass(outputPass);
+    composerRef.current = composer;
+    bloomPassRef.current = bloomPass;
     chromaPassRef.current = chromaPass;
 
-    // 4. Pass de Saída com Mapeamento de Tons e Correção Gama
-    const outputPass = new OutputPass();
-    composer.addPass(outputPass);
-
-    composerRef.current = composer;
-
     return () => {
+      // EffectComposer only disposes its own targets and copy pass. Each
+      // effect owns additional targets/materials that must also be released.
+      renderPass.dispose();
+      bloomPass.dispose();
+      bloomPass.materialHighPassFilter.dispose();
+      chromaPass.dispose();
+      outputPass.dispose();
       composer.dispose();
-      renderTarget.dispose();
       composerRef.current = null;
+      bloomPassRef.current = null;
+      chromaPassRef.current = null;
     };
-  }, [gl, scene, camera, size, graphicsQuality]);
+  }, [gl, scene, camera]);
 
-  // Redimensionamento responsivo travado em 1080p
   useEffect(() => {
-    if (composerRef.current) {
-      const dpr = getClamped1080pDpr(graphicsQuality);
-      composerRef.current.setPixelRatio(dpr);
-      composerRef.current.setSize(size.width, size.height);
+    const bloomPass = bloomPassRef.current;
+    if (bloomPass) {
+      bloomPass.strength = graphicsQuality === 'high' ? 0.22 : 0.15;
+      bloomPass.resolutionScale = graphicsQuality === 'high' ? 0.5 : 0.35;
     }
-  }, [size, graphicsQuality]);
+    composerRef.current?.setSize(
+      Math.max(1, Math.floor(size.width * dpr)),
+      Math.max(1, Math.floor(size.height * dpr)),
+    );
+  }, [size.width, size.height, dpr, graphicsQuality]);
 
-  // Loop de Renderização do Pós-Processamento com prioridade 1 (substitui o render padrão do R3F)
   useFrame((state, delta) => {
     if (!composerRef.current) {
-      // Failsafe: se o composer ainda não estiver pronto, renderiza normalmente via WebGL
       state.gl.render(state.scene, state.camera);
       return;
     }
 
-    // Interpolação suave do efeito de aberração cromática
     currentChromaOffset.current = THREE.MathUtils.lerp(
       currentChromaOffset.current,
       targetChromaOffset.current,
-      delta * 7.5
+      1 - Math.exp(-delta * 7.5),
     );
+    // Decay all the way to zero. Stopping at 0.001 left this fullscreen pass
+    // enabled permanently after the first boost.
+    targetChromaOffset.current *= Math.exp(-delta * 3.2);
+    if (targetChromaOffset.current < 0.00001) targetChromaOffset.current = 0;
 
-    // Decaimento natural após pico de boost
-    if (targetChromaOffset.current > 0.001) {
-      targetChromaOffset.current = THREE.MathUtils.lerp(
-        targetChromaOffset.current,
-        0.0,
-        delta * 3.2
-      );
+    const chromaPass = chromaPassRef.current;
+    if (chromaPass) {
+      chromaPass.enabled = currentChromaOffset.current > 0.0001;
+      if (chromaPass.enabled) chromaPass.uniforms.uOffset.value = currentChromaOffset.current;
     }
-
-    if (chromaPassRef.current) {
-      const isChromaActive = currentChromaOffset.current > 0.0001;
-      chromaPassRef.current.enabled = isChromaActive;
-      if (isChromaActive) {
-        chromaPassRef.current.uniforms['uOffset'].value = currentChromaOffset.current;
-      }
-    }
-
-    // Executa a renderização do composer
-    composerRef.current.render();
+    composerRef.current.render(delta);
   }, 1);
 
   return null;

@@ -62,3 +62,10 @@
   background: rgba(56, 189, 248, 0.65);
 }
 
+/* Blurring the moving canvas forces an extra compositing pass per glass panel. */
+[data-graphics-quality="low"] [class*="backdrop-blur"],
+[data-graphics-quality="mid"] [class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+

@@ -661,7 +661,7 @@ Confira em: ${window.location.href}`;
                               Pipeline Gráfica & Hardware
                             </span>
                             <span className="text-[11px] text-slate-400">
-                              Motor gráfico de última geração com fallback automático
+                              Renderização Three.js com qualidade adaptativa
                             </span>
                           </div>
                         </div>
@@ -672,11 +672,7 @@ Confira em: ${window.location.href}`;
                               : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                           }`}
                         >
-                          {gpuCapability
-                            ? gpuCapability.isSupported
-                              ? '🔮 WebGPU Nativo'
-                              : '⚡ WebGL 2.0 Ativo'
-                            : 'Detectando...'}
+                          WebGL 2.0 Ativo
                         </span>
                       </div>
 
@@ -690,13 +686,13 @@ Confira em: ${window.location.href}`;
                         <div className="flex justify-between items-center text-slate-400">
                           <span>Backend Gráfico:</span>
                           <span className="text-emerald-400 font-medium">
-                            {gpuCapability?.backend || 'WebGL 2.0 (DirectX/Metal/Vulkan)'}
+                            WebGL 2.0
                           </span>
                         </div>
                         {gpuCapability?.isSupported && (
                           <div className="flex justify-between items-center text-slate-400 pt-1 border-t border-slate-800/50">
-                            <span>Formato de Cores:</span>
-                            <span className="text-purple-300">{gpuCapability.preferredFormat}</span>
+                            <span>Compatibilidade WebGPU:</span>
+                            <span className="text-purple-300">Disponível no navegador</span>
                           </div>
                         )}
                       </div>

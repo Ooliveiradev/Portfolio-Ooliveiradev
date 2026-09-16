@@ -17,6 +17,8 @@ class SoundEngine {
   private thrusterGain: GainNode | null = null;
   private thrusterFilter: BiquadFilterNode | null = null;
   private isThrusterActive: boolean = false;
+  private thrusterBoosting = false;
+  private resumePending = false;
 
   private initCtx() {
     if (!this.ctx) {
@@ -25,8 +27,11 @@ class SoundEngine {
         this.ctx = new AudioCtxClass();
       }
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+    if (this.ctx && this.ctx.state === 'suspended' && !this.resumePending) {
+      this.resumePending = true;
+      this.ctx.resume().catch(() => {}).finally(() => {
+        this.resumePending = false;
+      });
     }
   }
 
@@ -1457,6 +1462,15 @@ class SoundEngine {
       return;
     }
 
+    const isMoving = Math.abs(thrust) > 0.05;
+    // Audio automation depends on throttle mode, not display refresh rate.
+    // Avoid creating a running noise graph while the vehicle is idle.
+    if (!isMoving && !this.isThrusterActive) return;
+    if (isMoving && this.isThrusterActive && this.thrusterBoosting === isBoosting) {
+      if (this.ctx?.state === 'suspended') this.initCtx();
+      return;
+    }
+
     this.initCtx();
     if (!this.ctx) return;
     if (!this.thrusterGain) {
@@ -1465,7 +1479,6 @@ class SoundEngine {
     if (!this.thrusterGain || !this.thrusterFilter || !this.thrusterSubOsc) return;
 
     const now = this.ctx.currentTime;
-    const isMoving = Math.abs(thrust) > 0.05;
 
     if (isMoving) {
       // Soft target volume: ~0.038 for normal cruising, ~0.068 for turbo boost
@@ -1479,6 +1492,7 @@ class SoundEngine {
       this.thrusterFilter.frequency.setTargetAtTime(targetCutoff, now, 0.09);
       this.thrusterSubOsc.frequency.setTargetAtTime(targetPitch, now, 0.09);
       this.isThrusterActive = true;
+      this.thrusterBoosting = isBoosting;
     } else if (this.isThrusterActive) {
       // Smooth decay to near-silence when releasing throttle
       this.thrusterGain.gain.setTargetAtTime(0.0001, now, 0.12);
@@ -1489,7 +1503,7 @@ class SoundEngine {
 
   // Fade out thruster sound cleanly
   public stopThrusterSound() {
-    if (this.thrusterGain && this.ctx) {
+    if (this.isThrusterActive && this.thrusterGain && this.ctx) {
       const now = this.ctx.currentTime;
       this.thrusterGain.gain.setTargetAtTime(0.0001, now, 0.08);
     }

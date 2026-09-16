@@ -29,6 +29,7 @@ export function useRapierBody<T extends THREE.Object3D>(
   const ref = useRef<T>(null);
   const bodyRef = useRef<RAPIER.RigidBody | null>(null);
   const colliderRef = useRef<RAPIER.Collider | null>(null);
+  const wasSleepingRef = useRef(false);
 
   useEffect(() => {
     if (!isReady || !world || !rapier) return;
@@ -79,6 +80,7 @@ export function useRapierBody<T extends THREE.Object3D>(
 
     const body = world.createRigidBody(bodyDesc);
     bodyRef.current = body;
+    wasSleepingRef.current = false;
 
     let colliderDesc: RAPIER.ColliderDesc;
     switch (shape.type) {
@@ -122,11 +124,16 @@ export function useRapierBody<T extends THREE.Object3D>(
         colliderRef.current = null;
       }
     };
-  }, [isReady]);
+  }, [isReady, world, rapier]);
 
   // Sincronização visual em fase Post-Physics: executado exatamente após o step do Rapier
   usePostPhysics(() => {
     if (!bodyRef.current || !ref.current || options.type === 'fixed') return;
+
+    // Copy the final resting transform once, then leave sleeping objects alone.
+    const sleeping = bodyRef.current.isSleeping();
+    if (sleeping && wasSleepingRef.current) return;
+    wasSleepingRef.current = sleeping;
 
     const t = bodyRef.current.translation();
     const r = bodyRef.current.rotation();

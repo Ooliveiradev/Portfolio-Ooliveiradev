@@ -33,6 +33,7 @@ import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQualit
 import { sounds } from './audio/soundManager';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
+import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
 
 export default function App() {
   // Preloading & System Certification: certifica Rapier WASM, shaders GPU e fontes antes de liberar jogabilidade
@@ -45,8 +46,7 @@ export default function App() {
   const [previousGameMode, setPreviousGameMode] = useState<GameMode>('driving');
 
   // Player Vehicle state (Cruising level = 1.0)
-  const [vehiclePos, setVehiclePos] = useState<[number, number, number]>([0, 1.0, 16]);
-  const [vehicleRotation, setVehicleRotation] = useState<number>(0);
+  const vehiclePos = getVehiclePosition();
   const [targetVehiclePos, setTargetVehiclePos] = useState<[number, number, number] | null>(null);
   const [virtualInput, setVirtualInput] = useState<{ x: number; y: number; boost: boolean }>({
     x: 0,
@@ -68,29 +68,22 @@ export default function App() {
     } catch {
       // fallback
     }
-    return 'high';
+    return 'mid';
   });
 
-  const handleSelectGraphicsQuality = (quality: GraphicsQuality) => {
+  const handleSelectGraphicsQuality = useCallback((quality: GraphicsQuality) => {
     setGraphicsQuality(quality);
     try {
       localStorage.setItem('galactic_portfolio_graphics', quality);
     } catch {
       // fallback
     }
-  };
+  }, []);
 
   // Adaptive Performance & 60 FPS Guard (Tier 3 - #14)
   useFPSQualityGuard({
     currentQuality: graphicsQuality,
-    onAutoAdjustQuality: (newQuality) => {
-      setGraphicsQuality(newQuality);
-      try {
-        localStorage.setItem('galactic_portfolio_graphics', newQuality);
-      } catch {
-        // fallback
-      }
-    },
+    onAutoAdjustQuality: setGraphicsQuality,
     enabled: !isPreloading,
   });
 
@@ -238,6 +231,7 @@ export default function App() {
     activeChallengeIsland,
     selectedIslandId,
     previousGameMode,
+    gameMode,
   ]);
 
   // Award XP helper
@@ -336,27 +330,20 @@ export default function App() {
     return null;
   });
 
-  // Racing timer animation loop
-  useEffect(() => {
-    let animId: number;
-    if (raceState === 'racing') {
-      const updateTimer = () => {
-        const elapsed = (Date.now() - raceStartTimeRef.current) / 1000;
-        setRaceElapsedTime(elapsed);
-        animId = requestAnimationFrame(updateTimer);
-      };
-      animId = requestAnimationFrame(updateTimer);
-    }
-    return () => cancelAnimationFrame(animId);
-  }, [raceState]);
+  // Only the race overlay ticks; App records time once at the finish line.
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+  }, []);
 
   const handleStartRace = useCallback(() => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     setRaceState('countdown');
     setCountdownNumber(3);
     sounds.playCountdownBeep(false);
 
     let count = 3;
-    const interval = setInterval(() => {
+    countdownIntervalRef.current = setInterval(() => {
       count -= 1;
       if (count > 0) {
         setCountdownNumber(count);
@@ -365,10 +352,11 @@ export default function App() {
         setCountdownNumber(0);
         sounds.playCountdownBeep(true);
       } else {
-        clearInterval(interval);
+        clearInterval(countdownIntervalRef.current!);
+        countdownIntervalRef.current = null;
         setRaceState('racing');
         setCurrentCheckpoint(0);
-        raceStartTimeRef.current = Date.now();
+        raceStartTimeRef.current = performance.now();
         setRaceElapsedTime(0);
       }
     }, 850);
@@ -378,7 +366,7 @@ export default function App() {
     if (index === currentCheckpoint) {
       if (index === totalCheckpoints - 1) {
         // Race Finished!
-        const finalTime = (Date.now() - raceStartTimeRef.current) / 1000;
+        const finalTime = (performance.now() - raceStartTimeRef.current) / 1000;
         setRaceElapsedTime(finalTime);
         setRaceState('finished');
         sounds.playRaceVictory();
@@ -413,6 +401,8 @@ export default function App() {
   }, [currentCheckpoint, totalCheckpoints, addXp, unlockBadge]);
 
   const handleCancelRace = useCallback(() => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = null;
     setRaceState('idle');
     setCurrentCheckpoint(0);
     setRaceElapsedTime(0);
@@ -522,16 +512,17 @@ export default function App() {
   }, [unlockBadge]);
 
   // Listener para exploração espacial: Drifter Solar e Espaço Profundo (garantido disparo único)
-  useEffect(() => {
+  const handleVehiclePosChange = useCallback((position: [number, number, number]) => {
+    updateVehiclePosition(position);
     if (gameMode !== 'driving') return;
-    const distToCenter = Math.hypot(vehiclePos[0], vehiclePos[2]);
+    const distToCenter = Math.hypot(position[0], position[2]);
     if (distToCenter < 10.5 && !unlockedBadgesRef.current.has('badge-orbit-drifter')) {
       unlockBadge('badge-orbit-drifter');
     }
     if (distToCenter > 95 && !unlockedBadgesRef.current.has('badge-secret-voyager')) {
       unlockBadge('badge-secret-voyager');
     }
-  }, [vehiclePos, gameMode, unlockBadge]);
+  }, [gameMode, unlockBadge]);
 
   // Easter Egg 3: Konami Code (↑ ↑ ↓ ↓ ← → ← → B A)
   useKonamiCode(
@@ -611,7 +602,7 @@ export default function App() {
   };
 
   // Handle Island Selection / Cinematic Docking
-  const handleSelectIsland = (id: IslandId) => {
+  const handleSelectIsland = useCallback((id: IslandId) => {
     const island = ISLANDS_CONFIG.find((i) => i.id === id);
     if (!island) return;
 
@@ -633,7 +624,7 @@ export default function App() {
       }
       return prev;
     });
-  };
+  }, [gameMode, addXp]);
 
   // Handle cinematic animation completions
   const handleCinematicComplete = useCallback((finishedMode: GameMode) => {
@@ -649,7 +640,7 @@ export default function App() {
       setGameMode('landing');
       setSelectedIslandId(null);
       setTargetVehiclePos(null);
-      setVehiclePos([0, 1.0, 16]);
+      updateVehiclePosition([...INITIAL_VEHICLE_POSITION]);
     }
   }, []);
 
@@ -660,7 +651,7 @@ export default function App() {
   };
 
   // Handle collecting a crystal
-  const handleCollectCrystal = (id: number) => {
+  const handleCollectCrystal = useCallback((id: number) => {
     setCrystals((prev) =>
       prev.map((c) => (c.id === id ? { ...c, collected: true } : c))
     );
@@ -675,7 +666,7 @@ export default function App() {
       }
       return prev;
     });
-  };
+  }, [addXp]);
 
   // Inspect project detail inside island modal
   const handleInspectProject = (projectId: string) => {
@@ -708,7 +699,8 @@ export default function App() {
 
   // Reset rover to origin in case player gets lost
   const handleResetVehicle = () => {
-    setVehiclePos([0, 1.0, 16]);
+    updateVehiclePosition([...INITIAL_VEHICLE_POSITION]);
+    window.dispatchEvent(new CustomEvent('app:respawn-vehicle'));
     setTargetVehiclePos(null);
     setSelectedIslandId(null);
     setGameMode('driving');
@@ -716,6 +708,7 @@ export default function App() {
 
   // Dock at nearest island on mobile
   const handleDockNearest = () => {
+    const vehiclePos = getVehiclePosition();
     let nearestIsland = ISLANDS_CONFIG[0];
     let minDistance = Infinity;
 
@@ -749,6 +742,8 @@ export default function App() {
   const handlePreloadComplete = useCallback(() => {
     setIsPreloading(false);
   }, []);
+  const handleSceneReady = useCallback(() => setIsSceneReady(true), []);
+  const handleClearTargetPosition = useCallback(() => setTargetVehiclePos(null), []);
 
   const isModalOpen =
     isPreloading ||
@@ -777,16 +772,16 @@ export default function App() {
   }, [gameMode, isModalOpen]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#070b14] text-white">
+    <div data-graphics-quality={graphicsQuality} className="relative w-screen h-screen overflow-hidden bg-[#070b14] text-white">
       {/* 3D WebGL Three.js Galaxy Scene */}
       <GalaxyScene
         gameMode={gameMode}
-        vehiclePos={vehiclePos}
-        vehicleRotation={vehicleRotation}
+        vehiclePos={INITIAL_VEHICLE_POSITION}
+        vehicleRotation={0}
         cameraViewMode={cameraViewMode}
         targetVehiclePos={targetVehiclePos}
-        onVehiclePosChange={setVehiclePos}
-        onVehicleRotationChange={setVehicleRotation}
+        onVehiclePosChange={handleVehiclePosChange}
+        onVehicleRotationChange={updateVehicleRotation}
         onSelectIsland={handleSelectIsland}
         selectedIslandId={selectedIslandId}
         islands={ISLANDS_CONFIG}
@@ -795,7 +790,7 @@ export default function App() {
         onCollectCrystal={handleCollectCrystal}
         virtualInput={virtualInput}
         isModalOpen={isModalOpen}
-        onClearTargetPosition={() => setTargetVehiclePos(null)}
+        onClearTargetPosition={handleClearTargetPosition}
         graphicsQuality={graphicsQuality}
         isRacing={raceState === 'racing'}
         currentCheckpoint={currentCheckpoint}
@@ -806,7 +801,7 @@ export default function App() {
         onDiscoverSecret={handleDiscoverSecret}
         whispers={whispers}
         onInspectWhisper={setSelectedWhisper}
-        onSceneReady={() => setIsSceneReady(true)}
+        onSceneReady={handleSceneReady}
       />
 
       {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
@@ -853,8 +848,6 @@ export default function App() {
             whispers={whispers}
             presenceCount={presenceCount}
             recentXpGained={recentXpGained}
-            vehiclePos={vehiclePos}
-            vehicleRotation={vehicleRotation}
             crystals={crystals}
             targetVehiclePos={targetVehiclePos}
             isRacing={raceState === 'racing'}
@@ -875,10 +868,10 @@ export default function App() {
             raceState={raceState}
             countdownNumber={countdownNumber}
             elapsedTime={raceElapsedTime}
+            startedAt={raceStartTimeRef.current}
             currentCheckpoint={currentCheckpoint}
             totalCheckpoints={totalCheckpoints}
             bestTime={bestRaceTime}
-            vehiclePos={vehiclePos}
             targetRingPosition={SPEED_RINGS[currentCheckpoint]?.position}
             onStartRace={handleStartRace}
             onCancelRace={handleCancelRace}
@@ -956,43 +949,42 @@ export default function App() {
 
       {/* Modal de Descobertas e Segredos Cósmicos */}
       <Suspense fallback={null}>
-        <SecretMessageModal
+        {secretModalType && <SecretMessageModal
           type={secretModalType}
           onClose={() => setSecretModalType(null)}
-        />
+        />}
       </Suspense>
 
       {/* Modais da Rede Social Cósmica (Whispers / Mensagens Estelares) */}
       <Suspense fallback={null}>
-        <WhisperReaderModal
+        {selectedWhisper && <WhisperReaderModal
           whisper={selectedWhisper}
           onClose={() => setSelectedWhisper(null)}
           onLike={handleLikeWhisper}
-        />
+        />}
       </Suspense>
 
       <Suspense fallback={null}>
-        <DropWhisperModal
+        {showDropWhisperModal && <DropWhisperModal
           isOpen={showDropWhisperModal}
           onClose={() => setShowDropWhisperModal(false)}
           currentPosition={vehiclePos}
           onBroadcastWhisper={handleBroadcastWhisper}
-        />
+        />}
       </Suspense>
 
       <Suspense fallback={null}>
-        <WhispersListModal
+        {showWhispersListModal && <WhispersListModal
           isOpen={showWhispersListModal}
           onClose={() => setShowWhispersListModal(false)}
           whispers={whispers}
-          vehiclePos={vehiclePos}
           presenceCount={presenceCount}
           onSelectWhisper={(w) => {
             setShowWhispersListModal(false);
             setSelectedWhisper(w);
           }}
           onOpenDropModal={() => setShowDropWhisperModal(true)}
-        />
+        />}
       </Suspense>
 
       {/* Easter Egg 5: Matrix Glitch Cyber Rain Overlay */}
