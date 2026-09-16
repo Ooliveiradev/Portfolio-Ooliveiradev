@@ -160,7 +160,7 @@ interface PhysicsSpacePlaygroundProps {
   onRecoverCargo?: (id: string) => void;
 }
 
-export const PhysicsSpacePlayground: React.FC<PhysicsSpacePlaygroundProps> = ({
+const PhysicsSpacePlaygroundComponent: React.FC<PhysicsSpacePlaygroundProps> = ({
   graphicsQuality = 'mid',
   sharedVehiclePos,
   onRecoverCargo,
@@ -281,3 +281,5 @@ export const PhysicsSpacePlayground: React.FC<PhysicsSpacePlaygroundProps> = ({
     </group>
   );
 };
+
+export const PhysicsSpacePlayground = React.memo(PhysicsSpacePlaygroundComponent);

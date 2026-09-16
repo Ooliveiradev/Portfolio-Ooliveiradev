@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -113,6 +113,8 @@ export const HolographicMaterial: React.FC<HolographicMaterialProps> = ({
       `,
     });
   }, [baseColor, fresnelColor, fresnelPower, scanlineDensity, scanlineSpeed, iridescenceSpeed, opacity]);
+
+  useEffect(() => () => material.dispose(), [material]);
 
   useFrame((state) => {
     if (matRef.current) {

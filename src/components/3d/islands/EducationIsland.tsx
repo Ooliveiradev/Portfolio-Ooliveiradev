@@ -49,8 +49,8 @@ const EducationIslandComponent: React.FC<EducationIslandProps> = () => {
     ];
   }, []);
 
-  useFrame((_, delta) => {
-    const t = Date.now() * 0.001;
+  useFrame(({ clock }, delta) => {
+    const t = clock.elapsedTime;
 
     // 1. Cascata Cósmica: Fluxo vertical e ciclo de partículas de névoa
     if (waterfallRef.current) {
@@ -257,7 +257,7 @@ const EducationIslandComponent: React.FC<EducationIslandProps> = () => {
               flatShading
             />
           </mesh>
-          <pointLight color="#10b981" intensity={0.6} distance={2.5} />
+          {/* Emissive fixtures share the island fill light. */}
         </group>
       ))}
 
@@ -456,7 +456,7 @@ const EducationIslandComponent: React.FC<EducationIslandProps> = () => {
         ))}
 
         {/* Luz dourada suave irradiando da copa */}
-        <pointLight position={[0, 2.4, 0]} color="#f59e0b" intensity={1.2} distance={5.5} />
+        {/* Emissive fixtures share the island fill light. */}
       </group>
 
       {/* =========================================================

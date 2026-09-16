@@ -12,6 +12,7 @@ interface CameraControllerProps {
   selectedIslandId: IslandId | null;
   islands: IslandConfig[];
   sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
+  sharedVehicleRotation?: React.MutableRefObject<number>;
 }
 
 // Scratch objects to eliminate per-frame garbage collection
@@ -22,7 +23,7 @@ const _targetPos = new THREE.Vector3();
 const _centerLookAt = new THREE.Vector3(0, 0, 0);
 const ISO_OFFSET = new THREE.Vector3(24, 26, 24);
 
-export const CameraController: React.FC<CameraControllerProps> = ({
+const CameraControllerComponent: React.FC<CameraControllerProps> = ({
   gameMode,
   vehiclePos,
   vehicleRotation,
@@ -30,6 +31,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   selectedIslandId,
   islands,
   sharedVehiclePos,
+  sharedVehicleRotation,
 }) => {
   const { camera } = useThree();
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
@@ -60,6 +62,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   }, [gameMode, camera]);
 
   useFrame((_, delta) => {
+    delta = Math.min(delta, 0.05);
     // 1. LANDING & EXITING MODES: Smooth panoramic orbit around the entire solar system
     if (gameMode === 'landing' || gameMode === 'exiting') {
       landingAngle.current += delta * 0.12;
@@ -132,8 +135,9 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     // VISÃO ISOMÉTRICA (Bruno Simon Dynamic Predictive Follow)
     if (cameraViewMode === 'iso') {
       // Dynamic look-ahead: leads into turns and forward travel direction
-      const forwardX = Math.sin(vehicleRotation);
-      const forwardZ = Math.cos(vehicleRotation);
+      const yaw = sharedVehicleRotation?.current ?? vehicleRotation;
+      const forwardX = Math.sin(yaw);
+      const forwardZ = Math.cos(yaw);
       const leadDistance = THREE.MathUtils.lerp(1.2, 4.0, THREE.MathUtils.clamp(smoothedSpeed.current / 35, 0, 1));
       
       const targetLeadX = vx + forwardX * leadDistance;
@@ -160,8 +164,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
           32.5,
           THREE.MathUtils.clamp((smoothedSpeed.current - 12) / 28, 0, 1)
         );
-        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, delta * 4.0);
-        camera.updateProjectionMatrix();
+        if (Math.abs(camera.fov - targetFov) > 0.01) {
+          camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, delta * 4.0);
+          camera.updateProjectionMatrix();
+        }
       }
 
       // Smooth cinematic descent on game entry, responsive follow on driving
@@ -192,3 +198,5 @@ export const CameraController: React.FC<CameraControllerProps> = ({
 
   return null;
 };
+
+export const CameraController = React.memo(CameraControllerComponent);

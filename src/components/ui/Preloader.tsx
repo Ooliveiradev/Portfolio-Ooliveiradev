@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import RAPIER from '@dimforge/rapier3d-compat';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
-import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetector';
 import { PERSONAL_INFO } from '../../data/portfolioData';
 
 interface PreloaderProps {
@@ -21,36 +19,16 @@ interface SubsystemStatus {
 
 export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }) => {
   // Estados de prontidão de cada subsistema
-  const [isRapierReady, setIsRapierReady] = useState<boolean>(false);
+  const isRapierReady = isSceneReady;
   const [isFontsReady, setIsFontsReady] = useState<boolean>(false);
   const [isAudioReady, setIsAudioReady] = useState<boolean>(false);
-  const [isCelestialReady, setIsCelestialReady] = useState<boolean>(false);
-  const [gpuInfo, setGpuInfo] = useState<WebGPUCapability | null>(null);
+  const isCelestialReady = isSceneReady;
 
   // Progresso suave interpolado (0% a 100%)
-  const [displayProgress, setDisplayProgress] = useState<number>(0);
-  const [isReadyToEnter, setIsReadyToEnter] = useState<boolean>(false);
+  const isReadyToEnter = isSceneReady;
   const [isExiting, setIsExiting] = useState<boolean>(false);
 
-  // 1. Inicializa e certifica o Rapier Physics WASM
-  useEffect(() => {
-    let active = true;
-    async function checkRapier() {
-      try {
-        await RAPIER.init();
-        if (active) {
-          setIsRapierReady(true);
-        }
-      } catch (err) {
-        console.warn('Rapier preloader check fallback:', err);
-        if (active) setIsRapierReady(true);
-      }
-    }
-    checkRapier();
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Physics is initialized once by the scene; readiness includes shader compilation.
 
   // 2. Aguarda carregamento das fontes da página
   useEffect(() => {
@@ -76,29 +54,6 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
     });
   }, []);
 
-  // 4. Carrega geometria celestial e instâncias
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsCelestialReady(true);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // 5. Detecta GPU e aceleração de hardware
-  useEffect(() => {
-    detectWebGPUSupport().then((cap) => {
-      setGpuInfo(cap);
-    });
-  }, []);
-
-  // 6. Failsafe: nunca prende o usuário por mais de 250ms sob nenhuma condição
-  useEffect(() => {
-    const safetyTimer = setTimeout(() => {
-      setIsReadyToEnter(true);
-    }, 250);
-    return () => clearTimeout(safetyTimer);
-  }, []);
-
   // Cálculo da porcentagem alvo baseada nos subsistemas certificados
   const targetProgress = (() => {
     let p = 25; // Base de carregamento do bundle JS React 19
@@ -110,28 +65,6 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
     return Math.min(100, p);
   })();
 
-  // LERP suave e rápido do progresso em 60 FPS
-  useEffect(() => {
-    let animationFrameId: number;
-    const animate = () => {
-      setDisplayProgress((prev) => {
-        const diff = targetProgress - prev;
-        if (Math.abs(diff) < 0.5) {
-          if (targetProgress >= 100 && !isReadyToEnter) {
-            setIsReadyToEnter(true);
-          }
-          return targetProgress;
-        }
-        // Interpolação rápida e responsiva
-        return prev + diff * 0.55;
-      });
-      animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [targetProgress, isReadyToEnter]);
-
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -139,14 +72,14 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
 
   // Transição automática imediata assim que a calibragem atinge 100%
   useEffect(() => {
-    if (isReadyToEnter && !isExiting) {
+    if (isReadyToEnter) {
       setIsExiting(true);
       const timer = setTimeout(() => {
         onCompleteRef.current();
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isReadyToEnter, isExiting]);
+  }, [isReadyToEnter]);
 
   const subsystems: SubsystemStatus[] = [
     {
@@ -186,7 +119,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
     },
   ];
 
-  const roundedProgress = Math.round(displayProgress);
+  const roundedProgress = isSceneReady ? 100 : Math.round(targetProgress);
   const strokeDashoffset = 283 - (283 * roundedProgress) / 100;
 
   return (
@@ -220,7 +153,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
         {/* Hardware Status Pill */}
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-[10px] font-mono text-slate-300">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>{gpuInfo?.backend || 'Acelerador Gráfico Hardware'}</span>
+          <span>WebGL 2.0</span>
         </div>
       </header>
 
@@ -355,7 +288,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
           {isReadyToEnter ? (
             <span className="text-emerald-400 font-semibold flex items-center gap-1.5 justify-center sm:justify-start">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
-              Sistemas 100% operacionais a 60 FPS. Entrando no universo...
+              Tudo pronto. Entrando no universo...
             </span>
           ) : (
             <span className="flex items-center gap-1.5 justify-center sm:justify-start">

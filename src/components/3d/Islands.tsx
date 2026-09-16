@@ -26,7 +26,7 @@ interface IslandsProps {
 interface ThematicIslandProps {
   config: IslandConfig;
   isVisited: boolean;
-  onSelect: () => void;
+  onSelect: (id: IslandId) => void;
   orbitActive: boolean;
   sharedVehiclePos?: React.RefObject<THREE.Vector3>;
   isModalOpen: boolean;
@@ -51,6 +51,8 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [isNear, setIsNear] = useState(false);
+  const isNearRef = useRef(false);
+  const colliderPosition = useRef({ x: 0, y: 0, z: 0 });
   const lastDistCheck = useRef(0);
   const { rapier, world, isReady } = useRapier();
   const rigidBodyRef = useRef<RAPIER.RigidBody | null>(null);
@@ -99,7 +101,11 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
 
     // Update Kinematic Rapier body position
     if (rigidBodyRef.current) {
-      rigidBodyRef.current.setNextKinematicTranslation({ x, y: baseY - 0.4, z });
+      const translation = colliderPosition.current;
+      translation.x = x;
+      translation.y = baseY - 0.4;
+      translation.z = z;
+      rigidBodyRef.current.setNextKinematicTranslation(translation);
     }
 
     // Throttle distance check to every 4th frame to minimize CPU math
@@ -107,9 +113,13 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
       lastDistCheck.current = state.clock.elapsedTime;
       const vx = sharedVehiclePos?.current?.x ?? 0;
       const vz = sharedVehiclePos?.current?.z ?? 0;
-      const dist = Math.hypot(vx - x, vz - z);
-      const near = dist < 25.0;
-      setIsNear((prev) => (prev !== near ? near : prev));
+      const dx = vx - x;
+      const dz = vz - z;
+      const near = dx * dx + dz * dz < 25 * 25;
+      if (near !== isNearRef.current) {
+        isNearRef.current = near;
+        setIsNear(near);
+      }
     }
   });
 
@@ -128,7 +138,7 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     sounds.playIslandEnter();
-    onSelect();
+    onSelect(config.id);
   };
 
   const showCard = (isNear || hovered) && !orbitActive && !isModalOpen;
@@ -461,7 +471,7 @@ const IslandsComponent: React.FC<IslandsProps> = ({
           key={island.id}
           config={island}
           isVisited={visitedIslands.includes(island.id)}
-          onSelect={() => onSelectIsland(island.id)}
+          onSelect={onSelectIsland}
           orbitActive={orbitActive}
           sharedVehiclePos={sharedVehiclePos}
           isModalOpen={isModalOpen}
@@ -472,4 +482,3 @@ const IslandsComponent: React.FC<IslandsProps> = ({
 };
 
 export const Islands = React.memo(IslandsComponent);
-

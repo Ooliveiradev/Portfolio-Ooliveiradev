@@ -1,17 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from './MaterialIcon';
 import { IslandConfig, IslandId, CrystalCollectible, CosmicWhisper } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { SPEED_RINGS } from '../3d/SpeedRings';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
+import { getVehiclePosition, getVehicleRotation } from '../../utils/vehicleTelemetry';
+import { useVisibleTick } from '../../hooks/useVisibleTick';
 
 interface MiniMapProps {
   islands: IslandConfig[];
   visitedIslands: IslandId[];
   selectedIslandId: IslandId | null;
-  vehiclePos: [number, number, number];
-  vehicleRotation: number;
   onSelectIsland: (id: IslandId) => void;
   crystals?: CrystalCollectible[];
   targetVehiclePos?: [number, number, number] | null;
@@ -34,8 +34,6 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   islands,
   visitedIslands,
   selectedIslandId,
-  vehiclePos,
-  vehicleRotation,
   onSelectIsland,
   crystals,
   targetVehiclePos,
@@ -48,14 +46,9 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   const [hoveredIsland, setHoveredIsland] = useState<IslandConfig | null>(null);
 
   // Real-time radar refresh for celestial orbit tracking even when ship is stationary
-  const [, setRadarTick] = useState(0);
-  useEffect(() => {
-    if (!isExpanded) return;
-    const interval = setInterval(() => {
-      setRadarTick((t) => (t + 1) % 10000);
-    }, 60); // 16 FPS smooth real-time radar tracking
-    return () => clearInterval(interval);
-  }, [isExpanded]);
+  const radarTick = useVisibleTick(100, isExpanded);
+  const vehiclePos = getVehiclePosition();
+  const vehicleRotation = getVehicleRotation();
 
   // Maximum coordinate radius in Three.js space (outermost island orbit is 102)
   const MAX_RADIUS = 118;
@@ -96,7 +89,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
       }
     }
     return null;
-  }, [targetVehiclePos, selectedIslandId, islands, vehiclePos]);
+  }, [targetVehiclePos, selectedIslandId, islands, radarTick]);
 
   const visitedCount = visitedIslands.length;
 

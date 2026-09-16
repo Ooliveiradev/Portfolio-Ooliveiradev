@@ -2,6 +2,11 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
+import { StaticInstances } from '../StaticInstances';
+
+const CONTACT_TEETH_POSITIONS = [-0.04, 0.04].map((x) =>
+  Array.from({ length: 24 }, (_, i): [number, number, number] => [x, 0, -2.2 + i * 0.19])
+);
 
 interface SkillsIslandProps {
   isNear?: boolean;
@@ -82,8 +87,8 @@ const SkillsIslandComponent: React.FC<SkillsIslandProps> = () => {
   // =========================================================
   // ANIMATION LOOP (60FPS)
   // =========================================================
-  useFrame((_, delta) => {
-    const time = Date.now() * 0.001;
+  useFrame(({ clock }, delta) => {
+    const time = clock.elapsedTime;
 
     // 1. GPU Triple-Fan Rotation with dynamic boost acceleration
     const targetSpeed = gpuBoostedRef.current ? 52 : 12;
@@ -386,19 +391,14 @@ const SkillsIslandComponent: React.FC<SkillsIslandProps> = () => {
               />
             </mesh>
             {/* Contact Teeth Ridges */}
-            {Array.from({ length: 24 }).map((_, cIdx) => (
-              <mesh
-                key={cIdx}
-                position={[bIdx === 0 ? -0.04 : 0.04, 0, -2.2 + cIdx * 0.19]}
-              >
-                <boxGeometry args={[0.03, 0.38, 0.09]} />
-                <meshStandardMaterial
-                  color="#fef08a"
-                  metalness={0.95}
-                  roughness={0.1}
-                />
-              </mesh>
-            ))}
+            <StaticInstances positions={CONTACT_TEETH_POSITIONS[bIdx]}>
+              <boxGeometry args={[0.03, 0.38, 0.09]} />
+              <meshStandardMaterial
+                color="#fef08a"
+                metalness={0.95}
+                roughness={0.1}
+              />
+            </StaticInstances>
           </group>
         ))}
 
@@ -996,15 +996,9 @@ const SkillsIslandComponent: React.FC<SkillsIslandProps> = () => {
         intensity={waterblockPulse > 0 ? 3.5 : 2.2}
         distance={10}
       />
-      <pointLight
-        position={[0, -2.5, 0]}
-        color="#a855f7"
-        intensity={2.8}
-        distance={9}
-      />
+
     </group>
   );
 };
 
 export const SkillsIsland = React.memo(SkillsIslandComponent);
-

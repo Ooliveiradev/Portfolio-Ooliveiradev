@@ -115,13 +115,14 @@ interface SpaceVehicleProps {
   onClearTargetPosition?: () => void;
   graphicsQuality?: GraphicsQuality;
   sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
+  sharedVehicleRotation?: React.MutableRefObject<number>;
   gameMode?: GameMode;
   selectedIslandId?: IslandId | null;
   onCinematicComplete?: (finishedMode: GameMode) => void;
   visible?: boolean;
 }
 
-export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
+const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   position,
   targetPosition,
   onPositionChange,
@@ -130,12 +131,15 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   onClearTargetPosition,
   graphicsQuality = 'mid',
   sharedVehiclePos,
+  sharedVehicleRotation,
   gameMode = 'driving',
   selectedIslandId,
   onCinematicComplete,
   visible = true,
 }) => {
   const { rapier, world, isReady } = useRapier();
+  const eventState = useRef({ isReady, onPositionChange, onRotationChange });
+  eventState.current = { isReady, onPositionChange, onRotationChange };
 
   const groupRef = useRef<THREE.Group>(null);
   const lastAppUpdate = useRef(0);
@@ -154,7 +158,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   const prevGameModeRef = useRef<GameMode>(gameMode);
   
   // Dynamic polygonal exhaust pool (starts idle with 0 emission)
-  const puffsRef = useRef<ExhaustPuff[]>(
+  const puffs = useMemo<ExhaustPuff[]>(() =>
     Array.from({ length: MAX_PUFFS_CAP }, () => ({
       active: false,
       pos: new THREE.Vector3(0, 0, 0),
@@ -168,8 +172,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       life: 1,
       maxLife: 0.5,
       initialScale: 0.40,
-    }))
+    })), []
   );
+  const puffsRef = useRef(puffs);
 
   const puffMeshesRef = useRef<(THREE.Mesh | null)[]>([]);
   const puffMatsRef = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
@@ -220,8 +225,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         groupRef.current.rotation.set(0, 0, 0);
       }
       respawnTimer.current = 1.5;
-      onPositionChange([safePos.x, safePos.y, safePos.z]);
-      onRotationChange?.(0);
+      eventState.current.onPositionChange([safePos.x, safePos.y, safePos.z]);
+      eventState.current.onRotationChange?.(0);
+      if (sharedVehicleRotation) sharedVehicleRotation.current = 0;
       puffsRef.current.forEach((p) => {
         p.active = false;
         p.life = 1;
@@ -236,7 +242,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
-      if (e.key === ' ') {
+      if (e.key === ' ' && !e.repeat) {
         sounds.playBoost();
       }
       if (e.key.toLowerCase() === 'r') {
@@ -263,7 +269,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
       let fX = 0;
       let fZ = 1;
 
-      if (body && isReady) {
+      if (body && eventState.current.isReady) {
         const currentRot = body.rotation();
         _tempQuat.set(currentRot.x, currentRot.y, currentRot.z, currentRot.w);
         _tempEuler.setFromQuaternion(_tempQuat, 'YXZ');
@@ -286,7 +292,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         [dirX, dirY, dirZ] = custom.detail.direction;
       }
 
-      if (body && isReady) {
+      if (body && eventState.current.isReady) {
         // Direct the boost cleanly in the direction the rocket is facing!
         const linvel = body.linvel();
         const currentSpeed = Math.hypot(linvel.x, linvel.z);
@@ -366,11 +372,13 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         colliderRef.current = null;
       }
     };
-  }, [isReady]);
+  }, [isReady, world, rapier]);
 
   // Frame animation & physics loop
   useFrame((_, delta) => {
     if (!groupRef.current) return;
+    // Tab restores and stalled frames must not inject seconds of impulse.
+    delta = Math.min(delta, 0.05);
 
     if (gameMode === 'landing' || visible === false) {
       groupRef.current.visible = false;
@@ -587,10 +595,10 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
 
       groupRef.current.position.set(cX, cY, cZ);
       groupRef.current.rotation.set(cPitch, cYaw, cRoll);
-      groupRef.current.updateMatrixWorld();
 
       pos.current.set(cX, cY, cZ);
       rotationY.current = cYaw;
+      if (sharedVehicleRotation) sharedVehicleRotation.current = cYaw;
       pitchX.current = cPitch;
       rollZ.current = cRoll;
 
@@ -767,10 +775,10 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
 
         groupRef.current.position.set(finalPos.x, finalPos.y + hoverY, finalPos.z);
         groupRef.current.rotation.set(pitchX.current, yaw, rollZ.current);
-        groupRef.current.updateMatrixWorld();
 
         pos.current.set(finalPos.x, finalPos.y, finalPos.z);
         rotationY.current = yaw;
+        if (sharedVehicleRotation) sharedVehicleRotation.current = yaw;
 
         if (sharedVehiclePos) {
           sharedVehiclePos.current.set(finalPos.x, finalPos.y, finalPos.z);
@@ -830,7 +838,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
         const hoverY = Math.sin(Date.now() * 0.0032) * 0.15 + suspensionY.current + engineJitter;
         groupRef.current.position.set(pos.current.x, pos.current.y + hoverY, pos.current.z);
         groupRef.current.rotation.set(pitchX.current, rotationY.current, rollZ.current);
-        groupRef.current.updateMatrixWorld();
+        if (sharedVehicleRotation) sharedVehicleRotation.current = rotationY.current;
 
         if (sharedVehiclePos) {
           sharedVehiclePos.current.set(pos.current.x, pos.current.y, pos.current.z);
@@ -861,12 +869,12 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     }
 
     // Check Sun Collision (Sun is located at [0, 0, 0] with danger boundary ~5.5)
-    const currentX = body && isReady ? body.translation().x : pos.current.x;
-    const currentY = body && isReady ? body.translation().y : pos.current.y;
-    const currentZ = body && isReady ? body.translation().z : pos.current.z;
-    const distToSun = Math.hypot(currentX, currentY, currentZ);
+    const currentX = pos.current.x;
+    const currentY = pos.current.y;
+    const currentZ = pos.current.z;
+    const distToSunSq = currentX * currentX + currentY * currentY + currentZ * currentZ;
 
-    if (!isCinematic && distToSun < 5.6 && respawnTimer.current <= 0) {
+    if (!isCinematic && distToSunSq < 5.6 * 5.6 && respawnTimer.current <= 0) {
       // 1. Emit Bruno Simon Low-Poly Explosion at impact point
       explosionEvents.emit([currentX, currentY, currentZ], 1.6);
 
@@ -904,13 +912,15 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
     }
 
     // Determine if rocket is actively moving or thrusting
-    const bodySpeed = body && isReady ? Math.hypot(body.linvel().x, body.linvel().z) : velocity.current.length();
-    const isMoving = isBoosting || Math.abs(thrust) > 0.05 || bodySpeed > 0.35;
-
-    const shipLinVel =
-      body && isReady
-        ? _shipLinVel.set(body.linvel().x, body.linvel().y, body.linvel().z)
-        : _shipLinVel.copy(velocity.current);
+    if (body && isReady) {
+      const linvel = body.linvel();
+      _shipLinVel.set(linvel.x, linvel.y, linvel.z);
+    } else {
+      _shipLinVel.copy(velocity.current);
+    }
+    const shipLinVel = _shipLinVel;
+    const bodySpeedSq = shipLinVel.x * shipLinVel.x + shipLinVel.z * shipLinVel.z;
+    const isMoving = isBoosting || Math.abs(thrust) > 0.05 || bodySpeedSq > 0.35 * 0.35;
 
     // Dynamic polygonal exhaust jet animation in world space:
     // When the ship is stopped, NOTHING comes out.
@@ -943,7 +953,9 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
             thrust
           );
         } else {
-          break; // Max puffs currently active
+          // Do not accumulate missed emissions while the pool is full.
+          spawnTimerRef.current = 0;
+          break;
         }
       }
     } else {
@@ -1044,7 +1056,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
 
   return (
     <>
-      <group ref={groupRef} position={position} dispose={null}>
+      <group ref={groupRef} position={position}>
       {/* =========================================================================
           RETRO TOY LOW-POLY ROCKET
           100% Faithful to the Reference Image:
@@ -1246,7 +1258,7 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
            Completely cuts off when the ship is stopped!
        ----------------------------------------------------------------- */}
     <group>
-      {Array.from({ length: MAX_PUFFS_CAP }).map((_, idx) => (
+      {puffs.map((_, idx) => (
         <mesh
           key={`exhaust-puff-${idx}`}
           ref={(el) => {
@@ -1273,3 +1285,5 @@ export const SpaceVehicle: React.FC<SpaceVehicleProps> = ({
   </>
 );
 };
+
+export const SpaceVehicle = React.memo(SpaceVehicleComponent);

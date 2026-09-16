@@ -65,7 +65,7 @@ interface SpeedRingsProps {
   onNearStartGate?: (isNear: boolean) => void;
 }
 
-export const SpeedRings: React.FC<SpeedRingsProps> = ({
+const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
   sharedVehiclePos,
   graphicsQuality = 'mid',
   isRacing = false,
@@ -181,11 +181,9 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
           // Intense golden/cyan beacon pulse for race target ring
           const activePulse = 0.55 + Math.sin(time * 3.0) * 0.25;
           fieldMat.opacity = activePulse;
-          fieldMat.color.set('#fde047'); // Golden beacon
         } else {
           const pulse = 0.25 + Math.sin(time + idx * 1.4) * 0.10;
           fieldMat.opacity = state.cooldown > 0 ? 0.7 : pulse;
-          fieldMat.color.set('#38bdf8'); // Sky blue
         }
       }
     });
@@ -466,7 +464,7 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
               <ringGeometry args={[0.25, 3.05, 32]} />
               <meshBasicMaterial
                 ref={(el) => (fieldMatsRef.current[idx] = el)}
-                color={isStartRing ? '#fde047' : '#38bdf8'}
+                color={isStartRing || isCurrentTarget ? '#fde047' : '#38bdf8'}
                 transparent
                 opacity={0.32}
                 blending={THREE.AdditiveBlending}
@@ -538,3 +536,5 @@ export const SpeedRings: React.FC<SpeedRingsProps> = ({
     </group>
   );
 };
+
+export const SpeedRings = React.memo(SpeedRingsComponent);

@@ -1,12 +1,11 @@
 import React, { Suspense, useRef, useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Preload } from '@react-three/drei';
 import * as THREE from 'three';
 import { SpaceVehicle } from './3d/SpaceVehicle';
 import { Islands } from './3d/Islands';
 import { OrbitRingsAndCollectibles } from './3d/OrbitRingsAndCollectibles';
 import { CameraController } from './3d/CameraController';
-import { RapierPhysicsProvider } from './3d/physics/RapierPhysicsContext';
+import { RapierPhysicsProvider, useRapier } from './3d/physics/RapierPhysicsContext';
 import { PhysicsSpacePlayground } from './3d/physics/PhysicsProps';
 import { LowPolyExplosions } from './3d/explosions/LowPolyExplosions';
 import { CosmicDust } from './3d/CosmicDust';
@@ -54,42 +53,34 @@ interface GalaxySceneProps {
 
 /**
  * ScenePrewarmer:
- * Pré-compila todos os shaders, pipelines de materiais e buffers na GPU antes
- * do primeiro frame de jogo interativo, eliminando travamentos de compilação.
+ * Compila os materiais uma vez, após a cena física estar pronta, antes de
+ * liberar a entrada no jogo.
  */
 function ScenePrewarmer({ onSceneReady }: { onSceneReady?: () => void }) {
   const { gl, scene, camera } = useThree();
-  const hasPrewarmed = useRef(false);
+  const { isReady } = useRapier();
+  const compilation = useRef<Promise<unknown> | null>(null);
+  const onReadyRef = useRef(onSceneReady);
+  onReadyRef.current = onSceneReady;
 
   useEffect(() => {
-    if (hasPrewarmed.current) return;
-    hasPrewarmed.current = true;
+    if (!isReady) return;
+    let active = true;
 
-    // Compilação paralela assíncrona na GPU (Three.js r163+) para não travar a thread principal
-    if (typeof (gl as any).compileAsync === 'function') {
-      (gl as any)
-        .compileAsync(scene, camera)
-        .catch((e: unknown) => {
-          console.warn('GPU pipeline async prewarm warning:', e);
-        })
-        .finally(() => {
-          onSceneReady?.();
-        });
-    } else {
-      try {
-        gl.compile(scene, camera);
-      } catch (e) {
-        console.warn('GPU pipeline prewarm warning:', e);
-      }
-
-      const rafId = requestAnimationFrame(() => {
-        onSceneReady?.();
+    // compileAsync also visits invisible meshes. Drei's Preload would compile the
+    // same scene synchronously and render it six more times with a cube camera.
+    if (!compilation.current) {
+      compilation.current = gl.compileAsync(scene, camera).catch((error: unknown) => {
+        console.warn('GPU pipeline prewarm warning:', error);
       });
-      return () => cancelAnimationFrame(rafId);
     }
-  }, [gl, scene, camera, onSceneReady]);
+    compilation.current.then(() => {
+      if (active) onReadyRef.current?.();
+    });
+    return () => { active = false; };
+  }, [gl, scene, camera, isReady]);
 
-  return <Preload all />;
+  return null;
 }
 
 const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
@@ -123,6 +114,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 }) => {
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
+  const sharedVehicleRotation = useRef(vehicleRotation);
 
   // When returning to landing screen, restore shared coordinates to origin so parallax and dust remain centered
   useEffect(() => {
@@ -133,48 +125,46 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 
   // Trava a resolução física da GPU em no máximo 1080p (Full HD: 1920x1080)
   const [clampedDpr, setClampedDpr] = useState<number>(() => getClamped1080pDpr(graphicsQuality));
+  const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
 
   useEffect(() => {
+    const handleVisibility = () => setIsPageVisible(!document.hidden);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
+    let resizeFrame = 0;
     const handleResize = () => {
-      setClampedDpr(getClamped1080pDpr(graphicsQuality));
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => setClampedDpr(getClamped1080pDpr(graphicsQuality)));
     };
-    handleResize();
+    setClampedDpr(getClamped1080pDpr(graphicsQuality));
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      cancelAnimationFrame(resizeFrame);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [graphicsQuality]);
 
   return (
     <div className="w-full h-full absolute inset-0 select-none overflow-hidden bg-[#070b14]">
       <Canvas
-        key={`${graphicsQuality}-${clampedDpr}`}
-        shadows={graphicsQuality !== 'low' ? { type: THREE.PCFSoftShadowMap } : false}
+        frameloop={isPageVisible ? 'always' : 'never'}
+        shadows={{ enabled: graphicsQuality !== 'low', type: THREE.PCFShadowMap }}
         camera={{ position: [38, 42, 38], fov: 30, far: 1000 }}
         dpr={clampedDpr}
         gl={{
-          antialias: graphicsQuality !== 'low',
+          // The scene renders into the composer's targets on mid/high. Native
+          // canvas MSAA does not antialias those targets and only adds overhead.
+          antialias: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.1,
           powerPreference: 'high-performance',
         }}
         onCreated={({ gl }) => {
-          gl.shadowMap.enabled = graphicsQuality !== 'low';
-          if (graphicsQuality !== 'low') {
-            gl.shadowMap.type = THREE.PCFSoftShadowMap;
-            // Previne o loop contínuo de aviso de depreciação do Three.js r185
-            // mantendo a renderização suave com PCFSoftShadowMap sem poluir o console
-            let configuredType: THREE.ShadowMapType = THREE.PCFSoftShadowMap;
-            Object.defineProperty(gl.shadowMap, 'type', {
-              get: () => THREE.PCFShadowMap,
-              set: (val: THREE.ShadowMapType) => {
-                configuredType = val;
-              },
-              configurable: true,
-              enumerable: true,
-            });
-          }
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.1;
-          gl.setPixelRatio(clampedDpr);
         }}
       >
         <Suspense fallback={null}>
@@ -192,12 +182,15 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 
           {/* 1. LUZ PRINCIPAL SOLAR (KEY LIGHT) */}
           <directionalLight
+            // Three allocates shadow.map on creation; changing mapSize alone
+            // leaves the previous GPU target alive. Replace only this light.
+            key={graphicsQuality}
             position={[40, 60, 32]}
             intensity={2.6}
             color="#fffdf5"
             castShadow={graphicsQuality !== 'low'}
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
+            shadow-mapSize-width={graphicsQuality === 'high' ? 1024 : 512}
+            shadow-mapSize-height={graphicsQuality === 'high' ? 1024 : 512}
             shadow-camera-near={8}
             shadow-camera-far={260}
             shadow-camera-left={-85}
@@ -231,6 +224,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
             selectedIslandId={selectedIslandId}
             islands={islands}
             sharedVehiclePos={sharedVehiclePos}
+            sharedVehicleRotation={sharedVehicleRotation}
           />
 
           {/* ==========================================================
@@ -267,6 +261,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
               graphicsQuality={graphicsQuality}
               sharedVehiclePos={sharedVehiclePos}
               gameMode={gameMode}
+              sharedVehicleRotation={sharedVehicleRotation}
               selectedIslandId={selectedIslandId}
               onCinematicComplete={onCinematicComplete}
             />
@@ -354,18 +349,6 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   );
 };
 
-export const GalaxyScene = React.memo(GalaxySceneComponent, (prev, next) => {
-  return (
-    prev.gameMode === next.gameMode &&
-    prev.cameraViewMode === next.cameraViewMode &&
-    prev.selectedIslandId === next.selectedIslandId &&
-    prev.graphicsQuality === next.graphicsQuality &&
-    prev.isModalOpen === next.isModalOpen &&
-    prev.isRacing === next.isRacing &&
-    prev.currentCheckpoint === next.currentCheckpoint &&
-    prev.visitedIslands.length === next.visitedIslands.length &&
-    prev.crystals.length === next.crystals.length &&
-    prev.targetVehiclePos === next.targetVehiclePos &&
-    prev.whispers?.length === next.whispers?.length
-  );
-});
+// App publishes live vehicle telemetry outside React. Compare all remaining
+// props so joystick, crystal flags and callbacks cannot silently become stale.
+export const GalaxyScene = React.memo(GalaxySceneComponent);

@@ -3,16 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MaterialIcon } from './MaterialIcon';
 import { formatRaceTime } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
+import { getVehiclePosition } from '../../utils/vehicleTelemetry';
+import { useVisibleTick } from '../../hooks/useVisibleTick';
 
 interface RaceOverlayProps {
   isNearStartGate: boolean;
   raceState: 'idle' | 'countdown' | 'racing' | 'finished';
   countdownNumber: number;
   elapsedTime: number;
+  startedAt: number;
   currentCheckpoint: number;
   totalCheckpoints: number;
   bestTime: number | null;
-  vehiclePos?: [number, number, number];
   targetRingPosition?: [number, number, number];
   onStartRace: () => void;
   onCancelRace: () => void;
@@ -26,10 +28,10 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
   raceState,
   countdownNumber,
   elapsedTime,
+  startedAt,
   currentCheckpoint,
   totalCheckpoints,
   bestTime,
-  vehiclePos,
   targetRingPosition,
   onStartRace,
   onCancelRace,
@@ -39,6 +41,13 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
 }) => {
   const [pilotName, setPilotName] = useState('');
   const [hasSaved, setHasSaved] = useState(false);
+  const now = useVisibleTick(50, raceState === 'racing');
+  const liveElapsedTime = raceState === 'racing' ? Math.max(0, (now - startedAt) / 1000) : elapsedTime;
+  const vehiclePos = getVehiclePosition();
+
+  React.useEffect(() => {
+    if (raceState === 'countdown') setHasSaved(false);
+  }, [raceState]);
 
   // Distance and compass angle to next target ring
   const navData = useMemo(() => {
@@ -158,7 +167,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
             <div className="flex items-center gap-2">
               <MaterialIcon name="timer" className="text-sky-400 animate-pulse" size={18} />
               <span className="font-mono text-lg font-bold text-sky-400 tracking-wider">
-                {formatRaceTime(elapsedTime)}
+                {formatRaceTime(liveElapsedTime)}
               </span>
             </div>
 

@@ -14,9 +14,18 @@ export interface WebGPUCapability {
 }
 
 let cachedCapability: WebGPUCapability | null = null;
+let detectionPromise: Promise<WebGPUCapability> | null = null;
+let cachedRendererName: string | null = null;
 
-export async function detectWebGPUSupport(): Promise<WebGPUCapability> {
-  if (cachedCapability) return cachedCapability;
+export function detectWebGPUSupport(): Promise<WebGPUCapability> {
+  if (cachedCapability) return Promise.resolve(cachedCapability);
+  // Preloader, settings and StrictMode can request detection simultaneously.
+  // Reuse the in-flight request as well as its eventual result.
+  detectionPromise ??= detectCapability();
+  return detectionPromise;
+}
+
+async function detectCapability(): Promise<WebGPUCapability> {
 
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return {
@@ -97,7 +106,7 @@ export async function detectWebGPUSupport(): Promise<WebGPUCapability> {
       isSupported: true,
       adapterName: `${vendor} ${description}${architecture}`.trim(),
       backend: backendName,
-      deviceType: adapterInfo.device || 'discrete-gpu',
+      deviceType: adapterInfo.device || 'desconhecido',
       preferredFormat,
       features: featuresList.slice(0, 8),
     };
@@ -119,17 +128,20 @@ export async function detectWebGPUSupport(): Promise<WebGPUCapability> {
  * Coleta o nome da GPU através do contexto WebGL tradicional como fallback
  */
 function getWebGLRendererName(): string {
+  if (cachedRendererName) return cachedRendererName;
+  let gl: WebGLRenderingContext | WebGL2RenderingContext | null = null;
   try {
     const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
     if (!gl) return 'Acelerador Gráfico Genérico';
 
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    if (debugInfo) {
-      return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || 'Acelerador WebGL';
-    }
-    return gl.getParameter(gl.RENDERER) || 'Acelerador WebGL';
+    cachedRendererName = gl.getParameter(debugInfo ? debugInfo.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || 'Acelerador WebGL';
+    return cachedRendererName;
   } catch {
     return 'Acelerador WebGL 2.0';
+  } finally {
+    // This canvas is only a capability probe, not the scene renderer.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
   }
 }

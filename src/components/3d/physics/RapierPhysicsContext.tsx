@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import RAPIER from '@dimforge/rapier3d-compat';
 
 type PhysicsCallback = (delta: number) => void;
+let rapierInitialization: Promise<void> | null = null;
 
 interface RapierContextType {
   rapier: typeof RAPIER | null;
@@ -90,7 +91,9 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
 
     async function initRapier() {
       try {
-        await RAPIER.init();
+        // StrictMode/remounts share one WASM initialization.
+        rapierInitialization ??= RAPIER.init();
+        await rapierInitialization;
         if (!active) return;
 
         rapierRef.current = RAPIER;
@@ -111,7 +114,13 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
         worldRef.current = null;
       }
     };
-  }, [gravity[0], gravity[1], gravity[2]]);
+  }, []);
+
+  useEffect(() => {
+    if (worldRef.current) {
+      worldRef.current.gravity = { x: gravity[0], y: gravity[1], z: gravity[2] };
+    }
+  }, [isReady, gravity[0], gravity[1], gravity[2]]);
 
   // Game Loop Sequenciado (Folio-2025 Architecture):
   // 1. Time / Delta Clamp
@@ -149,16 +158,17 @@ export const RapierPhysicsProvider: React.FC<RapierPhysicsProviderProps> = ({
     });
   });
 
+  // HUD/vehicle updates must not invalidate every physics consumer.
+  const contextValue = useMemo(() => ({
+    rapier: rapierRef.current,
+    world: worldRef.current,
+    isReady,
+    registerPrePhysics,
+    registerPostPhysics,
+  }), [isReady, registerPrePhysics, registerPostPhysics]);
+
   return (
-    <RapierContext.Provider
-      value={{
-        rapier: rapierRef.current,
-        world: worldRef.current,
-        isReady,
-        registerPrePhysics,
-        registerPostPhysics,
-      }}
-    >
+    <RapierContext.Provider value={contextValue}>
       {children}
     </RapierContext.Provider>
   );

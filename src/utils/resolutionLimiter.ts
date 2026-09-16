@@ -1,62 +1,57 @@
-import { GraphicsQuality } from '../types';
-
-/**
- * resolutionLimiter.ts
- * Trava a resolução interna do buffer WebGL e pós-processamento para 1080p (Full HD: 1920x1080) no máximo.
- * 
- * Previne que monitores 1440p, 4K, ultrawide ou telas com escala do Windows (125%, 150%, 200%)
- * renderizem além de 1920x1080, garantindo taxa de quadros estável a 60 FPS.
- */
+import type { GraphicsQuality } from '../types';
 
 export const MAX_RENDER_WIDTH = 1920;
 export const MAX_RENDER_HEIGHT = 1080;
 
+const RENDER_BUDGETS: Record<GraphicsQuality, { width: number; height: number; dpr: number }> = {
+  low: { width: 1280, height: 720, dpr: 1 },
+  mid: { width: 1600, height: 900, dpr: 1.25 },
+  high: { width: MAX_RENDER_WIDTH, height: MAX_RENDER_HEIGHT, dpr: 2 },
+};
+
+interface RenderViewport {
+  width: number;
+  height: number;
+  dpr: number;
+}
+
+function getViewport(): RenderViewport {
+  return typeof window === 'undefined'
+    ? { width: MAX_RENDER_WIDTH, height: MAX_RENDER_HEIGHT, dpr: 1 }
+    : { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 };
+}
+
 /**
- * Retorna o Device Pixel Ratio (DPR) exato para que a resolução da GPU
- * nunca ultrapasse 1920x1080.
+ * One uniform scale preserves aspect ratio and bounds both GPU dimensions.
+ * Do not impose a minimum DPR: even 0.5 exceeds 1080p on an 8K display.
  */
-export function getClamped1080pDpr(quality: GraphicsQuality = 'high'): number {
-  if (typeof window === 'undefined') return 1;
-
-  const width = window.innerWidth || MAX_RENDER_WIDTH;
-  const height = window.innerHeight || MAX_RENDER_HEIGHT;
-  const nativeDpr = window.devicePixelRatio || 1;
-
-  // Fator máximo de escala para não ultrapassar 1920x1080
-  const maxDprFor1080p = Math.min(
-    MAX_RENDER_WIDTH / width,
-    MAX_RENDER_HEIGHT / height
+export function getClamped1080pDpr(
+  quality: GraphicsQuality = 'high',
+  viewport: RenderViewport = getViewport(),
+): number {
+  const budget = RENDER_BUDGETS[quality];
+  return Math.min(
+    budget.width / Math.max(1, viewport.width),
+    budget.height / Math.max(1, viewport.height),
+    budget.dpr,
+    viewport.dpr > 0 ? viewport.dpr : 1,
   );
-
-  if (quality === 'low') {
-    // Low: máximo 1.0 DPR, limitado a 1080p
-    return Math.max(0.5, Math.min(1.0, maxDprFor1080p, nativeDpr));
-  }
-
-  if (quality === 'mid') {
-    // Mid: máximo 1.25 DPR, limitado a 1080p
-    return Math.max(0.6, Math.min(1.25, maxDprFor1080p, nativeDpr));
-  }
-
-  // High: aproveita o DPR do monitor até o teto absoluto de 1080p
-  return Math.max(0.65, Math.min(nativeDpr, maxDprFor1080p));
 }
 
 /**
  * Retorna as dimensões finais em pixels físicos renderizados (sempre <= 1920x1080)
  */
-export function getClampedResolution(quality: GraphicsQuality = 'high'): {
+export function getClampedResolution(
+  quality: GraphicsQuality = 'high',
+  viewport: RenderViewport = getViewport(),
+): {
   width: number;
   height: number;
   dpr: number;
 } {
-  if (typeof window === 'undefined') {
-    return { width: MAX_RENDER_WIDTH, height: MAX_RENDER_HEIGHT, dpr: 1 };
-  }
-
-  const dpr = getClamped1080pDpr(quality);
-  const width = Math.min(MAX_RENDER_WIDTH, Math.round(window.innerWidth * dpr));
-  const height = Math.min(MAX_RENDER_HEIGHT, Math.round(window.innerHeight * dpr));
+  const dpr = getClamped1080pDpr(quality, viewport);
+  const width = Math.max(1, Math.floor(viewport.width * dpr));
+  const height = Math.max(1, Math.floor(viewport.height * dpr));
 
   return { width, height, dpr };
 }
