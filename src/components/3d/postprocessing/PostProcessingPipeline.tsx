@@ -10,6 +10,8 @@ import { GraphicsQuality } from '../../../types';
 
 interface PostProcessingPipelineProps {
   graphicsQuality?: GraphicsQuality;
+  renderReady: React.RefObject<boolean>;
+  prewarming: boolean;
 }
 
 const ChromaticAberrationShader = {
@@ -55,9 +57,9 @@ class ScaledBloomPass extends UnrealBloomPass {
 
 export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
   graphicsQuality = 'mid',
-}) => graphicsQuality === 'low' ? null : <ActivePostProcessingPipeline graphicsQuality={graphicsQuality} />;
-
-const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }> = ({ graphicsQuality }) => {
+  renderReady,
+  prewarming,
+}) => {
   const { gl, scene, camera, size } = useThree();
   const dpr = useThree((state) => state.viewport.dpr);
   const composerRef = useRef<EffectComposer | null>(null);
@@ -127,7 +129,12 @@ const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }
   }, [size.width, size.height, dpr, graphicsQuality]);
 
   useFrame((state, delta) => {
-    if (!composerRef.current) {
+    // Rendering during compileAsync would force synchronous GPU waits and
+    // overwrite the material program that Three's readiness check is polling.
+    if (!renderReady.current) return;
+    // Keep targets/materials alive across preset changes, but bypass all passes
+    // on Low. Warm the fullscreen passes while the loading screen is covering us.
+    if ((graphicsQuality === 'low' && !prewarming) || !composerRef.current) {
       state.gl.render(state.scene, state.camera);
       return;
     }
@@ -144,7 +151,8 @@ const ActivePostProcessingPipeline: React.FC<{ graphicsQuality: 'mid' | 'high' }
 
     const chromaPass = chromaPassRef.current;
     if (chromaPass) {
-      chromaPass.enabled = currentChromaOffset.current > 0.0001;
+      // Include the normally inactive boost shader in the loading frames.
+      chromaPass.enabled = prewarming || currentChromaOffset.current > 0.0001;
       if (chromaPass.enabled) chromaPass.uniforms.uOffset.value = currentChromaOffset.current;
     }
     composerRef.current.render(delta);

@@ -2,6 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      if (new URLSearchParams(location.search).get('perf') === '1') {
+        const diagnostics = document.createElement('script');
+        diagnostics.src = './performance-diagnostics.js?v=1';
+        document.head.append(diagnostics);
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Danilo Ribeiro | Portfólio Cósmico 3D</title>
     <meta name="description" content="Portfólio 3D interativo de Danilo Ribeiro — Engenheiro de Software Full-Stack & Creative Developer. Experiência gamificada estilo Bruno Simon desenvolvida com React Three Fiber e física Rapier 3D." />

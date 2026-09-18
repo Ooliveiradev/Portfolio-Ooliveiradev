@@ -11,11 +11,11 @@ interface CosmicWhispersProps {
   onInspectWhisper: (whisper: CosmicWhisper) => void;
 }
 
-const COLOR_MAP: Record<WhisperColor, { core: string; glow: string; hex: number }> = {
-  cyan: { core: '#06b6d4', glow: '#67e8f9', hex: 0x06b6d4 },
-  purple: { core: '#a855f7', glow: '#d8b4fe', hex: 0xa855f7 },
-  amber: { core: '#f59e0b', glow: '#fde68a', hex: 0xf59e0b },
-  emerald: { core: '#10b981', glow: '#6ee7b7', hex: 0x10b981 },
+const COLOR_MAP: Record<WhisperColor, { core: string; glow: string }> = {
+  cyan: { core: '#06b6d4', glow: '#67e8f9' },
+  purple: { core: '#a855f7', glow: '#d8b4fe' },
+  amber: { core: '#f59e0b', glow: '#fde68a' },
+  emerald: { core: '#10b981', glow: '#6ee7b7' },
 };
 
 export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
@@ -26,8 +26,6 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
   const [nearbyWhisperId, setNearbyWhisperId] = useState<string | null>(null);
   const nearbyWhisperRef = useRef<string | null>(null);
   const lastProximityCheck = useRef(-Infinity);
-  const glowLightRef = useRef<THREE.PointLight>(null);
-  const litWhisperRef = useRef<string | null>(null);
   const groupsRef = useRef<{ [id: string]: THREE.Group | null }>({});
 
   // 60/120 FPS frame loop para animações e checagem inercial de proximidade
@@ -38,7 +36,6 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
 
     let closestId: string | null = null;
     let closestDistSq = Infinity;
-    let closestWhisper: CosmicWhisper | null = null;
 
     for (let idx = 0; idx < whispers.length; idx++) {
       const whisper = whispers[idx];
@@ -59,7 +56,6 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
 
         if (distSq < closestDistSq) {
           closestDistSq = distSq;
-          closestWhisper = whisper;
           closestId = distSq < 36 ? whisper.id : null;
         }
       }
@@ -71,24 +67,11 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
         nearbyWhisperRef.current = closestId;
         setNearbyWhisperId(closestId);
       }
-      // One permanent light keeps every lit scene material's shader stable as messages grow.
-      const light = glowLightRef.current;
-      if (light) {
-        const whisper = closestWhisper;
-        litWhisperRef.current = whisper?.id ?? null;
-        light.intensity = whisper ? (closestId ? 2.5 : 1) : 0;
-        if (whisper) light.color.setHex((COLOR_MAP[whisper.color] || COLOR_MAP.cyan).hex);
-      }
-    }
-    const litGroup = litWhisperRef.current ? groupsRef.current[litWhisperRef.current] : null;
-    if (litGroup && glowLightRef.current) {
-      glowLightRef.current.position.copy(litGroup.position);
     }
   });
 
   return (
     <group name="CosmicWhispersGroup">
-      <pointLight ref={glowLightRef} intensity={0} distance={7} decay={2} />
       {whispers.map((whisper, idx) => {
         const colors = COLOR_MAP[whisper.color] || COLOR_MAP.cyan;
         const isNearby = nearbyWhisperId === whisper.id;

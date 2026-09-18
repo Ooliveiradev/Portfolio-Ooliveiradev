@@ -798,8 +798,6 @@ const EducationIslandComponent: React.FC<EducationIslandProps> = () => {
         ))}
       </group>
 
-      {/* Iluminação ambiente suave do santuário acadêmico */}
-      <pointLight position={[0, 3.5, 0]} color="#84cc16" intensity={1.2} distance={10} />
     </group>
   );
 };

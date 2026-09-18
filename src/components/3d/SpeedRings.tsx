@@ -522,14 +522,6 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
               />
             </mesh>
 
-            {/* Dynamic Point Light Glow */}
-            {graphicsQuality !== 'low' && (
-              <pointLight
-                color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
-                intensity={isCurrentTarget ? 2.5 : 1.4}
-                distance={11}
-              />
-            )}
           </group>
         );
       })}

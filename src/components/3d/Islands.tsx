@@ -344,8 +344,6 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
           );
         })}
 
-        {/* Foco de luz suave vertical sobre o heliponto */}
-        <pointLight position={[0, 1.5, 0]} color={config.color} intensity={hovered ? 2.5 : 1.4} distance={6} />
       </group>
 
       {/* ===================================================
@@ -443,7 +441,8 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
         </Html>
       )}
 
-      {/* Point Light illuminating this island in its theme color */}
+      {/* One permanent fill per island. Decorative glows use emissive materials so
+          interactions and quality changes never change the scene's light count. */}
       <pointLight
         position={[0, 3.5, 0]}
         color={config.color}

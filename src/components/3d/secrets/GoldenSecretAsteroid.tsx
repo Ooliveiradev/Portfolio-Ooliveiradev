@@ -90,8 +90,6 @@ export const GoldenSecretAsteroid: React.FC<GoldenSecretAsteroidProps> = ({
         ))}
       </group>
 
-      {/* Luz dourada estelar misteriosa */}
-      <pointLight color="#fde047" intensity={2.8} distance={15} decay={1.5} />
     </group>
   );
 };

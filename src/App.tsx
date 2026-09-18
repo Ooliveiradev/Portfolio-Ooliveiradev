@@ -34,6 +34,7 @@ import { sounds } from './audio/soundManager';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
 import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
+import { createVehicleInput, isEditableTarget } from './utils/gameInput';
 
 export default function App() {
   // Preloading & System Certification: certifica Rapier WASM, shaders GPU e fontes antes de liberar jogabilidade
@@ -48,11 +49,7 @@ export default function App() {
   // Player Vehicle state (Cruising level = 1.0)
   const vehiclePos = getVehiclePosition();
   const [targetVehiclePos, setTargetVehiclePos] = useState<[number, number, number] | null>(null);
-  const [virtualInput, setVirtualInput] = useState<{ x: number; y: number; boost: boolean }>({
-    x: 0,
-    y: 0,
-    boost: false,
-  });
+  const virtualInputRef = useRef(createVehicleInput());
 
   // Camera view mode: 'iso' (default diorama isometric view) or 'tactical55' (55° panoramic view)
   const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>('iso');
@@ -79,13 +76,6 @@ export default function App() {
       // fallback
     }
   }, []);
-
-  // Adaptive Performance & 60 FPS Guard (Tier 3 - #14)
-  useFPSQualityGuard({
-    currentQuality: graphicsQuality,
-    onAutoAdjustQuality: setGraphicsQuality,
-    enabled: !isPreloading,
-  });
 
   // Active modals
   const [selectedIslandId, setSelectedIslandId] = useState<IslandId | null>(null);
@@ -209,7 +199,7 @@ export default function App() {
   // ESC key handler for closing modals or opening settings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isPreloading) return;
+      if (isPreloading || e.repeat) return;
       if (e.key === 'Escape') {
         if (showSettingsModal) {
           setShowSettingsModal(false);
@@ -753,13 +743,19 @@ export default function App() {
     Boolean(secretModalType) ||
     Boolean(selectedWhisper) ||
     showDropWhisperModal ||
-    showWhispersListModal;
+    showWhispersListModal ||
+    raceState === 'finished';
+
+  useFPSQualityGuard({
+    currentQuality: graphicsQuality,
+    onAutoAdjustQuality: setGraphicsQuality,
+    enabled: !isModalOpen,
+  });
 
   // Global key handler for transmission [T]
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+      if (e.repeat || isEditableTarget(e.target)) return;
 
       if ((e.key === 't' || e.key === 'T') && gameMode === 'driving' && !isModalOpen) {
         e.preventDefault();
@@ -788,8 +784,9 @@ export default function App() {
         visitedIslands={stats.visitedIslands}
         crystals={crystals}
         onCollectCrystal={handleCollectCrystal}
-        virtualInput={virtualInput}
+        virtualInputRef={virtualInputRef}
         isModalOpen={isModalOpen}
+        isPreloading={isPreloading}
         onClearTargetPosition={handleClearTargetPosition}
         graphicsQuality={graphicsQuality}
         isRacing={raceState === 'racing'}
@@ -857,13 +854,15 @@ export default function App() {
           {/* Mobile Touch Controls (Active during free driving exploration) */}
           {gameMode === 'driving' && (
             <MobileControls
-              onInputChange={setVirtualInput}
+              virtualInputRef={virtualInputRef}
+              enabled={!isModalOpen}
               onDockNearest={handleDockNearest}
             />
           )}
 
           {/* Cosmic Time Trial Race Overlay (Prompt Card, Countdown, Live Timer, Finish Modal) */}
           <RaceOverlay
+            controlsEnabled={gameMode === 'driving' && !isModalOpen}
             isNearStartGate={isNearStartGate}
             raceState={raceState}
             countdownNumber={countdownNumber}

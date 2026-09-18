@@ -147,9 +147,6 @@ export const PhysicsSpaceBeacon: React.FC<PhysicsBeaconProps> = ({
           flatShading
         />
       </mesh>
-      {graphicsQuality === 'high' && (
-        <pointLight position={[0, 0.9, 0]} color={color} intensity={1.5} distance={6} />
-      )}
     </group>
   );
 };

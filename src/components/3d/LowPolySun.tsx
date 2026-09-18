@@ -88,7 +88,7 @@ export const LowPolySun: React.FC<LowPolySunProps> = ({ graphicsQuality = 'mid' 
       </group>
 
       {/* =========================================================================
-          4. DUAL-STAGE INCANDESCENT HEAT ILLUMINATION
+          4. INCANDESCENT HEAT ILLUMINATION
           High-intensity solar illumination casting warm light across the galaxy
          ========================================================================= */}
       {/* Primary Solar Illuminator (Bright Golden Sunlight) */}
@@ -98,15 +98,6 @@ export const LowPolySun: React.FC<LowPolySunProps> = ({ graphicsQuality = 'mid' 
         distance={220}
         decay={1.2}
       />
-      {/* Secondary Volcanic Heat Wash (Deep Incandescent Crimson Atmosphere) */}
-      {graphicsQuality !== 'low' && (
-        <pointLight
-          color="#ff3300"
-          intensity={4.5}
-          distance={65}
-          decay={1.4}
-        />
-      )}
     </group>
   );
 };

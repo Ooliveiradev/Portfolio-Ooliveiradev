@@ -981,22 +981,6 @@ const SkillsIslandComponent: React.FC<SkillsIslandProps> = () => {
         </mesh>
       ))}
 
-      {/* =========================================================
-          10. CIBERESPACIAL AMBIENT LIGHTING
-         ========================================================= */}
-      <pointLight
-        position={[-1.5, 1.8, 0]}
-        color={gpuBoosted ? '#38bdf8' : '#a855f7'}
-        intensity={gpuBoosted ? 3.8 : 2.0}
-        distance={10}
-      />
-      <pointLight
-        position={[1.5, 1.6, -1.0]}
-        color={waterblockPulse > 0 ? '#f43f5e' : '#06b6d4'}
-        intensity={waterblockPulse > 0 ? 3.5 : 2.2}
-        distance={10}
-      />
-
     </group>
   );
 };

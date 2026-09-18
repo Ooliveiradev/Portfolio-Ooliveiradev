@@ -9,12 +9,15 @@ import { explosionEvents } from './explosions/explosionEvents';
 import { GraphicsQuality, GameMode, IslandId } from '../../types';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
 import { ISLANDS_CONFIG } from '../../data/portfolioData';
+import { canHandleGameKey, createVehicleInput, isEditableTarget, type VehicleInput } from '../../utils/gameInput';
 
 const MAX_PUFFS_CAP = 24;
 const COLOR_YELLOW = new THREE.Color('#fbbf24');
 const COLOR_ORANGE = new THREE.Color('#f97316');
 const COLOR_WHITE = new THREE.Color('#f1f5f9');
 const COLOR_GRAY = new THREE.Color('#94a3b8');
+const NO_INPUT = createVehicleInput();
+const DRIVING_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', ' ', 'r']);
 
 // Pre-allocated static scratch objects to eliminate per-frame garbage collection
 const _localNozzle = new THREE.Vector3();
@@ -111,7 +114,8 @@ interface SpaceVehicleProps {
   onPositionChange: (pos: [number, number, number]) => void;
   onRotationChange?: (rotY: number) => void;
   isDriving: boolean;
-  virtualInput: { x: number; y: number; boost: boolean };
+  virtualInput?: VehicleInput;
+  virtualInputRef?: React.MutableRefObject<VehicleInput>;
   onClearTargetPosition?: () => void;
   graphicsQuality?: GraphicsQuality;
   sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
@@ -127,7 +131,9 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   targetPosition,
   onPositionChange,
   onRotationChange,
+  isDriving,
   virtualInput,
+  virtualInputRef,
   onClearTargetPosition,
   graphicsQuality = 'mid',
   sharedVehiclePos,
@@ -138,8 +144,10 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   visible = true,
 }) => {
   const { rapier, world, isReady } = useRapier();
-  const eventState = useRef({ isReady, onPositionChange, onRotationChange });
-  eventState.current = { isReady, onPositionChange, onRotationChange };
+  const controlsEnabled = isDriving && gameMode === 'driving' && visible;
+  const eventState = useRef({ isReady, controlsEnabled, virtualInputRef, onPositionChange, onRotationChange });
+  eventState.current = { isReady, controlsEnabled, virtualInputRef, onPositionChange, onRotationChange };
+  const inputSuspended = useRef(false);
 
   const groupRef = useRef<THREE.Group>(null);
   const lastAppUpdate = useRef(0);
@@ -180,9 +188,6 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   const puffMatsRef = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
   const spawnTimerRef = useRef(0);
 
-  const flameLightRef = useRef<THREE.PointLight>(null);
-  const headlightRef = useRef<THREE.PointLight>(null);
-
   // RigidBody & Collider
   const rigidBodyRef = useRef<RAPIER.RigidBody | null>(null);
   const colliderRef = useRef<RAPIER.Collider | null>(null);
@@ -205,6 +210,13 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   const suspensionVelocity = useRef(0);
   const respawnTimer = useRef(0);
   const keys = useRef<{ [key: string]: boolean }>({});
+
+  useEffect(() => {
+    if (controlsEnabled) return;
+    keys.current = {};
+    if (virtualInputRef) Object.assign(virtualInputRef.current, NO_INPUT);
+    sounds.stopThrusterSound();
+  }, [controlsEnabled, virtualInputRef]);
 
   // Setup Keyboard inputs
   useEffect(() => {
@@ -238,25 +250,45 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      keys.current[e.key.toLowerCase()] = true;
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+      if (!canHandleGameKey(e, eventState.current.controlsEnabled && !inputSuspended.current)) return;
+      const key = e.key.toLowerCase();
+      if (!DRIVING_KEYS.has(key)) return;
+      const wasPressed = keys.current[key];
+      keys.current[key] = true;
+      if (key.startsWith('arrow') || key === ' ') {
         e.preventDefault();
       }
-      if (e.key === ' ' && !e.repeat) {
+      if (e.repeat || wasPressed) return;
+      if (key === ' ') {
         sounds.playBoost();
       }
-      if (e.key.toLowerCase() === 'r') {
+      if (key === 'r') {
         triggerRespawn();
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       keys.current[e.key.toLowerCase()] = false;
     };
-    const handleBlur = () => {
+    const clearInput = () => {
       keys.current = {};
+      if (eventState.current.virtualInputRef) Object.assign(eventState.current.virtualInputRef.current, NO_INPUT);
+      sounds.stopThrusterSound();
+    };
+    const handleBlur = () => {
+      inputSuspended.current = true;
+      clearInput();
+    };
+    const handleFocus = () => {
+      inputSuspended.current = document.hidden || isEditableTarget(document.activeElement);
+      if (inputSuspended.current) clearInput();
+    };
+    const handleFocusChange = (e: FocusEvent) => {
+      inputSuspended.current = document.hidden || isEditableTarget(e.type === 'focusout' ? e.relatedTarget : e.target);
+      if (inputSuspended.current) clearInput();
     };
 
     const handleBoostImpulse = (e: Event) => {
+      if (!eventState.current.controlsEnabled || inputSuspended.current) return;
       const custom = e as CustomEvent<{
         direction?: [number, number, number];
         force?: number;
@@ -321,15 +353,24 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       suspensionVelocity.current -= 0.32;
     };
 
+    handleFocus();
     window.addEventListener('keydown', handleKeyDown, { passive: false });
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('focusin', handleFocusChange);
+    document.addEventListener('focusout', handleFocusChange);
+    document.addEventListener('visibilitychange', handleFocus);
     window.addEventListener('app:respawn-vehicle', triggerRespawn);
     window.addEventListener('app:boost-vehicle', handleBoostImpulse);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('focusin', handleFocusChange);
+      document.removeEventListener('focusout', handleFocusChange);
+      document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('app:respawn-vehicle', triggerRespawn);
       window.removeEventListener('app:boost-vehicle', handleBoostImpulse);
       sounds.stopThrusterSound();
@@ -614,19 +655,21 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       }
     } else {
       // Normal Driving Manual Physics Loop
-      const forwardKey = Boolean(keys.current['arrowup'] || keys.current['w'] || virtualInput.y < -0.2);
-      const backwardKey = Boolean(keys.current['arrowdown'] || keys.current['s'] || virtualInput.y > 0.2);
-      const leftKey = Boolean(keys.current['arrowleft'] || keys.current['a'] || virtualInput.x < -0.2);
-      const rightKey = Boolean(keys.current['arrowright'] || keys.current['d'] || virtualInput.x > 0.2);
-      isBoosting = Boolean(keys.current[' '] || virtualInput.boost);
+      const canDrive = controlsEnabled && !inputSuspended.current;
+      const input = canDrive ? (virtualInputRef?.current ?? virtualInput ?? NO_INPUT) : NO_INPUT;
+      const forwardKey = canDrive && Boolean(keys.current['arrowup'] || keys.current['w'] || input.y < -0.2);
+      const backwardKey = canDrive && Boolean(keys.current['arrowdown'] || keys.current['s'] || input.y > 0.2);
+      const leftKey = canDrive && Boolean(keys.current['arrowleft'] || keys.current['a'] || input.x < -0.2);
+      const rightKey = canDrive && Boolean(keys.current['arrowright'] || keys.current['d'] || input.x > 0.2);
+      isBoosting = canDrive && Boolean(keys.current[' '] || input.boost);
 
       const isManualInput =
         forwardKey ||
         backwardKey ||
         leftKey ||
         rightKey ||
-        Math.abs(virtualInput.x) > 0.1 ||
-        Math.abs(virtualInput.y) > 0.1;
+        Math.abs(input.x) > 0.1 ||
+        Math.abs(input.y) > 0.1;
 
       if (isManualInput && targetPosition) {
         onClearTargetPosition?.();
@@ -639,8 +682,8 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       if (leftKey) turn += 1;
       if (rightKey) turn -= 1;
 
-      if (Math.abs(virtualInput.x) > 0.1) turn = -virtualInput.x * 1.6;
-      if (Math.abs(virtualInput.y) > 0.1) thrust = -virtualInput.y * 1.4;
+      if (Math.abs(input.x) > 0.1) turn = -input.x * 1.6;
+      if (Math.abs(input.y) > 0.1) thrust = -input.y * 1.4;
 
       if (body && isReady) {
         const currentTranslation = body.translation();
@@ -651,7 +694,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         let yaw = _tempEuler.y;
 
         // Auto-navigation towards target island
-        if (targetPosition && !isManualInput) {
+        if (canDrive && targetPosition && !isManualInput) {
           const diffX = targetPosition[0] - currentTranslation.x;
           const diffZ = targetPosition[2] - currentTranslation.z;
           const dist = Math.hypot(diffX, diffZ);
@@ -720,7 +763,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         sounds.updateThrusterSound(thrust, isBoosting);
 
         // Gentle zero-G celestial elevation stabilization (Cruising level = 1.0)
-        const targetElevation = targetPosition ? targetPosition[1] : 1.0;
+        const targetElevation = canDrive && targetPosition ? targetPosition[1] : 1.0;
         const elevDiff = targetElevation - currentTranslation.y;
         body.applyImpulse({ x: 0, y: elevDiff * 9.0 * delta, z: 0 }, true);
 
@@ -1014,15 +1057,6 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       }
     }
 
-    // Dynamic Fire Lighting Intensity (fades to 0 when stopped!)
-    if (flameLightRef.current) {
-      const targetIntensity = isMoving ? (isBoosting ? 5.5 : 2.8) : 0;
-      flameLightRef.current.intensity = THREE.MathUtils.lerp(
-        flameLightRef.current.intensity,
-        targetIntensity,
-        delta * 10
-      );
-    }
   });
 
   // Custom Fin Geometry matching the reference image:
@@ -1151,14 +1185,14 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
           <sphereGeometry args={[0.29, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.45]} />
           <meshStandardMaterial
             color="#38bdf8"
+            emissive="#38bdf8"
+            emissiveIntensity={0.3}
             roughness={0.12}
             metalness={0.20}
             flatShading
           />
         </mesh>
 
-        {/* Soft Interior Porthole Glow */}
-        <pointLight position={[0, 0.15, 0]} color="#38bdf8" intensity={2.2} distance={6} />
       </group>
 
       {/* -----------------------------------------------------------------
@@ -1225,29 +1259,6 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         </mesh>
       </group>
 
-      {/* -----------------------------------------------------------------
-          6. DYNAMIC FLIGHT ILLUMINATION
-         ----------------------------------------------------------------- */}
-      {/* Warm Engine Exhaust Glow illuminating the space behind */}
-      {graphicsQuality !== 'low' && (
-        <pointLight
-          ref={flameLightRef}
-          position={[0, 0, -2.4]}
-          color="#f97316"
-          intensity={0}
-          distance={12}
-        />
-      )}
-      {/* Forward Nose Light */}
-      {graphicsQuality !== 'low' && (
-        <pointLight
-          ref={headlightRef}
-          position={[0, 0, 2.7]}
-          color="#bae6fd"
-          intensity={2.5}
-          distance={14}
-        />
-      )}
     </group>
 
     {/* -----------------------------------------------------------------

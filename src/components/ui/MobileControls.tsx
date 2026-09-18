@@ -1,120 +1,141 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
+import { createVehicleInput, type VehicleInput } from '../../utils/gameInput';
 
 interface MobileControlsProps {
-  onInputChange: (input: { x: number; y: number; boost: boolean }) => void;
+  virtualInputRef?: React.MutableRefObject<VehicleInput>;
+  onInputChange?: (input: VehicleInput) => void;
   onDockNearest: () => void;
+  enabled?: boolean;
 }
 
+const MAX_RADIUS = 45;
+
 export const MobileControls: React.FC<MobileControlsProps> = ({
+  virtualInputRef,
   onInputChange,
   onDockNearest,
+  enabled = true,
 }) => {
-  const joystickBaseRef = useRef<HTMLDivElement>(null);
-  const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const knobRef = useRef<HTMLDivElement>(null);
+  const input = useRef(createVehicleInput());
+  const joystickPointer = useRef<number | null>(null);
+  const boostPointer = useRef<number | null>(null);
+  const joystickCenter = useRef({ x: 0, y: 0 });
   const [isBoosting, setIsBoosting] = useState(false);
+  const eventState = useRef({ enabled, virtualInputRef, onInputChange });
+  eventState.current = { enabled, virtualInputRef, onInputChange };
 
-  const maxRadius = 45;
+  const publishInput = useCallback((changes: Partial<VehicleInput>) => {
+    Object.assign(input.current, changes);
+    const { virtualInputRef: target, onInputChange: callback } = eventState.current;
+    if (target) Object.assign(target.current, input.current);
+    else callback?.({ ...input.current });
+  }, []);
 
-  const handleTouchMove = useCallback(
-    (touchX: number, touchY: number) => {
-      if (!joystickBaseRef.current) return;
-      const rect = joystickBaseRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+  const resetInput = useCallback(() => {
+    joystickPointer.current = null;
+    boostPointer.current = null;
+    if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)';
+    publishInput({ x: 0, y: 0, boost: false });
+    setIsBoosting(false);
+  }, [publishInput]);
 
-      let dx = touchX - centerX;
-      let dy = touchY - centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+  useEffect(() => {
+    if (!enabled) resetInput();
+  }, [enabled, resetInput]);
 
-      if (dist > maxRadius) {
-        dx = (dx / dist) * maxRadius;
-        dy = (dy / dist) * maxRadius;
-      }
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) resetInput();
+    };
+    window.addEventListener('blur', resetInput);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('blur', resetInput);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      publishInput({ x: 0, y: 0, boost: false });
+    };
+  }, [resetInput, publishInput]);
 
-      setKnobPos({ x: dx, y: dy });
-
-      // Normalized vector (-1 to 1)
-      const normX = dx / maxRadius;
-      const normY = dy / maxRadius;
-
-      onInputChange({
-        x: normX,
-        y: normY,
-        boost: isBoosting,
-      });
-    },
-    [isBoosting, onInputChange]
-  );
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setIsDragging(true);
-    const touch = e.touches[0];
-    handleTouchMove(touch.clientX, touch.clientY);
+  const moveJoystick = (clientX: number, clientY: number) => {
+    let dx = clientX - joystickCenter.current.x;
+    let dy = clientY - joystickCenter.current.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance > MAX_RADIUS) {
+      dx *= MAX_RADIUS / distance;
+      dy *= MAX_RADIUS / distance;
+    }
+    // Update only the thumb and the sampled input, without rerendering the app.
+    if (knobRef.current) knobRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+    publishInput({ x: dx / MAX_RADIUS, y: dy / MAX_RADIUS });
   };
 
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    setKnobPos({ x: 0, y: 0 });
-    onInputChange({ x: 0, y: 0, boost: isBoosting });
+  const endJoystick = (event: React.PointerEvent) => {
+    if (event.pointerId !== joystickPointer.current) return;
+    joystickPointer.current = null;
+    if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)';
+    publishInput({ x: 0, y: 0 });
   };
 
-  const toggleBoost = (active: boolean) => {
-    setIsBoosting(active);
-    if (active) sounds.playBoost();
-    onInputChange({
-      x: knobPos.x / maxRadius,
-      y: knobPos.y / maxRadius,
-      boost: active,
-    });
+  const endBoost = (event: React.PointerEvent) => {
+    if (event.pointerId !== boostPointer.current) return;
+    boostPointer.current = null;
+    publishInput({ boost: false });
+    setIsBoosting(false);
   };
+
+  if (!enabled) return null;
 
   return (
     <div className="sm:hidden absolute inset-x-0 bottom-16 z-25 pointer-events-none flex items-end justify-between px-5 pb-2">
-      {/* Virtual Joystick (Left) */}
       <div
-        ref={joystickBaseRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={(e) => {
-          e.preventDefault();
-          if (isDragging) {
-            handleTouchMove(e.touches[0].clientX, e.touches[0].clientY);
+        onPointerDown={(event) => {
+          if (!eventState.current.enabled || event.button !== 0 || joystickPointer.current !== null) return;
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          joystickCenter.current.x = rect.left + rect.width / 2;
+          joystickCenter.current.y = rect.top + rect.height / 2;
+          joystickPointer.current = event.pointerId;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          moveJoystick(event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (eventState.current.enabled && event.pointerId === joystickPointer.current) {
+            moveJoystick(event.clientX, event.clientY);
           }
         }}
-        onTouchEnd={handleTouchEnd}
+        onPointerUp={endJoystick}
+        onPointerCancel={endJoystick}
+        onLostPointerCapture={endJoystick}
         className="w-28 h-28 rounded-full bg-[#0c1017]/90 border border-slate-800/80 backdrop-blur-xl relative flex items-center justify-center pointer-events-auto touch-none shadow-2xl active:border-sky-400/80 transition-colors"
       >
-        {/* Direction Cross Markings */}
         <div className="absolute inset-0 flex items-center justify-center opacity-25 pointer-events-none">
           <div className="w-16 h-0.5 bg-slate-500" />
           <div className="h-16 w-0.5 bg-slate-500 absolute" />
         </div>
-
-        {/* Joystick Thumb Knob */}
         <div
-          className="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-lg border border-sky-400/40 absolute transition-transform pointer-events-none"
-          style={{
-            transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
-          }}
+          ref={knobRef}
+          className="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-lg border border-sky-400/40 absolute pointer-events-none"
+          style={{ transform: 'translate(0px, 0px)' }}
         />
       </div>
 
-      {/* Action Buttons (Right) */}
       <div className="flex flex-col gap-3 pointer-events-auto">
-        {/* Boost Button */}
         <button
-          onTouchStart={(e) => {
-            e.preventDefault();
-            toggleBoost(true);
+          onPointerDown={(event) => {
+            if (!eventState.current.enabled || event.button !== 0 || boostPointer.current !== null) return;
+            event.preventDefault();
+            boostPointer.current = event.pointerId;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            publishInput({ boost: true });
+            setIsBoosting(true);
+            sounds.playBoost();
           }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            toggleBoost(false);
-          }}
-          onMouseDown={() => toggleBoost(true)}
-          onMouseUp={() => toggleBoost(false)}
+          onPointerUp={endBoost}
+          onPointerCancel={endBoost}
+          onLostPointerCapture={endBoost}
           className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border shadow-xl transition-all cursor-pointer backdrop-blur-xl select-none touch-none ${
             isBoosting
               ? 'bg-amber-500/20 text-amber-300 border-amber-400/60 scale-95 ring-2 ring-amber-400/30'
@@ -125,9 +146,9 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
           <span className="text-[9px] font-mono font-bold uppercase tracking-wider">Turbo</span>
         </button>
 
-        {/* Quick Dock Button */}
         <button
           onClick={() => {
+            if (!eventState.current.enabled) return;
             sounds.playClick();
             onDockNearest();
           }}
