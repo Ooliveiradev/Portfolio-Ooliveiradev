@@ -18,6 +18,7 @@ import { GoldenSecretAsteroid } from './3d/secrets/GoldenSecretAsteroid';
 import { CosmicRubberDuck } from './3d/secrets/CosmicRubberDuck';
 import { SecretVoidIsland } from './3d/secrets/SecretVoidIsland';
 import { CosmicWhispers } from './3d/whispers/CosmicWhispers';
+import { CosmicBoundary } from './3d/CosmicBoundary';
 import { IslandConfig, IslandId, CrystalCollectible, GraphicsQuality, GameMode, CosmicWhisper } from '../types';
 import { getClamped1080pDpr } from '../utils/resolutionLimiter';
 import type { VehicleInput } from '../utils/gameInput';
@@ -53,6 +54,7 @@ interface GalaxySceneProps {
   whispers?: CosmicWhisper[];
   onInspectWhisper?: (whisper: CosmicWhisper) => void;
   onSceneReady?: () => void;
+  onBoundaryReturn?: () => void;
 }
 
 /**
@@ -139,6 +141,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   whispers = [],
   onInspectWhisper,
   onSceneReady,
+  onBoundaryReturn,
 }) => {
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
@@ -290,6 +293,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 
             {/* Nave Espacial com Corpo Rígido Dinâmico e Colisor Primitivo (Pré-montada e persistente na GPU) */}
             <SpaceVehicle
+              onBoundaryReturn={onBoundaryReturn}
               visible={gameMode !== 'landing'}
               position={vehiclePos}
               targetPosition={targetVehiclePos}
@@ -374,6 +378,8 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
                 onInspectWhisper={(w) => onInspectWhisper?.(w)}
               />
             )}
+
+            <CosmicBoundary sharedVehiclePos={sharedVehiclePos} active={gameMode === 'driving' && !isModalOpen} />
 
             {/* Pipeline de Pós-Processamento Cinematográfico: Unreal Bloom & Aberração Cromática */}
             <PostProcessingPipeline

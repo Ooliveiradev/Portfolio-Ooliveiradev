@@ -31,6 +31,7 @@ import {
 } from './data/portfolioData';
 import { IslandId, UserStats, CrystalCollectible, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
 import { sounds } from './audio/soundManager';
+import { BoundaryAlert } from './components/ui/BoundaryAlert';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
 import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
@@ -632,6 +633,11 @@ export default function App() {
     }
   }, []);
 
+  const handleBoundaryReturn = useCallback(() => {
+    unlockBadge('badge-event-horizon');
+    if (raceState === 'racing' || raceState === 'countdown') handleCancelRace();
+  }, [unlockBadge, raceState, handleCancelRace]);
+
   // Handle Return to Landing Screen with cinematic fly-out
   const handleReturnToLanding = () => {
     sounds.playClick();
@@ -793,6 +799,7 @@ export default function App() {
         onRecoverCargo={handleRecoverCargo}
         onCinematicComplete={handleCinematicComplete}
         onDiscoverSecret={handleDiscoverSecret}
+        onBoundaryReturn={handleBoundaryReturn}
         whispers={whispers}
         onInspectWhisper={setSelectedWhisper}
         onSceneReady={handleSceneReady}
@@ -800,6 +807,7 @@ export default function App() {
 
       {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
       <ScreenEdgeBlur graphicsQuality={graphicsQuality} />
+      <BoundaryAlert active={gameMode === 'driving' && !isModalOpen} />
 
       {/* Tela 0: Preloader Cinematográfico de Inicialização e Certificação de Sistemas */}
       <AnimatePresence>

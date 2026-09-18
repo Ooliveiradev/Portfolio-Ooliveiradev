@@ -82,6 +82,30 @@ class SoundEngine {
     }
   }
 
+  public playBoundaryWarning() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const time = this.ctx.currentTime;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, time);
+      osc.frequency.setValueAtTime(440, time + 0.13);
+      gain.gain.setValueAtTime(0.001, time);
+      gain.gain.linearRampToValueAtTime(0.045, time + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.32);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      osc.start(time);
+      osc.stop(time + 0.35);
+    } catch {
+      // Audio is optional; containment remains available when audio is blocked.
+    }
+  }
+
   // Thruster whoosh
   public playBoost() {
     if (this.isMuted) return;

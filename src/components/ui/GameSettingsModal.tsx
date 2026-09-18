@@ -119,6 +119,8 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
         return <MaterialIcon name="filter_drama" size={20} />;
       case 'badge-secret-voyager':
         return <MaterialIcon name="near_me" size={20} />;
+      case 'badge-event-horizon':
+        return <MaterialIcon name="radar" size={20} />;
       case 'badge-scholar':
         return <MaterialIcon name="school" size={20} />;
       case 'badge-technologist':
@@ -246,8 +248,8 @@ Confira em: ${window.location.href}`;
           aria-modal="true"
           aria-label="Menu do portfólio"
         >
-          <div className="w-full flex items-center bg-[#0c1017] border border-b-0 border-slate-800/80 rounded-t-2xl overflow-hidden shrink-0">
-            <nav className="flex-1 min-w-0 flex items-center overflow-x-auto" aria-label="Seções do menu">
+          <div className="max-w-full flex items-center bg-[#0c1017] border border-b-0 border-slate-800/80 rounded-t-2xl overflow-hidden shrink-0">
+            <nav className="min-w-0 flex items-center" aria-label="Seções do menu">
               {([
                 ['home', 'home', 'Início'],
                 ['options', 'settings', 'Configurações'],
@@ -264,20 +266,19 @@ Confira em: ${window.location.href}`;
                   aria-label={label}
                   aria-pressed={activeTab === id}
                   title={label}
-                  className={`h-12 px-3 flex items-center gap-2 border-b-2 shrink-0 text-xs cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-sky-400 ${activeTab === id ? 'border-sky-400 bg-sky-400/5 text-sky-300' : 'border-transparent text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'}`}
+                  className={`h-10 w-9 sm:w-10 flex items-center justify-center border-r border-slate-800/80 last:border-r-0 shrink-0 cursor-pointer transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400 ${activeTab === id ? 'bg-slate-800/70 text-sky-400' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'}`}
                 >
                   <MaterialIcon name={icon} size={17} />
-                  <span className={activeTab === id ? '' : 'hidden md:inline'}>{label}</span>
                 </button>
               ))}
             </nav>
-            <button type="button" onClick={() => { sounds.playClick(); onClose(); }} className="w-12 h-12 shrink-0 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer border-l border-slate-800/80" aria-label="Fechar menu" title="Fechar (ESC)">
+            <button type="button" onClick={() => { sounds.playClick(); onClose(); }} className="w-9 sm:w-10 h-10 shrink-0 flex items-center justify-center bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer border-l border-slate-800/80 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400" aria-label="Fechar menu" title="Fechar (ESC)">
               <MaterialIcon name="close" size={18} />
             </button>
           </div>
 
           {/* Modal Main Body Card (Fixed Dimensions Two Column Split) */}
-          <div className="w-full bg-[#0c1017] border border-slate-800/80 rounded-b-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[580px] max-h-[calc(100dvh-7rem)]">
+          <div className="w-full bg-[#0c1017] border border-slate-800/80 rounded-b-2xl rounded-tl-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[580px] max-h-[calc(100dvh-7rem)]">
             {activeTab === 'about' && (
               <aside className="w-full md:w-64 p-5 md:p-8 flex flex-row md:flex-col items-center justify-center gap-4 md:gap-5 bg-[#101620] border-b md:border-b-0 md:border-r border-slate-800/80 shrink-0" aria-label="Perfil do desenvolvedor">
                 <button

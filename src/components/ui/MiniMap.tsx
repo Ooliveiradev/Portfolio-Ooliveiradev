@@ -8,6 +8,7 @@ import { getIslandLivePosition } from '../../utils/celestialCoords';
 import { getVehiclePosition, getVehicleRotation } from '../../utils/vehicleTelemetry';
 import { useVisibleTick } from '../../hooks/useVisibleTick';
 import { RADAR_RADIUS, RADAR_SCALE, toRadarPoint, radarHeading } from '../../utils/radar';
+import { getBoundaryTelemetry } from '../../utils/boundaryTelemetry';
 
 interface MiniMapProps {
   islands: IslandConfig[];
@@ -47,9 +48,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   const [hoveredIsland, setHoveredIsland] = useState<IslandConfig | null>(null);
 
   // Real-time radar refresh for celestial orbit tracking even when ship is stationary
-  const radarTick = useVisibleTick(100, isExpanded);
+  const radarTick = useVisibleTick(isExpanded ? 100 : 250);
   const vehiclePos = getVehiclePosition();
   const vehicleRotation = getVehicleRotation();
+  const boundaryWarning = getBoundaryTelemetry().warning;
 
   const scale = RADAR_SCALE;
   const toSvg = toRadarPoint;
@@ -87,7 +89,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           title="Abrir Mapa"
         >
           <div className="relative">
-            <MaterialIcon name="explore" className="text-sky-400 group-hover:rotate-45 transition-transform" size={18} />
+            <MaterialIcon name="explore" className={boundaryWarning ? 'text-rose-400 boundary-danger-pulse' : 'text-sky-400 group-hover:rotate-45 transition-transform'} size={18} />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#0c1017]" />
           </div>
           <span className="font-semibold tracking-wider text-slate-200">MAPA</span>
@@ -182,6 +184,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
 
                 {/* 1. Deep Space Cosmic Background */}
                 <rect width="200" height="200" fill="url(#minimapSpaceVignette)" />
+                <circle cx="100" cy="100" r={RADAR_RADIUS} fill="none"
+                  stroke={boundaryWarning ? '#fb7185' : '#334155'}
+                  strokeWidth={boundaryWarning ? 1.5 : 0.5}
+                  className={boundaryWarning ? 'boundary-danger-pulse' : undefined} />
 
                 {/* One SVG coordinate system: the sweep tip stays at the sun at every size. */}
                 <g className="radar-sweep" pointerEvents="none" aria-hidden="true">

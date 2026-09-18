@@ -1,6 +1,8 @@
+import { COSMIC_BOUNDARY } from './cosmicBoundary';
+
 export const RADAR_CENTER = 100;
 export const RADAR_RADIUS = 82;
-export const RADAR_WORLD_RADIUS = 150;
+export const RADAR_WORLD_RADIUS = COSMIC_BOUNDARY.radius;
 export const RADAR_SCALE = RADAR_RADIUS / RADAR_WORLD_RADIUS;
 
 /** Preserve the bearing when a marker leaves the circular map. */

@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { IslandConfig, IslandId, GameMode } from '../../types';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
+import { getBoundaryTelemetry } from '../../utils/boundaryTelemetry';
 
 interface CameraControllerProps {
   gameMode: GameMode;
@@ -119,6 +120,15 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
     const vx = sharedVehiclePos ? sharedVehiclePos.current.x : vehiclePos[0];
     const vy = sharedVehiclePos ? sharedVehiclePos.current.y : vehiclePos[1];
     const vz = sharedVehiclePos ? sharedVehiclePos.current.z : vehiclePos[2];
+
+    // Keep the quantum return behind its flash instead of flying across the map.
+    if (getBoundaryTelemetry().warp) {
+      prevPos.current.set(vx, vy, vz);
+      smoothedSpeed.current = 0;
+      smoothedLookAhead.current.set(vx, vy + 0.6, vz + 1.2);
+      currentLookAt.current.copy(smoothedLookAhead.current);
+      camera.position.set(vx + ISO_OFFSET.x, vy + ISO_OFFSET.y, vz + ISO_OFFSET.z);
+    }
 
     // Estimate vehicle speed for dynamic camera responsiveness
     const safeDelta = Math.max(delta, 0.001);

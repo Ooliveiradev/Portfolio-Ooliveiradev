@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+.boundary-danger-pulse { animation: boundary-pulse 1.8s ease-in-out infinite; }
+@keyframes boundary-pulse { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) {
+  .boundary-danger-pulse { animation: none; }
+  .boundary-warp-flash { display: none; }
+}
+
 /* Explicit SVG view-box origin keeps the radar beam anchored while resizing. */
 .radar-sweep {
   transform-box: view-box;

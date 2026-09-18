@@ -740,6 +740,14 @@ export const BADGES_DATA: Badge[] = [
     unlocked: false,
   },
   {
+    id: 'badge-event-horizon',
+    title: 'Além do Horizonte de Eventos',
+    description: 'Tentou escapar do universo observável e sobreviveu à singularidade.',
+    icon: 'Orbit',
+    xpReward: 50,
+    unlocked: false,
+  },
+  {
     id: 'badge-scholar',
     title: 'Mente Brilhante',
     description: 'Explorou a Ilha de Educação e interagiu com os elementos acadêmicos.',

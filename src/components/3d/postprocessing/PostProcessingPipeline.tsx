@@ -14,6 +14,8 @@ interface PostProcessingPipelineProps {
   prewarming: boolean;
 }
 
+import { getBoundaryTelemetry } from '../../../utils/boundaryTelemetry';
+
 const ChromaticAberrationShader = {
   name: 'ChromaticAberrationShader',
   uniforms: {
@@ -141,7 +143,7 @@ export const PostProcessingPipeline: React.FC<PostProcessingPipelineProps> = ({
 
     currentChromaOffset.current = THREE.MathUtils.lerp(
       currentChromaOffset.current,
-      targetChromaOffset.current,
+      Math.max(targetChromaOffset.current, getBoundaryTelemetry().strength * 0.008),
       1 - Math.exp(-delta * 7.5),
     );
     // Decay all the way to zero. Stopping at 0.001 left this fullscreen pass
