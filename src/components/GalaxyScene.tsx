@@ -18,7 +18,7 @@ import { GoldenSecretAsteroid } from './3d/secrets/GoldenSecretAsteroid';
 import { CosmicRubberDuck } from './3d/secrets/CosmicRubberDuck';
 import { SecretVoidIsland } from './3d/secrets/SecretVoidIsland';
 import { CosmicWhispers } from './3d/whispers/CosmicWhispers';
-import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode, CosmicWhisper } from '../types';
+import { IslandConfig, IslandId, CrystalCollectible, GraphicsQuality, GameMode, CosmicWhisper } from '../types';
 import { getClamped1080pDpr } from '../utils/resolutionLimiter';
 import type { VehicleInput } from '../utils/gameInput';
 import { SceneDiagnostics } from './3d/SceneDiagnostics';
@@ -29,7 +29,6 @@ interface GalaxySceneProps {
   gameMode: GameMode;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
-  cameraViewMode: CameraViewMode;
   targetVehiclePos: [number, number, number] | null;
   onVehiclePosChange: (pos: [number, number, number]) => void;
   onVehicleRotationChange?: (rot: number) => void;
@@ -116,7 +115,6 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   gameMode,
   vehiclePos,
   vehicleRotation,
-  cameraViewMode,
   targetVehiclePos,
   onVehiclePosChange,
   onVehicleRotationChange,
@@ -263,7 +261,6 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
             gameMode={gameMode}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
-            cameraViewMode={cameraViewMode}
             selectedIslandId={selectedIslandId}
             islands={islands}
             sharedVehiclePos={sharedVehiclePos}

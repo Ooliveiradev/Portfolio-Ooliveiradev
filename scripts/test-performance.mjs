@@ -3,4 +3,5 @@ import '../tests/renderPerformance.test.ts';
 import '../tests/prewarmScene.test.ts';
 import '../tests/pausableClock.test.ts';
 import '../tests/gameInput.test.ts';
+import '../tests/navigationUi.test.ts';
 import './tests/audio-performance.test.mjs';

@@ -29,7 +29,7 @@ import {
   BADGES_DATA,
   formatRaceTime,
 } from './data/portfolioData';
-import { IslandId, UserStats, CrystalCollectible, CameraViewMode, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
+import { IslandId, UserStats, CrystalCollectible, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
 import { sounds } from './audio/soundManager';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
@@ -51,8 +51,6 @@ export default function App() {
   const [targetVehiclePos, setTargetVehiclePos] = useState<[number, number, number] | null>(null);
   const virtualInputRef = useRef(createVehicleInput());
 
-  // Camera view mode: 'iso' (default diorama isometric view) or 'tactical55' (55° panoramic view)
-  const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>('iso');
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
   // Graphics Quality Preset: 'low' (ultra lightweight), 'mid' (balanced), 'high' (high fidelity default)
@@ -65,7 +63,7 @@ export default function App() {
     } catch {
       // fallback
     }
-    return 'mid';
+    return 'high';
   });
 
   const handleSelectGraphicsQuality = useCallback((quality: GraphicsQuality) => {
@@ -774,7 +772,6 @@ export default function App() {
         gameMode={gameMode}
         vehiclePos={INITIAL_VEHICLE_POSITION}
         vehicleRotation={0}
-        cameraViewMode={cameraViewMode}
         targetVehiclePos={targetVehiclePos}
         onVehiclePosChange={handleVehiclePosChange}
         onVehicleRotationChange={updateVehicleRotation}
@@ -842,6 +839,7 @@ export default function App() {
             onAvatarClick={handleAvatarClick}
             onOpenDropWhisper={() => setShowDropWhisperModal(true)}
             onOpenWhispersList={() => setShowWhispersListModal(true)}
+            onInspectWhisper={setSelectedWhisper}
             whispers={whispers}
             presenceCount={presenceCount}
             recentXpGained={recentXpGained}
@@ -920,8 +918,6 @@ export default function App() {
               onClose={() => setShowSettingsModal(false)}
               isMuted={isMuted}
               onToggleMute={() => setIsMuted(sounds.toggleMute())}
-              cameraViewMode={cameraViewMode}
-              onSelectCameraMode={setCameraViewMode}
               onRespawnVehicle={handleRespawnVehicle}
               onResetCrystals={() => {
                 setCrystals((prev) => prev.map((c) => ({ ...c, collected: false })));

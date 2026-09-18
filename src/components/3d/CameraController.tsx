@@ -1,14 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { IslandConfig, IslandId, CameraViewMode, GameMode } from '../../types';
+import { IslandConfig, IslandId, GameMode } from '../../types';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
 
 interface CameraControllerProps {
   gameMode: GameMode;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
-  cameraViewMode: CameraViewMode;
   selectedIslandId: IslandId | null;
   islands: IslandConfig[];
   sharedVehiclePos?: React.MutableRefObject<THREE.Vector3>;
@@ -27,7 +26,6 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
   gameMode,
   vehiclePos,
   vehicleRotation,
-  cameraViewMode,
   selectedIslandId,
   islands,
   sharedVehiclePos,
@@ -132,68 +130,51 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
       delta * 5.0
     );
 
-    // VISÃO ISOMÉTRICA (Bruno Simon Dynamic Predictive Follow)
-    if (cameraViewMode === 'iso') {
-      // Dynamic look-ahead: leads into turns and forward travel direction
-      const yaw = sharedVehicleRotation?.current ?? vehicleRotation;
-      const forwardX = Math.sin(yaw);
-      const forwardZ = Math.cos(yaw);
-      const leadDistance = THREE.MathUtils.lerp(1.2, 4.0, THREE.MathUtils.clamp(smoothedSpeed.current / 35, 0, 1));
-      
-      const targetLeadX = vx + forwardX * leadDistance;
-      const targetLeadZ = vz + forwardZ * leadDistance;
+    // Isometric follow with look-ahead and a subtle speed response.
+    // Dynamic look-ahead: leads into turns and forward travel direction
+    const yaw = sharedVehicleRotation?.current ?? vehicleRotation;
+    const forwardX = Math.sin(yaw);
+    const forwardZ = Math.cos(yaw);
+    const leadDistance = THREE.MathUtils.lerp(1.2, 4.0, THREE.MathUtils.clamp(smoothedSpeed.current / 35, 0, 1));
 
-      smoothedLookAhead.current.x = THREE.MathUtils.lerp(smoothedLookAhead.current.x, targetLeadX, delta * 6.5);
-      smoothedLookAhead.current.y = THREE.MathUtils.lerp(smoothedLookAhead.current.y, vy + 0.6, delta * 6.0);
-      smoothedLookAhead.current.z = THREE.MathUtils.lerp(smoothedLookAhead.current.z, targetLeadZ, delta * 6.5);
+    const targetLeadX = vx + forwardX * leadDistance;
+    const targetLeadZ = vz + forwardZ * leadDistance;
 
-      _targetLookAt.copy(smoothedLookAhead.current);
+    smoothedLookAhead.current.x = THREE.MathUtils.lerp(smoothedLookAhead.current.x, targetLeadX, delta * 6.5);
+    smoothedLookAhead.current.y = THREE.MathUtils.lerp(smoothedLookAhead.current.y, vy + 0.6, delta * 6.0);
+    smoothedLookAhead.current.z = THREE.MathUtils.lerp(smoothedLookAhead.current.z, targetLeadZ, delta * 6.5);
 
-      // Speed-responsive subtle camera pull-back for high velocity sensation
-      const speedOffsetFactor = 1.0 + (smoothedSpeed.current / 240);
-      _desiredCamPos.set(
-        vx + ISO_OFFSET.x * speedOffsetFactor,
-        vy + ISO_OFFSET.y * speedOffsetFactor,
-        vz + ISO_OFFSET.z * speedOffsetFactor
+    _targetLookAt.copy(smoothedLookAhead.current);
+
+    // Speed-responsive subtle camera pull-back for high velocity sensation
+    const speedOffsetFactor = 1.0 + (smoothedSpeed.current / 240);
+    _desiredCamPos.set(
+      vx + ISO_OFFSET.x * speedOffsetFactor,
+      vy + ISO_OFFSET.y * speedOffsetFactor,
+      vz + ISO_OFFSET.z * speedOffsetFactor
+    );
+
+    // Dynamic FOV kick on high speed & boost
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const targetFov = THREE.MathUtils.lerp(
+        30.0,
+        32.5,
+        THREE.MathUtils.clamp((smoothedSpeed.current - 12) / 28, 0, 1)
       );
-
-      // Dynamic FOV kick on high speed & boost
-      if (camera instanceof THREE.PerspectiveCamera) {
-        const targetFov = THREE.MathUtils.lerp(
-          30.0,
-          32.5,
-          THREE.MathUtils.clamp((smoothedSpeed.current - 12) / 28, 0, 1)
-        );
-        if (Math.abs(camera.fov - targetFov) > 0.01) {
-          camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, delta * 4.0);
-          camera.updateProjectionMatrix();
-        }
-      }
-
-      // Smooth cinematic descent on game entry, responsive follow on driving
-      const camFollowSpeed = gameMode === 'entering' ? Math.min(delta * 2.8, 1) : Math.min(delta * 5.2, 1);
-      const lookFollowSpeed = gameMode === 'entering' ? Math.min(delta * 3.6, 1) : Math.min(delta * 7.0, 1);
-
-      camera.position.lerp(_desiredCamPos, camFollowSpeed);
-      currentLookAt.current.lerp(_targetLookAt, lookFollowSpeed);
-      camera.lookAt(currentLookAt.current);
-      return;
-    }
-
-    // MODE C: VISÃO GLOBAL (Panorâmica 55° cobrindo o Sistema Solar)
-    if (cameraViewMode === 'tactical55') {
-      _desiredCamPos.set(0, 140, 110);
-
-      camera.position.lerp(_desiredCamPos, delta * 3.5);
-      currentLookAt.current.lerp(_centerLookAt, delta * 4.0);
-      camera.lookAt(currentLookAt.current);
-
-      if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - 30) > 0.05) {
-        camera.fov = THREE.MathUtils.lerp(camera.fov, 30, delta * 3.0);
+      if (Math.abs(camera.fov - targetFov) > 0.01) {
+        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, delta * 4.0);
         camera.updateProjectionMatrix();
       }
-      return;
     }
+
+    // Smooth cinematic descent on game entry, responsive follow on driving
+    const camFollowSpeed = gameMode === 'entering' ? Math.min(delta * 2.8, 1) : Math.min(delta * 5.2, 1);
+    const lookFollowSpeed = gameMode === 'entering' ? Math.min(delta * 3.6, 1) : Math.min(delta * 7.0, 1);
+
+    camera.position.lerp(_desiredCamPos, camFollowSpeed);
+    currentLookAt.current.lerp(_targetLookAt, lookFollowSpeed);
+    camera.lookAt(currentLookAt.current);
+    return;
   });
 
   return null;
