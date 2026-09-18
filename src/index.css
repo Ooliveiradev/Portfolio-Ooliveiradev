@@ -15,7 +15,8 @@
 }
 @keyframes radar-sweep-turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .radar-sweep { animation: none; }
+  /* Preserve the radar's scanning cue without the usual rotation speed. */
+  .radar-sweep { animation-duration: 18s; }
 }
 
 @layer base {
