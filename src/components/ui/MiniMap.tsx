@@ -7,6 +7,7 @@ import { SPEED_RINGS } from '../3d/SpeedRings';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
 import { getVehiclePosition, getVehicleRotation } from '../../utils/vehicleTelemetry';
 import { useVisibleTick } from '../../hooks/useVisibleTick';
+import { RADAR_RADIUS, RADAR_SCALE, toRadarPoint, radarHeading } from '../../utils/radar';
 
 interface MiniMapProps {
   islands: IslandConfig[];
@@ -50,31 +51,11 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   const vehiclePos = getVehiclePosition();
   const vehicleRotation = getVehicleRotation();
 
-  // Maximum coordinate radius in Three.js space (outermost island orbit is 102)
-  const MAX_RADIUS = 118;
-  const SVG_CENTER = 100;
-  const RADAR_RADIUS = 82;
-  const scale = RADAR_RADIUS / MAX_RADIUS; // ~0.6949
-
-  // Transform Three.js world coordinates (X, Z) to SVG coordinate space (0 to 200)
-  const toSvg = (x: number, z: number) => ({
-    x: SVG_CENTER + x * scale,
-    y: SVG_CENTER + z * scale,
-  });
-
-  const shipSvg = toSvg(vehiclePos[0], vehiclePos[2]);
-
-  // Keep rocket on radar bounds if flying far out
-  const clampedShip = {
-    x: Math.max(14, Math.min(186, shipSvg.x)),
-    y: Math.max(14, Math.min(186, shipSvg.y)),
-  };
-
-  // 100% accurate heading angle matching Three.js forward vector (sin(yaw), cos(yaw))
-  const headingAngleDeg =
-    (Math.atan2(Math.sin(vehicleRotation), -Math.cos(vehicleRotation)) * 180) / Math.PI;
-
-  const compassHeading = Math.round(((headingAngleDeg % 360) + 360) % 360);
+  const scale = RADAR_SCALE;
+  const toSvg = toRadarPoint;
+  const clampedShip = toRadarPoint(vehiclePos[0], vehiclePos[2], 8);
+  const headingAngleDeg = radarHeading(vehicleRotation);
+  const compassHeading = Math.round(headingAngleDeg) % 360;
 
   // Target trajectory line pointing to live celestial coordinates
   const targetSvg = useMemo(() => {
@@ -126,14 +107,14 @@ export const MiniMap: React.FC<MiniMapProps> = ({
             exit={{ opacity: 0, scale: 0.94, y: 8 }}
             transition={{ duration: 0.18 }}
             className={`bg-[#0c1017]/95 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col p-2.5 transition-all duration-300 ${
-              isLargeSize ? 'w-80 sm:w-92' : 'w-64 sm:w-72'
+              isLargeSize ? 'w-80 sm:w-92 max-w-[calc(100vw-2rem)]' : 'w-56 sm:w-72'
             }`}
           >
             {/* Minimalist Top Header */}
             <div className="flex items-center justify-between px-1 pb-1.5 border-b border-slate-800/80 mb-1.5 text-slate-400">
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                <span className="text-[10px] font-mono font-bold tracking-widest text-slate-300 uppercase">
+                <span className="text-[9px] sm:text-[10px] whitespace-nowrap font-mono font-bold tracking-wider text-slate-300 uppercase">
                   SISTEMA SOLAR
                 </span>
               </div>
@@ -193,10 +174,20 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                     <stop offset="75%" stopColor="#ef4444" stopOpacity="0.25" />
                     <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
                   </radialGradient>
+                  <radialGradient id="radarSweepGlow" gradientUnits="userSpaceOnUse" cx="100" cy="100" r={RADAR_RADIUS}>
+                    <stop stopColor="#38bdf8" stopOpacity="0.03" />
+                    <stop offset="1" stopColor="#38bdf8" stopOpacity="0.2" />
+                  </radialGradient>
                 </defs>
 
                 {/* 1. Deep Space Cosmic Background */}
                 <rect width="200" height="200" fill="url(#minimapSpaceVignette)" />
+
+                {/* One SVG coordinate system: the sweep tip stays at the sun at every size. */}
+                <g className="radar-sweep" pointerEvents="none" aria-hidden="true">
+                  <path d="M100 100 L100 18 A82 82 0 0 0 29 59 Z" fill="url(#radarSweepGlow)" />
+                  <line x1="100" y1="100" x2="100" y2="18" stroke="#7dd3fc" strokeOpacity="0.5" strokeWidth="0.65" />
+                </g>
 
                 {/* Subtle Background Starfield Dots */}
                 {[
@@ -541,7 +532,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                 {/* 8. THE ROCKET VEHICLE (Real Top-Down Representation + Bruno Simon Corner Brackets) */}
                 <g transform={`translate(${clampedShip.x}, ${clampedShip.y})`}>
                   {/* Rocket & Brackets rotating together with vehicleRotation */}
-                  <g transform={`rotate(${headingAngleDeg})`}>
+                  <g transform={`rotate(${headingAngleDeg}) scale(0.55)`}>
                     {/* BRUNO SIMON CORNER BRACKETS [  ] (Framing the car/rocket) */}
                     <g stroke="#ffffff" strokeWidth="0.85" strokeLinecap="square" fill="none" opacity="0.9">
                       {/* Top-Left Bracket */}
@@ -615,23 +606,6 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   </g>
                 </g>
               </svg>
-
-              {/* Feixe Cônico Holográfico de Varredura (Radar Ping Sweep) */}
-              <div
-                className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden mix-blend-screen opacity-45"
-                style={{
-                  maskImage: 'radial-gradient(circle at 50% 50%, black 72%, transparent 95%)',
-                  WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 72%, transparent 95%)',
-                }}
-              >
-                <div
-                  className="w-full h-full animate-[spin_4.5s_linear_infinite]"
-                  style={{
-                    background:
-                      'conic-gradient(from 0deg, rgba(56, 189, 248, 0.45) 0deg, rgba(14, 165, 233, 0.12) 40deg, transparent 80deg, transparent 360deg)',
-                  }}
-                />
-              </div>
 
               {/* Minimalist Hover Tooltip */}
               {hoveredIsland && (

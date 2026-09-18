@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
-import { CameraViewMode, UserStats, CrystalCollectible, LeaderboardEntry, RaceLeaderboardEntry, GraphicsQuality } from '../../types';
+import { UserStats, CrystalCollectible, LeaderboardEntry, RaceLeaderboardEntry, GraphicsQuality } from '../../types';
 import { PERSONAL_INFO, BADGES_DATA, INITIAL_LEADERBOARD, INITIAL_RACE_LEADERBOARD } from '../../data/portfolioData';
 import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetector';
 
@@ -14,8 +14,6 @@ interface GameSettingsModalProps {
   onClose: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
-  cameraViewMode: CameraViewMode;
-  onSelectCameraMode: (mode: CameraViewMode) => void;
   onRespawnVehicle: () => void;
   onResetCrystals?: () => void;
   stats: UserStats;
@@ -32,8 +30,6 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   onClose,
   isMuted,
   onToggleMute,
-  cameraViewMode,
-  onSelectCameraMode,
   onRespawnVehicle,
   onResetCrystals,
   stats,
@@ -217,7 +213,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     const text = `🚀 Explorei o Universo 3D de ${PERSONAL_INFO.name}!
 🏆 Pontuação: ${stats.xp} XP (${getRankTitle(stats.xp)})
 🎖️ Conquistas Desbloqueadas: ${stats.unlockedBadges.length}/${BADGES_DATA.length}
-💎 Cristais Coletados: ${collectedCount}/8
+💎 Cristais Coletados: ${collectedCount}/{crystals.length}
 🌌 Ilhas Visitadas: ${stats.visitedIslands.length}/5
 Confira em: ${window.location.href}`;
 
@@ -246,279 +242,63 @@ Confira em: ${window.location.href}`;
           exit={{ opacity: 0, scale: 0.94, y: 15 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="relative z-10 flex flex-col items-end max-w-4xl w-full"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu do portfólio"
         >
-          {/* Top Bar Tabs (Clean Unified Navigation) */}
-          <div className="flex items-center bg-[#0c1017]/95 border border-slate-800/80 rounded-t-2xl overflow-hidden shadow-xl max-w-full overflow-x-auto shrink-0">
-            {/* 1. Home Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('home');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'home'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Home / Universo"
-            >
-              <MaterialIcon name="home" size={16} />
-            </button>
-
-            {/* 2. Options Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('options');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'options'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Opções & Configurações"
-            >
-              <MaterialIcon name="settings" size={16} />
-            </button>
-
-            {/* 3. Controls Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('controls');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'controls'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Comandos & Controles"
-            >
-              <MaterialIcon name="sports_esports" size={16} />
-            </button>
-
-            {/* 4. Achievements / Badges Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('achievements');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'achievements'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Conquistas & Badges"
-            >
-              <MaterialIcon name="military_tech" size={16} />
-            </button>
-
-            {/* 5. Ranking Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('ranking');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'ranking'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Ranking & Hall da Fama"
-            >
-              <MaterialIcon name="emoji_events" size={16} />
-            </button>
-
-            {/* 6. Behind the Scene Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('behind');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'behind'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Arquitetura 3D & Bastidores"
-            >
-              <MaterialIcon name="auto_awesome" size={16} />
-            </button>
-
-            {/* 7. About Developer Tab */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('about');
-              }}
-              className={`w-10 h-10 flex items-center justify-center transition-colors border-r border-slate-800/80 cursor-pointer shrink-0 ${
-                activeTab === 'about'
-                  ? 'bg-slate-800/80 text-sky-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-              }`}
-              title="Sobre o Desenvolvedor"
-            >
-              <MaterialIcon name="help" size={16} />
-            </button>
-
-            {/* 8. Close Button (Minimalist Standard X Button) */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                onClose();
-              }}
-              className="w-10 h-10 bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-              title="Fechar (ESC)"
-            >
-              <MaterialIcon name="close" size={16} />
+          <div className="w-full flex items-center bg-[#0c1017] border border-b-0 border-slate-800/80 rounded-t-2xl overflow-hidden shrink-0">
+            <nav className="flex-1 min-w-0 flex items-center overflow-x-auto" aria-label="Seções do menu">
+              {([
+                ['home', 'home', 'Início'],
+                ['options', 'settings', 'Configurações'],
+                ['controls', 'sports_esports', 'Controles'],
+                ['achievements', 'military_tech', 'Conquistas'],
+                ['ranking', 'leaderboard', 'Ranking'],
+                ['behind', 'code', 'Bastidores'],
+                ['about', 'person', 'Sobre mim'],
+              ] as const).map(([id, icon, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => { sounds.playClick(); setActiveTab(id); }}
+                  aria-label={label}
+                  aria-pressed={activeTab === id}
+                  title={label}
+                  className={`h-12 px-3 flex items-center gap-2 border-b-2 shrink-0 text-xs cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-sky-400 ${activeTab === id ? 'border-sky-400 bg-sky-400/5 text-sky-300' : 'border-transparent text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'}`}
+                >
+                  <MaterialIcon name={icon} size={17} />
+                  <span className={activeTab === id ? '' : 'hidden md:inline'}>{label}</span>
+                </button>
+              ))}
+            </nav>
+            <button type="button" onClick={() => { sounds.playClick(); onClose(); }} className="w-12 h-12 shrink-0 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer border-l border-slate-800/80" aria-label="Fechar menu" title="Fechar (ESC)">
+              <MaterialIcon name="close" size={18} />
             </button>
           </div>
 
           {/* Modal Main Body Card (Fixed Dimensions Two Column Split) */}
-          <div className="w-full bg-[#0c1017] border border-slate-800/80 rounded-2xl rounded-tr-none shadow-2xl overflow-hidden flex flex-col md:flex-row h-[580px] max-h-[85vh]">
-            {/* Left Column: Visual Low-Poly Diorama Showcase */}
-            <div className="w-full md:w-[300px] h-40 md:h-full bg-gradient-to-b from-[#111622] to-[#0c1017] p-4 md:p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-800/80 relative overflow-hidden select-none shrink-0">
-              {/* Glowing Background Radial Halo */}
-              <div className="absolute inset-0 bg-radial from-sky-500/10 via-transparent to-transparent opacity-70 pointer-events-none" />
-
-              {/* Dynamic Diorama Visual per Tab */}
-              {activeTab === 'home' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-full border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative">
-                    <div className="absolute inset-3 rounded-full border border-dashed border-sky-400/40 animate-[spin_40s_linear_infinite]" />
-                    <div className="text-6xl filter drop-shadow-[0_8px_16px_rgba(56,189,248,0.4)]">
-                      🚀
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-sky-300 uppercase tracking-widest">
-                    {PERSONAL_INFO.name}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    Solar System Portfolio
-                  </span>
+          <div className="w-full bg-[#0c1017] border border-slate-800/80 rounded-b-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[580px] max-h-[calc(100dvh-7rem)]">
+            {activeTab === 'about' && (
+              <aside className="w-full md:w-64 p-5 md:p-8 flex flex-row md:flex-col items-center justify-center gap-4 md:gap-5 bg-[#101620] border-b md:border-b-0 md:border-r border-slate-800/80 shrink-0" aria-label="Perfil do desenvolvedor">
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); onAvatarClick?.(); }}
+                  className="w-20 h-20 md:w-40 md:h-40 rounded-full border border-slate-700/80 bg-[#0b1018] flex items-center justify-center shrink-0 cursor-pointer hover:border-sky-400/60 transition-colors"
+                  aria-label="Avatar de Danilo Ribeiro"
+                >
+                  <span className="text-4xl md:text-6xl" aria-hidden="true">👨‍💻</span>
+                </button>
+                <div className="md:text-center">
+                  <p className="text-sm font-semibold text-slate-100">{PERSONAL_INFO.name}</p>
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">{PERSONAL_INFO.title}</p>
                 </div>
-              )}
-
-              {activeTab === 'options' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-2xl border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative">
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)]">
-                      ⚙️
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-sky-300 uppercase tracking-widest">
-                    Preferências do Jogo
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    Áudio, Câmera & Sistema
-                  </span>
-                </div>
-              )}
-
-              {activeTab === 'controls' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-2xl border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative">
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)]">
-                      🎮
-                    </div>
-                    <div className="absolute bottom-3 text-[10px] font-mono text-sky-300/80 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-500/20">
-                      Keyboard & Touch
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-sky-300 uppercase tracking-widest">
-                    Flight Controls
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    Comandos de Navegação 3D
-                  </span>
-                </div>
-              )}
-
-              {activeTab === 'achievements' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-2xl border border-emerald-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(16,185,129,0.15)] mb-4 relative">
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(16,185,129,0.4)]">
-                      🎖️
-                    </div>
-                    <div className="absolute bottom-3 text-[10px] font-mono text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">
-                      {stats.unlockedBadges.length} / {BADGES_DATA.length} Badges
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-widest">
-                    Conquistas Galácticas
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    {stats.xp} Pontos de XP
-                  </span>
-                </div>
-              )}
-
-              {activeTab === 'ranking' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-2xl border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative">
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)]">
-                      🏆
-                    </div>
-                    <div className="absolute bottom-3 text-[10px] font-mono text-sky-300 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-500/30 font-bold">
-                      Top Exploradores
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-sky-300 uppercase tracking-widest">
-                    Hall da Fama
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    Sua Patente: {getRankTitle(stats.xp)}
-                  </span>
-                </div>
-              )}
-
-              {activeTab === 'behind' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div className="w-44 h-44 rounded-2xl border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative">
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)]">
-                      ⚡
-                    </div>
-                    <div className="absolute bottom-3 text-[10px] font-mono text-sky-300 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-500/30">
-                      Three.js & Rapier
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-sky-300 uppercase tracking-widest">
-                    Creative Dev Stack
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    WebGL 3D Architecture
-                  </span>
-                </div>
-              )}
-
-              {activeTab === 'about' && (
-                <div className="flex flex-col items-center text-center relative z-10">
-                  <div
-                    onClick={() => {
-                      sounds.playClick();
-                      onAvatarClick?.();
-                    }}
-                    className="w-44 h-44 rounded-full border border-sky-500/30 flex items-center justify-center bg-[#07090e]/80 shadow-[0_0_35px_rgba(56,189,248,0.15)] mb-4 relative cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-                    title="Avatar de Danilo Ribeiro (Clique para surpresa!)"
-                  >
-                    <div className="text-6xl filter drop-shadow-[0_8px_20px_rgba(56,189,248,0.4)] select-none">
-                      👨‍💻
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-sky-300 uppercase tracking-widest">
-                    {PERSONAL_INFO.name}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 mt-1">
-                    {PERSONAL_INFO.title}
-                  </span>
-                </div>
-              )}
-            </div>
+              </aside>
+            )}
 
             {/* Right Column: Fixed Height Tab Content */}
-            <div className="flex-1 h-full p-6 md:p-8 flex flex-col justify-between overflow-hidden">
+            <div className="flex-1 min-h-0 min-w-0 p-5 sm:p-8 flex flex-col justify-between overflow-hidden">
               {/* Scrollable Tab Content Container */}
-              <div className="flex-1 overflow-y-auto pr-1 sm:pr-2">
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2">
                 {/* TAB 1: HOME */}
               {activeTab === 'home' && (
                 <div>
@@ -543,7 +323,7 @@ Confira em: ${window.location.href}`;
                 </div>
               )}
 
-              {/* TAB 2: OPTIONS (Camera, Audio, Respawn, Quality, Reset) */}
+              {/* TAB 2: OPTIONS */}
               {activeTab === 'options' && (
                 <div>
                   <h2 className="text-xl font-sans font-bold text-slate-100 tracking-tight mb-4 flex items-center gap-2">
@@ -558,7 +338,7 @@ Confira em: ${window.location.href}`;
                           Áudio & Efeitos Sonoros
                         </span>
                         <span className="text-[11px] text-slate-400">
-                          Síntese de osciladores procedural Web Audio
+                          Música ambiente e sons da nave
                         </span>
                       </div>
                       <button
@@ -586,55 +366,25 @@ Confira em: ${window.location.href}`;
                       </button>
                     </div>
 
-                    {/* Camera Mode Option */}
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
-                      <div>
-                        <span className="text-sm font-medium text-slate-200 font-mono block">
-                          Modo de Câmera
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          {cameraViewMode === 'iso' ? 'Diorama isométrico 30°' : 'Visão panorâmica angular 55°'}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onSelectCameraMode(cameraViewMode === 'iso' ? 'tactical55' : 'iso');
-                        }}
-                        className="w-28 py-1.5 rounded-xl border border-slate-700/80 bg-slate-800/90 hover:bg-slate-750 text-slate-100 text-xs font-mono font-medium transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                      >
-                        {cameraViewMode === 'iso' ? (
-                          <>
-                            <MaterialIcon name="layers" className="text-sky-400" size={14} />
-                            <span>Isométrica</span>
-                          </>
-                        ) : (
-                          <>
-                            <MaterialIcon name="public" className="text-emerald-400" size={14} />
-                            <span>55° Global</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
                     {/* Quality Mode: Low / Mid / High */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition gap-2">
                       <div>
                         <span className="text-sm font-medium text-slate-200 font-mono block">
-                          Fidelidade Gráfica
+                          Qualidade gráfica
                         </span>
                         <span className="text-[11px] text-slate-400">
                           {graphicsQuality === 'low'
-                            ? 'Low: Render nativo super leve sem sombras, máxima taxa de quadros'
+                            ? 'Prioriza fluidez e reduz os efeitos visuais'
                             : graphicsQuality === 'mid'
-                            ? 'Mid: Gráficos padrão equilibrados com sombras suaves'
-                            : 'High: Alta fidelidade com sombras, partículas e efeitos visuais'}
+                            ? 'Equilíbrio entre detalhes e desempenho'
+                            : 'Mais detalhes, sombras e efeitos visuais'}
                         </span>
                       </div>
                       <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-0.5 shrink-0 self-start sm:self-auto">
                         {(['low', 'mid', 'high'] as const).map((tier) => (
                           <button
                             key={tier}
+                            aria-pressed={graphicsQuality === tier}
                             onClick={() => {
                               sounds.playClick();
                               onSelectGraphicsQuality?.(tier);
@@ -651,6 +401,55 @@ Confira em: ${window.location.href}`;
                       </div>
                     </div>
 
+                    {/* I'm stuck! (Respawn) */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
+                      <div>
+                        <span className="text-sm font-medium text-slate-200 font-mono block">
+                          Recuperar Posição
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Teleporta o foguete de volta para órbita segura
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          sounds.playBoost();
+                          onRespawnVehicle();
+                          onClose();
+                        }}
+                        className="w-28 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 text-xs font-mono font-medium transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <MaterialIcon name="refresh" className="text-sky-400" size={14} />
+                        <span>Respawn</span>
+                      </button>
+                    </div>
+
+                    {/* Reset Collectibles */}
+                    {onResetCrystals && (
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
+                        <div>
+                          <span className="text-sm font-medium text-slate-200 font-mono block">
+                            Cristais Orbitais
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Reinicia os cristais no espaço ({collectedCount}/{crystals.length} coletados)
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            sounds.playClick();
+                            onResetCrystals();
+                          }}
+                          className="w-28 py-1.5 rounded-xl border border-slate-700 bg-slate-800/90 hover:bg-slate-750 text-slate-300 text-xs font-mono font-medium transition cursor-pointer"
+                        >
+                          Resetar ({collectedCount}/{crystals.length})
+                        </button>
+                      </div>
+                    )}
+
+                    <details className="rounded-xl border border-slate-800/60 text-slate-400">
+                      <summary className="px-3 py-3 text-xs cursor-pointer hover:text-slate-200">Informações do dispositivo</summary>
+                      <div className="px-3 pb-3">
                     {/* WebGPU & Hardware Telemetry (Issue 16: Future-Proofing) */}
                     <div className="flex flex-col p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition gap-2">
                       <div className="flex items-center justify-between">
@@ -697,72 +496,8 @@ Confira em: ${window.location.href}`;
                         )}
                       </div>
                     </div>
-
-                    {/* I'm stuck! (Respawn) */}
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
-                      <div>
-                        <span className="text-sm font-medium text-slate-200 font-mono block">
-                          Recuperar Posição
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          Teleporta o foguete de volta para órbita segura
-                        </span>
                       </div>
-                      <button
-                        onClick={() => {
-                          sounds.playBoost();
-                          onRespawnVehicle();
-                          onClose();
-                        }}
-                        className="w-28 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 text-xs font-mono font-medium transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                      >
-                        <MaterialIcon name="refresh" className="text-sky-400" size={14} />
-                        <span>Respawn</span>
-                      </button>
-                    </div>
-
-                    {/* Reset Collectibles */}
-                    {onResetCrystals && (
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
-                        <div>
-                          <span className="text-sm font-medium text-slate-200 font-mono block">
-                            Cristais Orbitais
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            Reinicia os cristais no espaço ({collectedCount}/8 coletados)
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            sounds.playClick();
-                            onResetCrystals();
-                          }}
-                          className="w-28 py-1.5 rounded-xl border border-slate-700 bg-slate-800/90 hover:bg-slate-750 text-slate-300 text-xs font-mono font-medium transition cursor-pointer"
-                        >
-                          Resetar ({collectedCount}/8)
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Renderer & Status */}
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
-                      <div>
-                        <span className="text-sm font-medium text-slate-200 font-mono block">
-                          Engine 3D & Status
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          Three.js WebGL + Rapier Physics WASM
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="px-2.5 py-1 rounded-lg border border-slate-700/80 text-xs font-mono text-sky-400 bg-sky-950/30">
-                          Three.js
-                        </div>
-                        <div className="px-2.5 py-1 rounded-lg border border-emerald-500/40 text-xs font-mono font-medium text-emerald-400 bg-emerald-950/30">
-                          Online
-                        </div>
-                      </div>
-                    </div>
+                    </details>
                   </div>
                 </div>
               )}
@@ -1243,7 +978,7 @@ Confira em: ${window.location.href}`;
               {activeTab === 'about' && (
                 <div>
                   <h2 className="text-xl font-sans font-bold text-slate-100 tracking-tight mb-4">
-                    Sobre o Desenvolvedor
+                    Sobre mim
                   </h2>
                   <div className="space-y-4 text-xs text-slate-300 leading-relaxed font-sans">
                     <p className="text-sm font-semibold text-slate-100">
@@ -1284,7 +1019,7 @@ Confira em: ${window.location.href}`;
               </div>
 
               {/* Bottom Card Footer - Always pinned at bottom */}
-              <div className="pt-3 mt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-500 shrink-0">
+              <div className="pt-3 mt-4 border-t border-slate-800/80 flex flex-wrap gap-2 items-center justify-between text-[11px] font-mono text-slate-500 shrink-0">
                 <span>Versão 2.5 — Low-Poly 3D Minimal</span>
                 <span className="text-slate-400">Pressione <kbd className="px-1.5 py-0.5 bg-slate-800/90 rounded border border-slate-700/80 text-slate-300 text-[10px]">ESC</kbd> para fechar</span>
               </div>

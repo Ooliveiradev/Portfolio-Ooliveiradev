@@ -4,6 +4,7 @@ import { MaterialIcon } from './MaterialIcon';
 import { IslandConfig, IslandId, UserStats, CrystalCollectible, CosmicWhisper } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { MiniMap } from './MiniMap';
+import { NearbyTransmission } from './NearbyTransmission';
 
 interface HUDProps {
   stats: UserStats;
@@ -18,6 +19,7 @@ interface HUDProps {
   onOpenDropWhisper?: () => void;
   onOpenWhispersList?: () => void;
   whispers?: CosmicWhisper[];
+  onInspectWhisper?: (whisper: CosmicWhisper) => void;
   presenceCount?: number;
   recentXpGained: number | null;
   crystals?: CrystalCollectible[];
@@ -38,6 +40,7 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenDropWhisper,
   onOpenWhispersList,
   whispers = [],
+  onInspectWhisper,
   presenceCount = 4,
   recentXpGained,
   crystals,
@@ -47,6 +50,7 @@ export const HUD: React.FC<HUDProps> = ({
 }) => {
   return (
     <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 sm:p-6 select-none">
+      {onInspectWhisper && <NearbyTransmission whispers={whispers} onInspect={onInspectWhisper} />}
       {/* Top Bar */}
       <div className="flex items-start justify-between w-full max-w-7xl mx-auto pointer-events-auto gap-3">
         {/* Left Side: Floating XP Gain Notification */}
@@ -145,7 +149,7 @@ export const HUD: React.FC<HUDProps> = ({
                   onOpenSettings();
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer shadow-lg font-mono text-xs font-medium"
-                title="Configurações, Câmera, Conquistas & Ranking (ESC)"
+              title="Configurações, Conquistas & Ranking (ESC)"
               >
                 <MaterialIcon name="settings" className="text-sky-400" size={18} />
                 <span className="hidden sm:inline">Menu</span>

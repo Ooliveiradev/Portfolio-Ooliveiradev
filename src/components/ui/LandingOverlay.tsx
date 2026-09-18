@@ -42,7 +42,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
               onOpenSettings();
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1017]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-800/80 hover:border-sky-500/40 backdrop-blur-xl transition-all cursor-pointer font-mono text-xs font-medium shadow-lg"
-            title="Menu de Configurações, Áudio & Câmera (ESC)"
+            title="Menu de Configurações & Áudio (ESC)"
           >
             <MaterialIcon name="settings" className="text-sky-400" size={18} />
             <span className="hidden sm:inline">Menu</span>
