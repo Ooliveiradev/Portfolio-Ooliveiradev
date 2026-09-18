@@ -142,8 +142,6 @@ export const SecretVoidIsland: React.FC<SecretVoidIslandProps> = ({
         />
       </mesh>
 
-      {/* Luz mística violeta que ilumina a ilha */}
-      <pointLight color="#c084fc" intensity={3.5} distance={20} decay={1.4} />
     </group>
   );
 };

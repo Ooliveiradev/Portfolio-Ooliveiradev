@@ -691,8 +691,6 @@ const ExperienceIslandComponent: React.FC<ExperienceIslandProps> = () => {
         ))}
       </group>
 
-      {/* Iluminação ambiente dourada/âmbar corporativa */}
-      <pointLight position={[0, 4.0, 0]} color="#f59e0b" intensity={1.4} distance={12} />
     </group>
   );
 };

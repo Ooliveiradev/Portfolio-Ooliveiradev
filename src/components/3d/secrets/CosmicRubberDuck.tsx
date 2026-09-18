@@ -132,8 +132,6 @@ export const CosmicRubberDuck: React.FC<CosmicRubberDuckProps> = ({
         </mesh>
       </group>
 
-      {/* Luz guia suave */}
-      <pointLight color="#facc15" intensity={1.8} distance={8} decay={1.5} />
     </group>
   );
 };

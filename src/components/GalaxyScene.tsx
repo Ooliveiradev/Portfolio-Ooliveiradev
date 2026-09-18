@@ -1,5 +1,5 @@
 import React, { Suspense, useRef, useEffect, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SpaceVehicle } from './3d/SpaceVehicle';
 import { Islands } from './3d/Islands';
@@ -20,6 +20,10 @@ import { SecretVoidIsland } from './3d/secrets/SecretVoidIsland';
 import { CosmicWhispers } from './3d/whispers/CosmicWhispers';
 import { IslandConfig, IslandId, CrystalCollectible, CameraViewMode, GraphicsQuality, GameMode, CosmicWhisper } from '../types';
 import { getClamped1080pDpr } from '../utils/resolutionLimiter';
+import type { VehicleInput } from '../utils/gameInput';
+import { SceneDiagnostics } from './3d/SceneDiagnostics';
+import { prewarmQualityVariants } from '../utils/prewarmScene';
+import { setCelestialPaused } from '../utils/celestialCoords';
 
 interface GalaxySceneProps {
   gameMode: GameMode;
@@ -35,8 +39,9 @@ interface GalaxySceneProps {
   visitedIslands: IslandId[];
   crystals: CrystalCollectible[];
   onCollectCrystal: (id: number) => void;
-  virtualInput: { x: number; y: number; boost: boolean };
+  virtualInputRef: React.MutableRefObject<VehicleInput>;
   isModalOpen: boolean;
+  isPreloading: boolean;
   onClearTargetPosition?: () => void;
   graphicsQuality?: GraphicsQuality;
   isRacing?: boolean;
@@ -56,8 +61,11 @@ interface GalaxySceneProps {
  * Compila os materiais uma vez, após a cena física estar pronta, antes de
  * liberar a entrada no jogo.
  */
-function ScenePrewarmer({ onSceneReady }: { onSceneReady?: () => void }) {
-  const { gl, scene, camera } = useThree();
+function ScenePrewarmer({ onSceneReady, renderReady }: {
+  onSceneReady?: () => void;
+  renderReady: React.MutableRefObject<boolean>;
+}) {
+  const { gl, scene, camera, invalidate } = useThree();
   const { isReady } = useRapier();
   const compilation = useRef<Promise<unknown> | null>(null);
   const onReadyRef = useRef(onSceneReady);
@@ -70,17 +78,38 @@ function ScenePrewarmer({ onSceneReady }: { onSceneReady?: () => void }) {
     // compileAsync also visits invisible meshes. Drei's Preload would compile the
     // same scene synchronously and render it six more times with a cube camera.
     if (!compilation.current) {
-      compilation.current = gl.compileAsync(scene, camera).catch((error: unknown) => {
+      const keyLight = scene.getObjectByName('solar-key-light') as THREE.DirectionalLight;
+      compilation.current = prewarmQualityVariants(gl, scene, camera, keyLight).catch((error: unknown) => {
         console.warn('GPU pipeline prewarm warning:', error);
       });
     }
     compilation.current.then(() => {
-      if (active) onReadyRef.current?.();
+      if (active) {
+        renderReady.current = true;
+        invalidate();
+        onReadyRef.current?.();
+      }
     });
     return () => { active = false; };
-  }, [gl, scene, camera, isReady]);
+  }, [gl, scene, camera, isReady, renderReady, invalidate]);
 
   return null;
+}
+
+/** Keep the light outside the ship's hidden/blinking group. Changing the number
+ * of visible lights invalidates every lit material's shader program. */
+function VehicleFillLight({ position, active }: {
+  position: React.RefObject<THREE.Vector3>;
+  active: boolean;
+}) {
+  const light = useRef<THREE.PointLight>(null);
+  useFrame(() => {
+    if (light.current && position.current) {
+      light.current.position.copy(position.current);
+      light.current.position.y += 1;
+    }
+  });
+  return <pointLight ref={light} color="#bae6fd" intensity={active ? 2.2 : 0} distance={14} />;
 }
 
 const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
@@ -97,8 +126,9 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   visitedIslands,
   crystals,
   onCollectCrystal,
-  virtualInput,
+  virtualInputRef,
   isModalOpen,
+  isPreloading,
   onClearTargetPosition,
   graphicsQuality = 'mid',
   isRacing = false,
@@ -115,6 +145,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   // Shared ref for 60/120 FPS camera follow and collision checks without triggering React DOM re-renders
   const sharedVehiclePos = useRef<THREE.Vector3>(new THREE.Vector3(...vehiclePos));
   const sharedVehicleRotation = useRef(vehicleRotation);
+  const renderReady = useRef(false);
 
   // When returning to landing screen, restore shared coordinates to origin so parallax and dust remain centered
   useEffect(() => {
@@ -126,6 +157,14 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   // Trava a resolução física da GPU em no máximo 1080p (Full HD: 1920x1080)
   const [clampedDpr, setClampedDpr] = useState<number>(() => getClamped1080pDpr(graphicsQuality));
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
+  // Keep transitions/prewarm running; a settled modal can reuse the last frame.
+  const scenePaused = isModalOpen && !isPreloading && !isRacing &&
+    (gameMode === 'landing' || gameMode === 'driving' || gameMode === 'inspecting');
+
+  useEffect(() => {
+    setCelestialPaused(scenePaused || !isPageVisible);
+    return () => setCelestialPaused(false);
+  }, [scenePaused, isPageVisible]);
 
   useEffect(() => {
     const handleVisibility = () => setIsPageVisible(!document.hidden);
@@ -150,7 +189,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   return (
     <div className="w-full h-full absolute inset-0 select-none overflow-hidden bg-[#070b14]">
       <Canvas
-        frameloop={isPageVisible ? 'always' : 'never'}
+        frameloop={!isPageVisible ? 'never' : scenePaused ? 'demand' : 'always'}
         shadows={{ enabled: graphicsQuality !== 'low', type: THREE.PCFShadowMap }}
         camera={{ position: [38, 42, 38], fov: 30, far: 1000 }}
         dpr={clampedDpr}
@@ -168,6 +207,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
         }}
       >
         <Suspense fallback={null}>
+          <SceneDiagnostics />
           <color attach="background" args={['#070b14']} />
           <fog attach="fog" args={['#070b14', 50, 210]} />
 
@@ -182,6 +222,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 
           {/* 1. LUZ PRINCIPAL SOLAR (KEY LIGHT) */}
           <directionalLight
+            name="solar-key-light"
             // Three allocates shadow.map on creation; changing mapSize alone
             // leaves the previous GPU target alive. Replace only this light.
             key={graphicsQuality}
@@ -215,6 +256,8 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
             color="#a78bfa"
           />
 
+          <VehicleFillLight position={sharedVehiclePos} active={gameMode !== 'landing'} />
+
           {/* Controlador de Câmera em Perspectiva Isométrica (FOV 30°) */}
           <CameraController
             gameMode={gameMode}
@@ -230,7 +273,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
           {/* ==========================================================
               MOTOR DE FÍSICA RAPIER 3D (SISTEMA SOLAR CELESTE)
              ========================================================== */}
-          <RapierPhysicsProvider gravity={[0, 0, 0]}>
+          <RapierPhysicsProvider gravity={[0, 0, 0]} paused={scenePaused}>
             {/* Asteroides, Satélites e Caixas de Carga Interativas com Rapier */}
             <PhysicsSpacePlayground
               graphicsQuality={graphicsQuality}
@@ -255,8 +298,8 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
               targetPosition={targetVehiclePos}
               onPositionChange={onVehiclePosChange}
               onRotationChange={onVehicleRotationChange}
-              isDriving={gameMode === 'driving'}
-              virtualInput={virtualInput}
+              isDriving={gameMode === 'driving' && !isModalOpen}
+              virtualInputRef={virtualInputRef}
               onClearTargetPosition={onClearTargetPosition}
               graphicsQuality={graphicsQuality}
               sharedVehiclePos={sharedVehiclePos}
@@ -336,12 +379,14 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
             )}
 
             {/* Pipeline de Pós-Processamento Cinematográfico: Unreal Bloom & Aberração Cromática */}
-            {graphicsQuality !== 'low' && (
-              <PostProcessingPipeline graphicsQuality={graphicsQuality} />
-            )}
+            <PostProcessingPipeline
+              graphicsQuality={graphicsQuality}
+              renderReady={renderReady}
+              prewarming={isPreloading}
+            />
 
             {/* Pré-compilação e Aquecimento de Shaders GPU */}
-            <ScenePrewarmer onSceneReady={onSceneReady} />
+            <ScenePrewarmer onSceneReady={onSceneReady} renderReady={renderReady} />
           </RapierPhysicsProvider>
         </Suspense>
       </Canvas>

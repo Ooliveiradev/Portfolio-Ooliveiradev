@@ -441,7 +441,6 @@ const AboutIslandComponent: React.FC<AboutIslandProps> = () => {
             angle={0.65}
             penumbra={0.5}
             distance={4.5}
-            castShadow
           />
         </group>
 
@@ -504,7 +503,6 @@ const AboutIslandComponent: React.FC<AboutIslandProps> = () => {
         ))}
       </group>
 
-      <pointLight position={[0, 3.6, 0]} color="#fef08a" intensity={1.8} distance={12} />
     </group>
   );
 };

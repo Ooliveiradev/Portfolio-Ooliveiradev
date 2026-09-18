@@ -1,11 +1,17 @@
 import { IslandConfig, IslandId } from '../types';
 import { ISLANDS_CONFIG } from '../data/portfolioData';
+import { PausableClock } from './pausableClock';
 
-// Shared monotonic clock for consistent celestial mechanics across Three.js and SVG UI
-const celestialStartTime = performance.now();
+// Scene and radar share active time so a modal cannot leave colliders behind
+// while their orbital targets advance, then teleport them on the next frame.
+const celestialClock = new PausableClock();
+
+export const setCelestialPaused = (paused: boolean): void => {
+  celestialClock.setPaused(paused);
+};
 
 export const getCelestialTime = (): number => {
-  return (performance.now() - celestialStartTime) / 1000;
+  return celestialClock.getElapsedSeconds();
 };
 
 // Gentle planetary orbital speed scaling (a full orbit takes ~5 to 9 minutes)

@@ -5,8 +5,10 @@ import { formatRaceTime } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
 import { getVehiclePosition } from '../../utils/vehicleTelemetry';
 import { useVisibleTick } from '../../hooks/useVisibleTick';
+import { canHandleGameKey } from '../../utils/gameInput';
 
 interface RaceOverlayProps {
+  controlsEnabled?: boolean;
   isNearStartGate: boolean;
   raceState: 'idle' | 'countdown' | 'racing' | 'finished';
   countdownNumber: number;
@@ -24,6 +26,7 @@ interface RaceOverlayProps {
 }
 
 export const RaceOverlay: React.FC<RaceOverlayProps> = ({
+  controlsEnabled = true,
   isNearStartGate,
   raceState,
   countdownNumber,
@@ -66,14 +69,16 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
   // Keyboard shortcut [E] to start race when near gate
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat || !canHandleGameKey(e, controlsEnabled)) return;
       if ((e.key === 'e' || e.key === 'E') && isNearStartGate && raceState === 'idle') {
+        e.preventDefault();
         sounds.playClick();
         onStartRace();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isNearStartGate, raceState, onStartRace]);
+  }, [controlsEnabled, isNearStartGate, raceState, onStartRace]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +91,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
     <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 select-none">
       {/* 1. PROMPT CARD: When player is near Start Gate next to the Sun */}
       <AnimatePresence>
-        {isNearStartGate && raceState === 'idle' && (
+        {controlsEnabled && isNearStartGate && raceState === 'idle' && (
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -625,13 +625,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
             />
           </mesh>
         ))}
-        {/* Luz alaranjada quente de combustão/purga pneumática */}
-        <pointLight
-          position={[0, 0.6, 0]}
-          color="#f97316"
-          intensity={ventBurst ? 10.0 : 3.5}
-          distance={8}
-        />
       </group>
 
       {/* Nuvem Poligonal Flutuante no Céu (Low-Poly Cloud) sobre a torre */}
@@ -1226,8 +1219,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
         </group>
       </group>
 
-      {/* Iluminação pontual cósmica para o estaleiro da ilha */}
-      <pointLight position={[0, 4.0, 0]} color="#38bdf8" intensity={2.6} distance={14} />
     </group>
   );
 };

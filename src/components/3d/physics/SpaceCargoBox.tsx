@@ -217,14 +217,6 @@ export const SpaceCargoBox: React.FC<SpaceCargoBoxProps> = ({
               opacity={0.9}
             />
           </mesh>
-          {graphicsQuality === 'high' && (
-            <pointLight
-              color="#fde047"
-              intensity={1.2}
-              distance={4.5}
-              position={[0, 0.45, 0]}
-            />
-          )}
         </group>
       )}
 
