@@ -32,6 +32,7 @@ import {
 import { IslandId, UserStats, CrystalCollectible, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
 import { sounds } from './audio/soundManager';
 import { BoundaryAlert } from './components/ui/BoundaryAlert';
+import { MatrixEasterEgg } from './components/ui/MatrixEasterEgg';
 import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
 import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
@@ -164,6 +165,11 @@ export default function App() {
   const [secretModalType, setSecretModalType] = useState<SecretType | null>(null);
   const [isMatrixGlitchActive, setIsMatrixGlitchActive] = useState<boolean>(false);
   const avatarClickCountRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isMatrixGlitchActive) return;
+    const timer = window.setTimeout(() => setIsMatrixGlitchActive(false), 6500);
+    return () => window.clearTimeout(timer);
+  }, [isMatrixGlitchActive]);
 
   // Cosmic Whispers & Social Presence State
   const [whispers, setWhispers] = useState<CosmicWhisper[]>([]);
@@ -560,9 +566,6 @@ export default function App() {
       setIsMatrixGlitchActive(true);
       sounds.playBadgeUnlocked();
       addXp(100);
-      setTimeout(() => {
-        setIsMatrixGlitchActive(false);
-      }, 3500);
     }
   }, [addXp]);
 
@@ -992,24 +995,7 @@ export default function App() {
 
       {/* Easter Egg 5: Matrix Glitch Cyber Rain Overlay */}
       <AnimatePresence>
-        {isMatrixGlitchActive && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 pointer-events-none flex flex-col items-center justify-center bg-emerald-950/20 backdrop-invert-[0.08]"
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] opacity-40 animate-pulse" />
-            <div className="relative z-10 px-6 py-4 rounded-2xl bg-black/90 border border-emerald-500/80 shadow-[0_0_50px_rgba(16,185,129,0.5)] text-center font-mono">
-              <div className="text-emerald-400 font-bold tracking-widest text-lg animate-pulse mb-1">
-                SYSTEM OVERRIDE: MATRIX DEVELOPER MODE
-              </div>
-              <p className="text-xs text-emerald-200/80">
-                Você descobriu o segredo do terminal de Danilo Ribeiro! (+100 XP)
-              </p>
-            </div>
-          </motion.div>
-        )}
+        {isMatrixGlitchActive && <MatrixEasterEgg />}
       </AnimatePresence>
     </div>
   );
