@@ -1,0 +1,46 @@
+.launch-screen { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; padding: clamp(24px, 4vw, 64px); overflow: auto; color: #e2e8f0; background: radial-gradient(ellipse at 80% 45%, #0d1c2d 0, transparent 55%), #070b14; }
+.launch-header, .launch-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; font: 10px/1.6 'JetBrains Mono', monospace; letter-spacing: .13em; color: #8196ab; }
+.launch-header { border-bottom: 1px solid #1d2b3b; padding-bottom: 22px; }
+.launch-brand { display: flex; align-items: center; gap: 18px; color: #c4d2df; }
+.launch-monogram { font: 700 28px/1 system-ui, sans-serif; letter-spacing: -.08em; color: #f1f5f9; }
+.launch-monogram span { color: #38bdf8; }
+.launch-content { width: 100%; max-width: 1120px; margin: auto; padding: 48px 0; display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 32px; }
+.launch-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; color: #7dd3fc; font: 10px/1.6 'JetBrains Mono', monospace; letter-spacing: .16em; }
+.launch-eyebrow > span { width: 6px; height: 6px; background: #38bdf8; border-radius: 50%; }
+.launch-copy h1 { font-size: 16px; font-weight: 500; color: #94a3b8; }
+.launch-copy h1 > span { display: block; margin-top: 15px; color: #f1f5f9; font-size: clamp(34px, 4.5vw, 66px); line-height: 1.08; font-weight: 600; letter-spacing: -.045em; }
+.launch-description { margin-top: 24px; color: #94a3b8; font-size: 14px; line-height: 1.8; }
+.launch-status { max-width: 390px; margin-top: 42px; }
+.launch-status-heading { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #d7e6f5; }
+.launch-status-indicator { font: 18px/1 monospace; color: #7dd3fc; }
+.launch-progress { height: 3px; margin-top: 14px; overflow: hidden; background: #1c2a3d; border-radius: 3px; }
+.launch-progress > span { display: block; height: 100%; width: 38%; background: linear-gradient(90deg, #6366f1, #7dd3fc); animation: launch-progress-travel 2s ease-in-out infinite; }
+.launch-progress.is-ready > span { width: 100%; animation: none; background: #6ee7b7; }
+.launch-status p { margin-top: 12px; color: #8196ab; font-size: 11px; line-height: 1.6; }
+.launch-stages { display: flex; flex-wrap: wrap; gap: 18px; padding: 0; margin: 26px 0 0; list-style: none; font: 10px/1.6 'JetBrains Mono', monospace; color: #8196ab; }
+.launch-stages li { display: flex; align-items: center; gap: 7px; }
+.launch-stages li > span:first-child { font-size: 9px; color: #64748b; }
+.launch-stages li[data-ready='true'] > span:first-child { color: #6ee7b7; }
+.launch-universe { position: relative; width: 100%; max-width: 480px; justify-self: end; }
+.launch-universe svg { width: 100%; height: auto; }
+.launch-orbit { transform-origin: 240px 240px; animation: launch-orbit-turn 40s linear infinite; }
+.launch-chart-label { display: block; text-align: center; font: 9px/1.6 'JetBrains Mono', monospace; letter-spacing: .17em; color: #71879d; }
+.launch-footer { padding-top: 20px; border-top: 1px solid #1d2b3b; font-size: 9px; letter-spacing: .07em; }
+.launch-footer > span:last-child { white-space: nowrap; }
+@keyframes launch-orbit-turn { to { transform: rotate(360deg); } }
+@keyframes launch-progress-travel { 0% { transform: translateX(-100%); } 100% { transform: translateX(365%); } }
+@media (max-width: 700px) {
+  .launch-edition { display: none; }
+  .launch-content { grid-template-columns: 1fr; gap: 22px; padding: 28px 0; }
+  .launch-copy { position: relative; z-index: 1; }
+  .launch-copy h1 > span { font-size: clamp(34px, 8vw, 50px); }
+  .launch-universe { width: 155px; position: absolute; right: 8px; top: 82px; opacity: .35; }
+  .launch-chart-label { display: none; }
+  .launch-status { margin-top: 30px; }
+  .launch-eyebrow { margin-bottom: 20px; font-size: 9px; }
+  .launch-footer { align-items: flex-start; font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .launch-orbit, .launch-progress > span { animation: none; }
+  .launch-progress > span { width: 100%; opacity: .6; }
+}

@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { CosmicWhisper, WhisperColor } from '../../../types';
 import { sounds } from '../../../audio/soundManager';
+import { findNearbyWhisper } from '../../../utils/whisperProximity';
 
 interface CosmicWhispersProps {
   whispers: CosmicWhisper[];
@@ -34,9 +34,6 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
     const vPos = sharedVehiclePos.current;
     const checkProximity = time - lastProximityCheck.current >= 0.08;
 
-    let closestId: string | null = null;
-    let closestDistSq = Infinity;
-
     for (let idx = 0; idx < whispers.length; idx++) {
       const whisper = whispers[idx];
       const group = groupsRef.current[whisper.id];
@@ -47,22 +44,11 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
         // Rotação dos anéis orbitais
         group.rotation.y = time * 0.8 + idx;
       }
-
-      if (checkProximity && vPos) {
-        const dx = vPos.x - whisper.position[0];
-        const dy = vPos.y - whisper.position[1];
-        const dz = vPos.z - whisper.position[2];
-        const distSq = dx * dx + dy * dy + dz * dz;
-
-        if (distSq < closestDistSq) {
-          closestDistSq = distSq;
-          closestId = distSq < 36 ? whisper.id : null;
-        }
-      }
     }
 
     if (checkProximity) {
       lastProximityCheck.current = time;
+      const closestId = vPos ? findNearbyWhisper(whispers, vPos, nearbyWhisperRef.current)?.id ?? null : null;
       if (closestId !== nearbyWhisperRef.current) {
         nearbyWhisperRef.current = closestId;
         setNearbyWhisperId(closestId);
@@ -129,39 +115,6 @@ export const CosmicWhispers: React.FC<CosmicWhispersProps> = ({
               <torusGeometry args={[1.05, 0.015, 8, 32]} />
               <meshBasicMaterial color={colors.core} transparent opacity={0.4} />
             </mesh>
-
-            {/* 5. Holograma Flutuante de Proximidade */}
-            {isNearby && (
-              <Html
-                position={[0, 1.4, 0]}
-                center
-                distanceFactor={18}
-                style={{ pointerEvents: 'auto' }}
-              >
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sounds.playClick();
-                    onInspectWhisper(whisper);
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-cyan-500/60 shadow-xl shadow-cyan-500/20 text-center cursor-pointer transition transform hover:scale-105 select-none min-w-[140px]"
-                >
-                  <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono font-bold text-cyan-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                    <span>TRANSMISSÃO</span>
-                  </div>
-                  <div className="text-xs font-semibold text-white truncate max-w-[160px]">
-                    {whisper.author}
-                  </div>
-                  <div className="text-[9px] font-mono text-cyan-300/80 mt-0.5 flex items-center justify-center gap-1">
-                    <kbd className="px-1 py-0.2 bg-cyan-950/80 rounded border border-cyan-500/40 text-[8px] text-cyan-200">
-                      E
-                    </kbd>
-                    <span>ou clique para ouvir</span>
-                  </div>
-                </div>
-              </Html>
-            )}
           </group>
         );
       })}

@@ -5,6 +5,8 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { useRapier } from './physics/RapierPhysicsContext';
 import { sounds } from '../../audio/soundManager';
 import { explosionEvents } from './explosions/explosionEvents';
+import { COSMIC_BOUNDARY, CosmicBoundaryController } from '../../utils/cosmicBoundary';
+import { clearBoundaryTelemetry, publishBoundaryTelemetry } from '../../utils/boundaryTelemetry';
 
 import { GraphicsQuality, GameMode, IslandId } from '../../types';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
@@ -124,6 +126,7 @@ interface SpaceVehicleProps {
   selectedIslandId?: IslandId | null;
   onCinematicComplete?: (finishedMode: GameMode) => void;
   visible?: boolean;
+  onBoundaryReturn?: () => void;
 }
 
 const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
@@ -142,12 +145,21 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   selectedIslandId,
   onCinematicComplete,
   visible = true,
+  onBoundaryReturn,
 }) => {
   const { rapier, world, isReady } = useRapier();
   const controlsEnabled = isDriving && gameMode === 'driving' && visible;
   const eventState = useRef({ isReady, controlsEnabled, virtualInputRef, onPositionChange, onRotationChange });
   eventState.current = { isReady, controlsEnabled, virtualInputRef, onPositionChange, onRotationChange };
   const inputSuspended = useRef(false);
+  const boundary = useRef(new CosmicBoundaryController());
+  useEffect(() => {
+    if (gameMode !== 'driving') {
+      boundary.current.reset();
+      clearBoundaryTelemetry();
+    }
+    return clearBoundaryTelemetry;
+  }, [gameMode]);
 
   const groupRef = useRef<THREE.Group>(null);
   const lastAppUpdate = useRef(0);
@@ -655,7 +667,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       }
     } else {
       // Normal Driving Manual Physics Loop
-      const canDrive = controlsEnabled && !inputSuspended.current;
+      const canDrive = controlsEnabled && !inputSuspended.current && boundary.current.frame.recovery === 0;
       const input = canDrive ? (virtualInputRef?.current ?? virtualInput ?? NO_INPUT) : NO_INPUT;
       const forwardKey = canDrive && Boolean(keys.current['arrowup'] || keys.current['w'] || input.y < -0.2);
       const backwardKey = canDrive && Boolean(keys.current['arrowdown'] || keys.current['s'] || input.y > 0.2);
@@ -718,7 +730,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         }
 
         // Update yaw steering
-        yaw += turn * turnSpeed * delta;
+        yaw += turn * turnSpeed * delta * (1 - boundary.current.frame.strength * 0.5);
 
         // Directional vectors
         const forwardX = Math.sin(yaw);
@@ -836,7 +848,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         }
       } else {
         // Kinematic fallback with drift & spring banking
-        rotationY.current += turn * turnSpeed * delta;
+        rotationY.current += turn * turnSpeed * delta * (1 - boundary.current.frame.strength * 0.5);
         const fX = Math.sin(rotationY.current);
         const fZ = Math.cos(rotationY.current);
         const rX = Math.cos(rotationY.current);
@@ -895,6 +907,62 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         }
       }
   }
+
+    // Apply the same boundary constraint to Rapier and the kinematic fallback.
+    // This runs before rendering, so a warp synchronizes physics, camera and HUD together.
+    if (gameMode === 'driving' && isDriving) {
+      const flightVelocity = body && isReady ? body.linvel() : velocity.current;
+      _forwardVec.set(Math.sin(rotationY.current) * thrust, 0, Math.cos(rotationY.current) * thrust);
+      const field = boundary.current.step(pos.current, flightVelocity, _forwardVec, delta);
+      if (body && isReady) {
+        body.setLinearDamping(field.linearDamping);
+        body.setAngularDamping(field.angularDamping);
+        if (field.warning) {
+          const mass = body.mass();
+          body.applyImpulse({ x: field.impulseX * mass, y: field.impulseY * mass, z: field.impulseZ * mass }, true);
+        }
+      } else if (field.warning) {
+        velocity.current.x += field.impulseX;
+        velocity.current.y += field.impulseY;
+        velocity.current.z += field.impulseZ;
+        velocity.current.multiplyScalar(Math.exp(-field.strength * 5 * delta));
+      }
+      if (field.beep) sounds.playBoundaryWarning();
+      if (field.warp) {
+        const safe = COSMIC_BOUNDARY.safePosition;
+        if (body && isReady) {
+          body.setTranslation(safe, true);
+          body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+          _safeQuat.set(0, 0, 0, 1);
+          body.setRotation(_safeQuat, true);
+          body.setLinearDamping(1.55);
+          body.setAngularDamping(3.4);
+        }
+        pos.current.set(safe.x, safe.y, safe.z);
+        velocity.current.set(0, 0, 0);
+        rotationY.current = rollZ.current = pitchX.current = 0;
+        rollVelocity.current = pitchVelocity.current = suspensionVelocity.current = suspensionY.current = 0;
+        groupRef.current.position.copy(pos.current);
+        groupRef.current.rotation.set(0, 0, 0);
+        if (sharedVehiclePos) sharedVehiclePos.current.copy(pos.current);
+        if (sharedVehicleRotation) sharedVehicleRotation.current = 0;
+        onPositionChange([safe.x, safe.y, safe.z]);
+        onRotationChange?.(0);
+        keys.current = {};
+        if (virtualInputRef) Object.assign(virtualInputRef.current, NO_INPUT);
+        onClearTargetPosition?.();
+        puffsRef.current.forEach(puff => { puff.active = false; puff.life = 1; });
+        puffMeshesRef.current.forEach(mesh => mesh?.scale.setScalar(0));
+        spawnTimerRef.current = 0;
+        isBoosting = false;
+        thrust = 0;
+        sounds.stopThrusterSound();
+        sounds.playWarpEntry();
+        onBoundaryReturn?.();
+      }
+      publishBoundaryTelemetry(field);
+    }
 
     // Handle respawn invulnerability and visual blinking
     if (respawnTimer.current > 0) {
@@ -963,7 +1031,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
     }
     const shipLinVel = _shipLinVel;
     const bodySpeedSq = shipLinVel.x * shipLinVel.x + shipLinVel.z * shipLinVel.z;
-    const isMoving = isBoosting || Math.abs(thrust) > 0.05 || bodySpeedSq > 0.35 * 0.35;
+    const isMoving = boundary.current.frame.recovery > 0 || isBoosting || Math.abs(thrust) > 0.05 || bodySpeedSq > 0.35 * 0.35;
 
     // Dynamic polygonal exhaust jet animation in world space:
     // When the ship is stopped, NOTHING comes out.

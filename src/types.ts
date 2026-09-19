@@ -9,8 +9,6 @@ export type GameMode =
   | 'takeoff'
   | 'exiting';
 
-export type CameraViewMode = 'iso' | 'tactical55';
-
 export type GraphicsQuality = 'low' | 'mid' | 'high';
 
 export interface IslandConfig {

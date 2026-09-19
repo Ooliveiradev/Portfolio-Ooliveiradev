@@ -51,9 +51,9 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
 
   // Densidade reduzida e equilibrada (bem levezinha)
   const count = useMemo(() => {
-    if (graphicsQuality === 'low') return 110;
-    if (graphicsQuality === 'high') return 380;
-    return 220;
+    if (graphicsQuality === 'low') return 30;
+    if (graphicsQuality === 'high') return 90;
+    return 55;
   }, [graphicsQuality]);
 
   // Inicializa atributos estáticos apenas uma vez
@@ -148,11 +148,11 @@ export const CosmicDust: React.FC<CosmicDustProps> = ({
 
           // Pulso estelar cintilante e sutil
           float twinkle = sin(uTime * 1.4 + aPhase) * 0.3 + 0.7;
-          vAlpha = twinkle * 0.44;
+          vAlpha = twinkle * 0.2;
 
           // Tamanho com atenuação de perspectiva e clamp para máxima delicadeza
-          float basePointSize = 34.0 * aScale;
-          gl_PointSize = clamp(basePointSize * (1.0 / max(-mvPosition.z, 1.0)), 2.0, 9.0);
+          float basePointSize = 22.0 * aScale;
+          gl_PointSize = clamp(basePointSize * (1.0 / max(-mvPosition.z, 1.0)), 1.0, 3.0);
         }
       `,
       fragmentShader: `

@@ -740,6 +740,14 @@ export const BADGES_DATA: Badge[] = [
     unlocked: false,
   },
   {
+    id: 'badge-event-horizon',
+    title: 'Além do Horizonte de Eventos',
+    description: 'Tentou escapar do universo observável e sobreviveu à singularidade.',
+    icon: 'Orbit',
+    xpReward: 50,
+    unlocked: false,
+  },
+  {
     id: 'badge-scholar',
     title: 'Mente Brilhante',
     description: 'Explorou a Ilha de Educação e interagiu com os elementos acadêmicos.',
@@ -780,12 +788,15 @@ export const formatRaceTime = (seconds: number): string => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
 };
 
+// The ship cruises at y=1. Keep every collectible in the same reachable plane.
+export const CRYSTAL_HEIGHT = 1.2;
+
 export const CRYSTALS_DATA = [
-  { id: 1, position: [22, 1.2, 14] as [number, number, number], collected: false },
-  { id: 2, position: [-38, 2.5, -24] as [number, number, number], collected: false },
-  { id: 3, position: [44, -1.0, -40] as [number, number, number], collected: false },
-  { id: 4, position: [-58, 0.5, 34] as [number, number, number], collected: false },
-  { id: 5, position: [18, 3.0, 60] as [number, number, number], collected: false },
-  { id: 6, position: [-32, -1.8, -72] as [number, number, number], collected: false },
-  { id: 7, position: [75, 1.5, 32] as [number, number, number], collected: false },
+  { id: 1, position: [22, CRYSTAL_HEIGHT, 14] as [number, number, number], collected: false },
+  { id: 2, position: [-38, CRYSTAL_HEIGHT, -24] as [number, number, number], collected: false },
+  { id: 3, position: [44, CRYSTAL_HEIGHT, -40] as [number, number, number], collected: false },
+  { id: 4, position: [-58, CRYSTAL_HEIGHT, 34] as [number, number, number], collected: false },
+  { id: 5, position: [18, CRYSTAL_HEIGHT, 60] as [number, number, number], collected: false },
+  { id: 6, position: [-32, CRYSTAL_HEIGHT, -72] as [number, number, number], collected: false },
+  { id: 7, position: [75, CRYSTAL_HEIGHT, 32] as [number, number, number], collected: false },
 ];

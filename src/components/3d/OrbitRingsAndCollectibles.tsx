@@ -28,17 +28,17 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
 
   // Starfield particles throughout the solar system scaled by graphics tier
   const [starPositions, starColors] = useMemo(() => {
-    const count = graphicsQuality === 'low' ? 600 : graphicsQuality === 'high' ? 2200 : 1400;
+    const count = graphicsQuality === 'low' ? 120 : graphicsQuality === 'high' ? 420 : 260;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
 
     for (let i = 0; i < count; i++) {
-      const radius = 80 + Math.random() * 200;
+      const radius = 160 + Math.random() * 200;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
       positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 80;
+      positions[i * 3 + 1] = radius * Math.cos(phi);
       positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
 
       const colorType = Math.random();
@@ -101,10 +101,11 @@ export const OrbitRingsAndCollectibles: React.FC<OrbitRingsAndCollectiblesProps>
           />
         </bufferGeometry>
         <pointsMaterial
-          size={1.5}
+          size={0.45}
           vertexColors
           transparent
-          opacity={0.8}
+          opacity={0.4}
+          depthWrite={false}
           sizeAttenuation
         />
       </points>
