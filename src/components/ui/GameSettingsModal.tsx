@@ -288,7 +288,7 @@ Confira em: ${window.location.href}`;
                   aria-label="Avatar de Danilo Ribeiro"
                 >
                   <img
-                    src="/assets/danilo-ribeiro.jpg"
+                    src="assets/danilo-ribeiro.jpg"
                     alt="Danilo Ribeiro"
                     className="h-full w-full object-cover object-center transition-transform duration-300 hover:scale-105"
                   />
