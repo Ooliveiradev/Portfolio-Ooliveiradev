@@ -82,6 +82,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   if (!isOpen) return null;
 
   const collectedCount = crystals.filter((c) => c.collected).length;
+  const profilePhotoSrc = `${import.meta.env.BASE_URL}assets/danilo-ribeiro.jpg`;
 
   const getRankTitle = (xp: number) => {
     if (xp >= 1400) return 'Comandante Supremo';
@@ -288,7 +289,7 @@ Confira em: ${window.location.href}`;
                   aria-label="Avatar de Danilo Ribeiro"
                 >
                   <img
-                    src="/assets/danilo-ribeiro.jpg"
+                    src={profilePhotoSrc}
                     alt="Danilo Ribeiro"
                     className="h-full w-full object-cover object-center transition-transform duration-300 hover:scale-105"
                   />
