@@ -38,6 +38,7 @@ import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
 import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
 import { createVehicleInput, isEditableTarget } from './utils/gameInput';
+import { hasCollectedAllCrystals } from './utils/achievements';
 
 export default function App() {
   // Preloading & System Certification: certifica Rapier WASM, shaders GPU e fontes antes de liberar jogabilidade
@@ -469,8 +470,8 @@ export default function App() {
         unlockBadge('badge-crystal-novice');
       }
 
-      // 4. Coletor Cósmico (todos os 8 cristais)
-      if (currentStats.collectedCrystals.length >= 8) {
+      // 4. Coletor Cósmico (todos os cristais disponíveis)
+      if (hasCollectedAllCrystals(currentStats.collectedCrystals)) {
         unlockBadge('badge-crystal');
       }
 

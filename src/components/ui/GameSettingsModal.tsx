@@ -680,11 +680,11 @@ Confira em: ${window.location.href}`;
                         Cristais Orbitais
                       </span>
                       <span className="text-[11px] text-slate-400">
-                        {collectedCount} de 8 coletados no espaço
+                        {collectedCount} de {crystals.length} coletados no espaço
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {Array.from({ length: 8 }).map((_, idx) => (
+                      {Array.from({ length: crystals.length }).map((_, idx) => (
                         <div
                           key={idx}
                           className={`w-4 h-4 rounded-md border text-[9px] flex items-center justify-center font-mono font-bold ${
