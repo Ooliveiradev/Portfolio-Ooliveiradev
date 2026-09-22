@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRapierBody } from './useRapierBody';
 import { explosionEvents } from '../explosions/explosionEvents';
+import { sparkEvents } from '../explosions/sparkEvents';
 import { sounds } from '../../../audio/soundManager';
 import { GraphicsQuality } from '../../../types';
 
@@ -72,7 +73,7 @@ export const SpaceSatellite: React.FC<SpaceSatelliteProps> = ({
         lastImpactTimeRef.current = now;
         sounds.playKineticImpact(1.2);
         // Small collision spark puff
-        explosionEvents.emit([t.x, t.y, t.z], 0.4 * scale);
+        sparkEvents.emit([t.x, t.y, t.z], 0.7);
       }
       wasCollidingRef.current = isColliding;
     }

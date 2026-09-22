@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MaterialIcon } from './MaterialIcon';
 import { formatRaceTime } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
-import { getVehiclePosition } from '../../utils/vehicleTelemetry';
+import { getVehiclePosition, getVehicleRotation } from '../../utils/vehicleTelemetry';
+import { raceSession } from '../../utils/raceSession';
 import { useVisibleTick } from '../../hooks/useVisibleTick';
 import { canHandleGameKey } from '../../utils/gameInput';
 
@@ -13,7 +14,6 @@ interface RaceOverlayProps {
   raceState: 'idle' | 'countdown' | 'racing' | 'finished';
   countdownNumber: number;
   elapsedTime: number;
-  startedAt: number;
   currentCheckpoint: number;
   totalCheckpoints: number;
   bestTime: number | null;
@@ -31,7 +31,6 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
   raceState,
   countdownNumber,
   elapsedTime,
-  startedAt,
   currentCheckpoint,
   totalCheckpoints,
   bestTime,
@@ -45,7 +44,8 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
   const [pilotName, setPilotName] = useState('');
   const [hasSaved, setHasSaved] = useState(false);
   const now = useVisibleTick(50, raceState === 'racing');
-  const liveElapsedTime = raceState === 'racing' ? Math.max(0, (now - startedAt) / 1000) : elapsedTime;
+  const liveElapsedTime = raceState === 'racing' ? raceSession.elapsed() : elapsedTime;
+  const nitro = Math.round(raceSession.nitro);
   const vehiclePos = getVehiclePosition();
 
   React.useEffect(() => {
@@ -58,13 +58,11 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
     const dx = targetRingPosition[0] - vehiclePos[0];
     const dz = targetRingPosition[2] - vehiclePos[2];
     const distance = Math.round(Math.hypot(dx, dz));
-    // In isometric camera (looking from [0, 70, 75] down to origin):
-    // Screen X is dx, Screen Y is dz (where +dz is down towards bottom of screen)
-    // Angle in degrees for SVG/icon rotation (0deg = straight UP)
-    const angleRad = Math.atan2(dx, -dz);
+    // Heading relative to the chase camera, whose forward direction is local +Z.
+    const angleRad = getVehicleRotation() - Math.atan2(dx, dz);
     const angleDeg = (angleRad * 180) / Math.PI;
     return { distance, angleDeg };
-  }, [vehiclePos, targetRingPosition]);
+  }, [vehiclePos, targetRingPosition, now]);
 
   // Keyboard shortcut [E] to start race when near gate
   React.useEffect(() => {
@@ -89,6 +87,17 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 select-none">
+      {(raceState === 'countdown' || raceState === 'racing') && (
+        <div className="pointer-events-auto absolute left-3 bottom-3 sm:bottom-6 w-52 rounded-xl border border-cyan-500/30 bg-slate-950/85 p-3 text-xs font-mono">
+          <div className="flex justify-between text-cyan-200 mb-2"><span>NITRO · Shift / Turbo</span><span>{nitro}%</span></div>
+          <div className="text-slate-300 mb-2">Velocidade · {Math.round(raceSession.speed)} u/s</div>
+          <div role="progressbar" aria-label="Carga de nitro" aria-valuemin={0} aria-valuemax={100} aria-valuenow={nitro} className="h-2 rounded bg-slate-800 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-cyan-400 to-violet-500" style={{ width: `${nitro}%` }} />
+          </div>
+          <p className="text-slate-400 mt-2 hidden sm:block">W / ↑ acelerar · S / ↓ frear</p>
+          <button onClick={onCancelRace} className="mt-2 text-slate-300 hover:text-white cursor-pointer">Cancelar corrida · Esc</button>
+        </div>
+      )}
       {/* 1. PROMPT CARD: When player is near Start Gate next to the Sun */}
       <AnimatePresence>
         {controlsEnabled && isNearStartGate && raceState === 'idle' && (
@@ -122,7 +131,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
             </div>
 
             <p className="text-xs text-slate-300 font-sans mb-3 leading-relaxed">
-              Atravesse as 6 argolas de turbo espalhadas pelo sistema solar no menor tempo possível!
+              Complete uma volta entre os asteroides e retorne à largada. Use Shift ou Turbo para o nitro; acerte o centro dos anéis para recarregar!
             </p>
 
             <button
@@ -143,7 +152,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
 
       {/* 2. COUNTDOWN OVERLAY: 3... 2... 1... LARGADA! */}
       <AnimatePresence>
-        {raceState === 'countdown' && (
+        {(raceState === 'countdown' || (raceState === 'racing' && liveElapsedTime < 0.7)) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <motion.div
               key={countdownNumber}
@@ -153,7 +162,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
               transition={{ duration: 0.4 }}
               className="font-sans font-extrabold text-6xl md:text-7xl tracking-tighter text-sky-400 drop-shadow-[0_0_25px_rgba(56,189,248,0.6)]"
             >
-              {countdownNumber > 0 ? countdownNumber : 'LARGADA!'}
+              {raceState === 'countdown' ? countdownNumber : 'LARGADA!'}
             </motion.div>
           </div>
         )}
@@ -166,7 +175,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="pointer-events-auto mx-auto mt-2 flex items-center gap-4 bg-[#0c1017]/90 border border-slate-800/80 rounded-2xl px-4 py-2 shadow-2xl backdrop-blur-xl"
+            className="pointer-events-auto mx-auto mt-2 w-full sm:w-auto flex items-center justify-between gap-1.5 sm:gap-4 bg-[#0c1017]/90 border border-slate-800/80 rounded-2xl px-2 sm:px-4 py-2 shadow-2xl backdrop-blur-xl"
           >
             {/* Live Stopwatch */}
             <div className="flex items-center gap-2">
@@ -180,10 +189,10 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
 
             {/* Checkpoints Status */}
             <div className="flex items-center gap-2.5">
-              <span className="text-xs font-mono text-slate-300">
-                Argola <strong className="text-white font-bold">{currentCheckpoint + 1}</strong> / {totalCheckpoints}
+              <span className="text-xs font-mono text-slate-300 whitespace-nowrap">
+                Portal <strong className="text-white font-bold">{currentCheckpoint + 1}</strong> / {totalCheckpoints}
               </span>
-              <div className="flex gap-1">
+              <div className="hidden sm:flex gap-1">
                 {Array.from({ length: totalCheckpoints }).map((_, idx) => (
                   <div
                     key={idx}
@@ -204,7 +213,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
               <>
                 <div className="w-px h-5 bg-slate-800" />
                 <div
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-mono text-xs transition-colors ${
+                  className={`flex items-center gap-1 px-1 sm:px-2.5 py-1 rounded-xl font-mono text-xs whitespace-nowrap transition-colors ${
                     navData.distance < 18
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                       : 'bg-amber-500/15 text-amber-300 border border-amber-400/30'
@@ -268,7 +277,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                 Circuito Concluído!
               </h2>
               <p className="text-xs text-slate-400 font-sans mb-4">
-                Você completou todas as 6 argolas do sistema solar.
+                Você completou o circuito e cruzou a linha de chegada.
               </p>
 
               {/* Time Display */}

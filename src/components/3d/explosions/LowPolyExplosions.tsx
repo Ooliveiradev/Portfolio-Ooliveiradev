@@ -12,10 +12,11 @@ const EXPLOSION_PALETTE = ['#ffffff', '#fef08a', '#f97316', '#ef4444', '#94a3b8'
 
 interface LowPolyExplosionsProps {
   graphicsQuality?: GraphicsQuality;
+  enabled?: boolean;
 }
 
 /** A fixed pool avoids mounting meshes and changing the scene's light shader on impact. */
-export const LowPolyExplosions: React.FC<LowPolyExplosionsProps> = ({ graphicsQuality = 'mid' }) => {
+export const LowPolyExplosions: React.FC<LowPolyExplosionsProps> = ({ graphicsQuality = 'mid', enabled = true }) => {
   const slots = useMemo(() => Array.from({ length: MAX_EXPLOSIONS }, () => ({
     active: false,
     time: 0,
@@ -52,6 +53,7 @@ export const LowPolyExplosions: React.FC<LowPolyExplosionsProps> = ({ graphicsQu
   }, [palette]);
 
   useEffect(() => explosionEvents.subscribe((position, scale = 1) => {
+    if (!enabled) return;
     sounds.playExplosion();
     const index = nextSlot.current;
     nextSlot.current = (index + 1) % MAX_EXPLOSIONS;
@@ -77,9 +79,14 @@ export const LowPolyExplosions: React.FC<LowPolyExplosionsProps> = ({ graphicsQu
       mesh.setColorAt(i, palette[Math.floor(Math.random() * palette.length)]);
     }
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }), [slots, particlesCount, palette]);
+  }), [slots, particlesCount, palette, enabled]);
 
   useFrame((_, delta) => {
+    if (!enabled) {
+      slots.forEach((slot, i) => { slot.active = false; if (groups.current[i]) groups.current[i]!.visible = false; });
+      if (flashLight.current) flashLight.current.intensity = 0;
+      return;
+    }
     const dt = Math.min(delta, 0.1);
     const drag = Math.pow(0.85, dt * 25);
     let brightest = 0;

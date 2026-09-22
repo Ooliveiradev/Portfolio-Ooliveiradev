@@ -48,6 +48,10 @@ export const HUD: React.FC<HUDProps> = ({
   isRacing = false,
   currentCheckpoint = 0,
 }) => {
+  if (isRacing) return <div className="absolute right-3 top-20 z-20 pointer-events-none">
+    <MiniMap islands={islands} visitedIslands={stats.visitedIslands} selectedIslandId={null}
+      onSelectIsland={onSelectIsland} isRacing currentCheckpoint={currentCheckpoint} />
+  </div>;
   return (
     <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 sm:p-6 select-none">
       {onInspectWhisper && <NearbyTransmission whispers={whispers} onInspect={onInspectWhisper} />}

@@ -5,8 +5,13 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { useRapier } from './physics/RapierPhysicsContext';
 import { sounds } from '../../audio/soundManager';
 import { explosionEvents } from './explosions/explosionEvents';
+import { sparkEvents } from './explosions/sparkEvents';
 import { COSMIC_BOUNDARY, CosmicBoundaryController } from '../../utils/cosmicBoundary';
 import { clearBoundaryTelemetry, publishBoundaryTelemetry } from '../../utils/boundaryTelemetry';
+import { RACE_GRID, RaceState } from '../../utils/raceTrack';
+import { raceSession, consumeNitro } from '../../utils/raceSession';
+import { raceTurnRate, smoothRaceSteering, raceSpeedScale, stepRaceDrive, RACE_CRUISE_SPEED, RACE_BOOST_SPEED } from '../../utils/raceHandling';
+import { RaceWallGuide } from '../../utils/raceWallGuide';
 
 import { GraphicsQuality, GameMode, IslandId } from '../../types';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
@@ -18,8 +23,10 @@ const COLOR_YELLOW = new THREE.Color('#fbbf24');
 const COLOR_ORANGE = new THREE.Color('#f97316');
 const COLOR_WHITE = new THREE.Color('#f1f5f9');
 const COLOR_GRAY = new THREE.Color('#94a3b8');
+const COLOR_NITRO = new THREE.Color('#38bdf8');
+const COLOR_VIOLET = new THREE.Color('#a78bfa');
 const NO_INPUT = createVehicleInput();
-const DRIVING_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', ' ', 'r']);
+const DRIVING_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', ' ', 'shift', 'r']);
 
 // Pre-allocated static scratch objects to eliminate per-frame garbage collection
 const _localNozzle = new THREE.Vector3();
@@ -111,6 +118,7 @@ const spawnPuff = (
 };
 
 interface SpaceVehicleProps {
+  raceState?: RaceState;
   position: [number, number, number];
   targetPosition: [number, number, number] | null;
   onPositionChange: (pos: [number, number, number]) => void;
@@ -130,6 +138,7 @@ interface SpaceVehicleProps {
 }
 
 const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
+  raceState = 'idle',
   position,
   targetPosition,
   onPositionChange,
@@ -148,7 +157,15 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   onBoundaryReturn,
 }) => {
   const { rapier, world, isReady } = useRapier();
-  const controlsEnabled = isDriving && gameMode === 'driving' && visible;
+  const controlsEnabled = isDriving && gameMode === 'driving' && visible && raceState !== 'countdown';
+  const previousRaceState = useRef<RaceState>('idle');
+  const raceWallGuide = useRef(new RaceWallGuide());
+  const raceVelocity = useMemo(() => new THREE.Vector3(), []);
+  const sparkCooldown = useRef(0);
+  const superBoostTime = useRef(0);
+  const raceSpeedCap = useRef(RACE_CRUISE_SPEED);
+  const wasNitro = useRef(false);
+  const raceSteering = useRef(0);
   const eventState = useRef({ isReady, controlsEnabled, virtualInputRef, onPositionChange, onRotationChange });
   eventState.current = { isReady, controlsEnabled, virtualInputRef, onPositionChange, onRotationChange };
   const inputSuspended = useRef(false);
@@ -233,6 +250,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   // Setup Keyboard inputs
   useEffect(() => {
     const triggerRespawn = () => {
+      if (raceSession.active) return;
       const safePos = { x: 0, y: 1.0, z: 34 };
       if (rigidBodyRef.current) {
         rigidBodyRef.current.setTranslation(safePos, true);
@@ -305,9 +323,18 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         direction?: [number, number, number];
         force?: number;
         useRocketFacing?: boolean;
+        perfect?: boolean;
       }>;
       const body = rigidBodyRef.current;
       const force = custom.detail?.force ?? 650;
+      if (raceSession.running) {
+        if (custom.detail?.perfect) raceSession.nitro = Math.min(100, raceSession.nitro + 30);
+        superBoostTime.current = custom.detail?.perfect ? 1.1 : 0;
+        raceSpeedCap.current = RACE_BOOST_SPEED;
+        // Race portals reward precision without snapping the ship's velocity or heading.
+        sounds.playBoost();
+        return;
+      }
 
       // Calculate current rocket heading (where the rocket is facing)
       let fX = 0;
@@ -341,7 +368,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         const linvel = body.linvel();
         const currentSpeed = Math.hypot(linvel.x, linvel.z);
         // Clean high-speed surge forward in the facing direction
-        const boostSpeed = Math.max(currentSpeed * 0.45 + 38, 52);
+        const boostSpeed = raceSession.running ? RACE_BOOST_SPEED : Math.max(currentSpeed * 0.45 + 38, 52);
 
         body.setLinvel(
           {
@@ -353,10 +380,13 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         );
 
         // Dynamic physical impulse
-        body.applyImpulse({ x: dirX * 180, y: dirY * 180, z: dirZ * 180 }, true);
+        if (!raceSession.running) {
+          const impulse = custom.detail?.perfect ? force : 180;
+          body.applyImpulse({ x: dirX * impulse, y: dirY * impulse, z: dirZ * impulse }, true);
+        }
       } else {
         // Kinematic fallback
-        const boostSpeed = 50;
+        const boostSpeed = raceSession.running ? RACE_BOOST_SPEED : 50;
         velocity.current.set(dirX * boostSpeed, 0, dirZ * boostSpeed);
       }
 
@@ -402,6 +432,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       .setTranslation(initialSpawnX, initialSpawnY, initialSpawnZ)
       .setLinearDamping(1.55)
       .setAngularDamping(3.4)
+      .setCcdEnabled(true)
       .setCanSleep(false);
 
     // Free yaw rotation around Y, locked X and Z to prevent tumbling upside down
@@ -427,11 +458,18 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
     };
   }, [isReady, world, rapier]);
 
+  // Keep the ship in the circuit's plane so collisions cannot lift it over walls.
+  useEffect(() => {
+    const active = raceState === 'countdown' || raceState === 'racing';
+    rigidBodyRef.current?.setEnabledTranslations(true, !active, true, true);
+  }, [raceState, isReady]);
+
   // Frame animation & physics loop
   useFrame((_, delta) => {
     if (!groupRef.current) return;
     // Tab restores and stalled frames must not inject seconds of impulse.
     delta = Math.min(delta, 0.05);
+    sparkCooldown.current = Math.max(0, sparkCooldown.current - delta);
 
     if (gameMode === 'landing' || visible === false) {
       groupRef.current.visible = false;
@@ -473,10 +511,43 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
     let thrust = 0;
     let turn = 0;
     let isBoosting = false;
-    const turnSpeed = 3.6;
+    let turnSpeed = 3.6;
     const body = rigidBodyRef.current;
 
-    if (isCinematic) {
+    if (raceState === 'countdown') {
+      if (previousRaceState.current !== 'countdown') {
+        keys.current = {};
+        velocity.current.set(0, 0, 0);
+        rollZ.current = pitchX.current = rollVelocity.current = pitchVelocity.current = 0;
+        suspensionY.current = suspensionVelocity.current = 0;
+        respawnTimer.current = superBoostTime.current = 0;
+        raceSpeedCap.current = RACE_CRUISE_SPEED;
+        raceWallGuide.current.reset();
+        raceSteering.current = 0;
+        boundary.current.reset();
+        clearBoundaryTelemetry();
+        puffsRef.current.forEach(p => { p.active = false; });
+      }
+      pos.current.set(...RACE_GRID.position);
+      rotationY.current = RACE_GRID.yaw;
+      _tempEuler.set(0, RACE_GRID.yaw, 0);
+      _targetQuat.setFromEuler(_tempEuler);
+      if (body) {
+        body.setTranslation(pos.current, true);
+        body.setRotation(_targetQuat, true);
+        body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      }
+      groupRef.current.position.copy(pos.current);
+      groupRef.current.position.y += Math.sin(performance.now() * 0.06) * 0.025;
+      groupRef.current.rotation.set(0, RACE_GRID.yaw, 0);
+      sharedVehiclePos?.current.copy(pos.current);
+      if (sharedVehicleRotation) sharedVehicleRotation.current = RACE_GRID.yaw;
+      onPositionChange([...RACE_GRID.position]);
+      onRotationChange?.(RACE_GRID.yaw);
+      thrust = 0.08;
+      sounds.updateThrusterSound(thrust, false);
+    } else if (isCinematic) {
       cinematicTimer.current += delta;
 
       let cX = pos.current.x;
@@ -673,7 +744,16 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       const backwardKey = canDrive && Boolean(keys.current['arrowdown'] || keys.current['s'] || input.y > 0.2);
       const leftKey = canDrive && Boolean(keys.current['arrowleft'] || keys.current['a'] || input.x < -0.2);
       const rightKey = canDrive && Boolean(keys.current['arrowright'] || keys.current['d'] || input.x > 0.2);
-      isBoosting = canDrive && Boolean(keys.current[' '] || input.boost);
+      const nitroRequested = canDrive && Boolean(keys.current['shift'] || keys.current[' '] || input.boost);
+      const nitroActive = nitroRequested && (!raceSession.active || raceSession.nitro > 0);
+      if (raceSession.running) raceSession.nitro = consumeNitro(raceSession.nitro, nitroActive, delta);
+      superBoostTime.current = raceSession.running ? Math.max(0, superBoostTime.current - delta) : 0;
+      isBoosting = nitroActive || (canDrive && superBoostTime.current > 0);
+      raceSpeedCap.current = raceSession.running
+        ? isBoosting ? RACE_BOOST_SPEED : Math.max(RACE_CRUISE_SPEED, raceSpeedCap.current - 18 * delta)
+        : RACE_CRUISE_SPEED;
+      if (nitroActive && !wasNitro.current) sounds.playBoost();
+      wasNitro.current = nitroActive;
 
       const isManualInput =
         forwardKey ||
@@ -687,15 +767,25 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         onClearTargetPosition?.();
       }
 
-      const baseSpeed = isBoosting ? 46 : 27;
+      const baseSpeed = raceSession.running ? (isBoosting ? 30 : 19) : (isBoosting ? 46 : 27);
 
       if (forwardKey) thrust += 1;
       if (backwardKey) thrust -= 0.75;
+      if (raceSession.running && isBoosting && !backwardKey) thrust = Math.max(thrust, 1);
       if (leftKey) turn += 1;
       if (rightKey) turn -= 1;
 
       if (Math.abs(input.x) > 0.1) turn = -input.x * 1.6;
-      if (Math.abs(input.y) > 0.1) thrust = -input.y * 1.4;
+      if (Math.abs(input.y) > 0.1) thrust = -input.y * (raceSession.running ? 1 : 1.4);
+
+      if (raceSession.running) {
+        const currentVelocity = body && isReady ? body.linvel() : velocity.current;
+        turnSpeed = raceTurnRate(Math.hypot(currentVelocity.x, currentVelocity.z));
+        raceSteering.current = smoothRaceSteering(raceSteering.current, turn, delta);
+        turn = raceSteering.current;
+      } else {
+        raceSteering.current = 0;
+      }
 
       if (body && isReady) {
         const currentTranslation = body.translation();
@@ -743,33 +833,51 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         const vLateral = linvel.x * rightX + linvel.z * rightZ;
 
         // Apply forward / reverse impulse
-        if (thrust !== 0) {
-          const forceMagnitude = thrust * baseSpeed * 36;
+        if (raceSession.running) {
+          stepRaceDrive(raceVelocity, linvel.x, linvel.z, yaw, thrust, raceSpeedCap.current, delta);
+          body.setLinvel({ x: raceVelocity.x, y: linvel.y, z: raceVelocity.z }, true);
+        } else {
+          if (thrust !== 0) {
+            const forceMagnitude = thrust * baseSpeed * 36;
+            body.applyImpulse(
+              {
+                x: forwardX * forceMagnitude * delta,
+                y: 0,
+                z: forwardZ * forceMagnitude * delta,
+              },
+              true
+            );
+          }
+
+          // Tactile Bruno Simon Lateral Drift & Grip Dynamics:
+          // Lateral friction corrects sideways velocity, giving that crisp toy car handling.
+          // During boost or sharp turns, grip allows a controlled centrifugal drift!
+          const gripCoeff = isBoosting ? 0.68 : 0.88;
+          const lateralCorrection = -vLateral * gripCoeff;
+          const mass = 14.0;
+          const gripResponse = 14;
+          const lateralImpulseMag = lateralCorrection * mass * Math.min(delta * gripResponse, 1.0);
           body.applyImpulse(
             {
-              x: forwardX * forceMagnitude * delta,
+              x: rightX * lateralImpulseMag,
               y: 0,
-              z: forwardZ * forceMagnitude * delta,
+              z: rightZ * lateralImpulseMag,
             },
             true
           );
         }
 
-        // Tactile Bruno Simon Lateral Drift & Grip Dynamics:
-        // Lateral friction corrects sideways velocity, giving that crisp toy car handling.
-        // During boost or sharp turns, grip allows a controlled centrifugal drift!
-        const gripCoeff = isBoosting ? 0.68 : 0.88;
-        const lateralCorrection = -vLateral * gripCoeff;
-        const mass = 14.0;
-        const lateralImpulseMag = lateralCorrection * mass * Math.min(delta * 14.0, 1.0);
-        body.applyImpulse(
-          {
-            x: rightX * lateralImpulseMag,
-            y: 0,
-            z: rightZ * lateralImpulseMag,
-          },
-          true
-        );
+        if (raceSession.running) {
+          const moving = body.linvel();
+          const scale = raceSpeedScale(moving.x, moving.z, raceSpeedCap.current);
+          const wall = raceWallGuide.current.step(currentTranslation.x, currentTranslation.z,
+            moving.x * scale, moving.z * scale, yaw, thrust, delta);
+          body.setLinvel({ x: wall.vx, y: moving.y, z: wall.vz }, true);
+          if (wall.x !== currentTranslation.x || wall.z !== currentTranslation.z) {
+            body.setTranslation({ x: wall.x, y: currentTranslation.y, z: wall.z }, true);
+          }
+          yaw = wall.yaw;
+        }
 
         // Smooth procedural thruster sound (gentle plasma hiss & sub-bass weight)
         sounds.updateThrusterSound(thrust, isBoosting);
@@ -793,7 +901,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         );
 
         // Aerodynamic banking roll, pitch recoil, and suspension spring dynamics
-        const targetRoll = -turn * 0.44 - Math.max(-0.25, Math.min(0.25, vLateral * 0.025));
+        const targetRoll = -turn * (raceSession.running ? 0.32 : 0.44) - Math.max(-0.25, Math.min(0.25, vLateral * 0.025));
         const targetPitch = thrust * 0.18 + (isBoosting ? 0.08 : 0);
         const targetSuspension = isBoosting ? -0.06 : (thrust !== 0 ? -0.03 : 0);
 
@@ -856,20 +964,39 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
 
         const vL = velocity.current.x * rX + velocity.current.z * rZ;
 
-        if (thrust !== 0) {
-          velocity.current.x += fX * thrust * baseSpeed * delta;
-          velocity.current.z += fZ * thrust * baseSpeed * delta;
+        if (raceSession.running) {
+          stepRaceDrive(raceVelocity, velocity.current.x, velocity.current.z, rotationY.current,
+            thrust, raceSpeedCap.current, delta);
+          velocity.current.x = raceVelocity.x;
+          velocity.current.z = raceVelocity.z;
+        } else {
+          if (thrust !== 0) {
+            velocity.current.x += fX * thrust * baseSpeed * delta;
+            velocity.current.z += fZ * thrust * baseSpeed * delta;
+          }
+
+          // Lateral damping
+          const kGrip = isBoosting ? 0.72 : 0.88;
+          const lateralDamp = Math.pow(1.0 - kGrip, delta * 20);
+          velocity.current.x -= rX * vL * (1.0 - lateralDamp);
+          velocity.current.z -= rZ * vL * (1.0 - lateralDamp);
+          velocity.current.multiplyScalar(Math.pow(0.92, delta * 30));
+        }
+        if (raceSession.running) {
+          const scale = raceSpeedScale(velocity.current.x, velocity.current.z, raceSpeedCap.current);
+          velocity.current.x *= scale;
+          velocity.current.z *= scale;
+        }
+        pos.current.addScaledVector(velocity.current, delta);
+        if (raceSession.running) {
+          const wall = raceWallGuide.current.step(pos.current.x, pos.current.z,
+            velocity.current.x, velocity.current.z, rotationY.current, thrust, delta);
+          pos.current.set(wall.x, 1, wall.z);
+          velocity.current.set(wall.vx, 0, wall.vz);
+          rotationY.current = wall.yaw;
         }
 
-        // Lateral damping
-        const kGrip = isBoosting ? 0.72 : 0.88;
-        const lateralDamp = Math.pow(1.0 - kGrip, delta * 20);
-        velocity.current.x -= rX * vL * (1.0 - lateralDamp);
-        velocity.current.z -= rZ * vL * (1.0 - lateralDamp);
-        velocity.current.multiplyScalar(Math.pow(0.92, delta * 30));
-        pos.current.addScaledVector(velocity.current, delta);
-
-        const targetRoll = -turn * 0.44 - Math.max(-0.25, Math.min(0.25, vL * 0.025));
+        const targetRoll = -turn * (raceSession.running ? 0.32 : 0.44) - Math.max(-0.25, Math.min(0.25, vL * 0.025));
         const targetPitch = thrust * 0.18 + (isBoosting ? 0.08 : 0);
         const targetSuspension = isBoosting ? -0.06 : (thrust !== 0 ? -0.03 : 0);
 
@@ -908,6 +1035,17 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       }
   }
 
+    previousRaceState.current = raceState;
+    if (raceSession.running) {
+      const wall = raceWallGuide.current.frame;
+      const speed = Math.hypot(wall.vx, wall.vz);
+      if (wall.impact) sounds.playKineticImpact(Math.min(0.6, speed / 40));
+      if (wall.touching && speed > 2 && sparkCooldown.current === 0) {
+        sparkEvents.emit([wall.sparkX, 0.8, wall.sparkZ], Math.min(0.65, speed / 32));
+        sparkCooldown.current = 0.075;
+      }
+    }
+
     // Apply the same boundary constraint to Rapier and the kinematic fallback.
     // This runs before rendering, so a warp synchronizes physics, camera and HUD together.
     if (gameMode === 'driving' && isDriving) {
@@ -915,7 +1053,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       _forwardVec.set(Math.sin(rotationY.current) * thrust, 0, Math.cos(rotationY.current) * thrust);
       const field = boundary.current.step(pos.current, flightVelocity, _forwardVec, delta);
       if (body && isReady) {
-        body.setLinearDamping(field.linearDamping);
+        body.setLinearDamping(raceSession.running ? 0 : field.linearDamping);
         body.setAngularDamping(field.angularDamping);
         if (field.warning) {
           const mass = body.mass();
@@ -1031,6 +1169,12 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
     }
     const shipLinVel = _shipLinVel;
     const bodySpeedSq = shipLinVel.x * shipLinVel.x + shipLinVel.z * shipLinVel.z;
+    raceSession.speed = Math.sqrt(bodySpeedSq);
+    raceSession.pitch = pitchX.current;
+    raceSession.yaw = rotationY.current;
+    raceSession.roll = rollZ.current;
+    raceSession.boosting = isBoosting;
+    raceSession.record(pos.current.x, pos.current.y, pos.current.z, pitchX.current, rotationY.current, rollZ.current);
     const isMoving = boundary.current.frame.recovery > 0 || isBoosting || Math.abs(thrust) > 0.05 || bodySpeedSq > 0.35 * 0.35;
 
     // Dynamic polygonal exhaust jet animation in world space:
@@ -1063,6 +1207,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
             isBoosting,
             thrust
           );
+          if (raceSession.active) availablePuff.initialScale *= 0.4;
         } else {
           // Do not accumulate missed emissions while the pool is full.
           spawnTimerRef.current = 0;
@@ -1115,7 +1260,9 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         mat.opacity = Math.max(0, 1 - progress * 0.88);
 
         // Color transition: yellow -> orange -> white -> gray
-        if (progress < 0.22) {
+        if (raceSession.active && isBoosting) {
+          mat.color.lerpColors(COLOR_NITRO, COLOR_VIOLET, progress);
+        } else if (progress < 0.22) {
           mat.color.lerpColors(COLOR_YELLOW, COLOR_ORANGE, progress / 0.22);
         } else if (progress < 0.55) {
           mat.color.lerpColors(COLOR_ORANGE, COLOR_WHITE, (progress - 0.22) / 0.33);

@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GraphicsQuality } from '../../types';
+import { raceSession } from '../../utils/raceSession';
 
 interface VehicleThrusterTrailsProps {
   sharedVehiclePos: React.MutableRefObject<THREE.Vector3>;
@@ -84,6 +85,9 @@ export const VehicleThrusterTrails: React.FC<VehicleThrusterTrailsProps> = ({
     if (!visible || !sharedVehiclePos) return;
 
     const shipPos = sharedVehiclePos.current;
+    material.opacity = raceSession.active && raceSession.boosting ? 1 : 0.6;
+    // A grid teleport must not leave a ribbon across the entire galaxy.
+    if (Math.hypot(historyLeft.current[0] - shipPos.x, historyLeft.current[2] - shipPos.z) > 12) initialized.current = false;
 
     // Se ainda não inicializado, preenche com a posição atual da nave
     if (!initialized.current) {

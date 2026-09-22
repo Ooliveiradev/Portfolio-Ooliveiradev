@@ -6,6 +6,7 @@ import { getIslandLivePosition } from '../../utils/celestialCoords';
 import { getBoundaryTelemetry } from '../../utils/boundaryTelemetry';
 
 interface CameraControllerProps {
+  isRacingCamera?: boolean;
   gameMode: GameMode;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
@@ -22,8 +23,10 @@ const _islandPos = new THREE.Vector3();
 const _targetPos = new THREE.Vector3();
 const _centerLookAt = new THREE.Vector3(0, 0, 0);
 const ISO_OFFSET = new THREE.Vector3(24, 26, 24);
+const _raceTargetRotation = new THREE.Quaternion();
 
 const CameraControllerComponent: React.FC<CameraControllerProps> = ({
+  isRacingCamera = false,
   gameMode,
   vehiclePos,
   vehicleRotation,
@@ -36,6 +39,10 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
   const landingAngle = useRef(0);
   const isFirstMount = useRef(true);
+  const raceRotation = useRef(new THREE.Quaternion());
+  const raceEuler = useRef(new THREE.Euler());
+  const raceUp = useRef(new THREE.Vector3());
+  const wasRacing = useRef(false);
 
   // Speed estimation & smoothed look-ahead refs
   const prevPos = useRef(new THREE.Vector3(vehiclePos[0], vehiclePos[1], vehiclePos[2]));
@@ -62,6 +69,32 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
 
   useFrame((_, delta) => {
     delta = Math.min(delta, 0.05);
+    if (isRacingCamera && sharedVehiclePos) {
+      _raceTargetRotation.setFromEuler(raceEuler.current.set(0, sharedVehicleRotation?.current ?? vehicleRotation, 0, 'YXZ'));
+      if (!wasRacing.current) raceRotation.current.copy(_raceTargetRotation);
+      raceRotation.current.slerp(_raceTargetRotation, 1 - Math.exp(-6 * delta));
+      wasRacing.current = true;
+      _desiredCamPos.set(0, 7.5, -16).applyQuaternion(raceRotation.current).add(sharedVehiclePos.current);
+      // A steady follow offset avoids the spring stretching when a portal boosts the ship.
+      camera.position.lerp(_desiredCamPos, 1 - Math.exp(-14 * delta));
+      _targetLookAt.set(0, 0.4, 10).applyQuaternion(raceRotation.current).add(sharedVehiclePos.current);
+      currentLookAt.current.lerp(_targetLookAt, 1 - Math.exp(-14 * delta));
+      camera.up.set(0, 1, 0);
+      camera.lookAt(currentLookAt.current);
+      if (camera instanceof THREE.PerspectiveCamera) {
+        const fov = THREE.MathUtils.lerp(camera.fov, 58, 1 - Math.exp(-5 * delta));
+        if (Math.abs(fov - camera.fov) > 0.001) {
+          camera.fov = fov;
+          camera.updateProjectionMatrix();
+        }
+      }
+      prevPos.current.copy(sharedVehiclePos.current);
+      smoothedLookAhead.current.copy(currentLookAt.current);
+      return;
+    }
+    wasRacing.current = false;
+    raceUp.current.set(0, 1, 0);
+    camera.up.lerp(raceUp.current, 1 - Math.exp(-6 * delta)).normalize();
     // 1. LANDING & EXITING MODES: Smooth panoramic orbit around the entire solar system
     if (gameMode === 'landing' || gameMode === 'exiting') {
       landingAngle.current += delta * 0.12;

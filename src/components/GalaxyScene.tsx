@@ -8,6 +8,7 @@ import { CameraController } from './3d/CameraController';
 import { RapierPhysicsProvider, useRapier } from './3d/physics/RapierPhysicsContext';
 import { PhysicsSpacePlayground } from './3d/physics/PhysicsProps';
 import { LowPolyExplosions } from './3d/explosions/LowPolyExplosions';
+import { RaceSparks } from './3d/explosions/RaceSparks';
 import { CosmicDust } from './3d/CosmicDust';
 import { ShootingStars } from './3d/ShootingStars';
 import { CelestialHorizon } from './3d/CelestialHorizon';
@@ -25,8 +26,13 @@ import type { VehicleInput } from '../utils/gameInput';
 import { SceneDiagnostics } from './3d/SceneDiagnostics';
 import { prewarmQualityVariants } from '../utils/prewarmScene';
 import { setCelestialPaused } from '../utils/celestialCoords';
+import { raceSession } from '../utils/raceSession';
+import { RaceState } from '../utils/raceTrack';
+import { AsteroidTrack } from './3d/AsteroidTrack';
+import { GhostRacer } from './3d/GhostRacer';
 
 interface GalaxySceneProps {
+  raceState?: RaceState;
   gameMode: GameMode;
   vehiclePos: [number, number, number];
   vehicleRotation: number;
@@ -132,6 +138,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   onClearTargetPosition,
   graphicsQuality = 'mid',
   isRacing = false,
+  raceState = 'idle',
   currentCheckpoint = 0,
   onReachCheckpoint,
   onNearStartGate,
@@ -159,11 +166,23 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
   const [clampedDpr, setClampedDpr] = useState<number>(() => getClamped1080pDpr(graphicsQuality));
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
   // Keep transitions/prewarm running; a settled modal can reuse the last frame.
-  const scenePaused = isModalOpen && !isPreloading && !isRacing &&
+  const raceActive = raceState === 'countdown' || raceState === 'racing';
+  const wasRaceActive = useRef(false);
+  const [returningFromRace, setReturningFromRace] = useState(false);
+  useEffect(() => {
+    const needsReturn = wasRaceActive.current && !raceActive;
+    wasRaceActive.current = raceActive;
+    if (!needsReturn) return;
+    setReturningFromRace(true);
+    const timer = window.setTimeout(() => setReturningFromRace(false), 1800);
+    return () => { window.clearTimeout(timer); setReturningFromRace(false); };
+  }, [raceActive]);
+  const scenePaused = isModalOpen && !isPreloading && !raceActive && !returningFromRace &&
     (gameMode === 'landing' || gameMode === 'driving' || gameMode === 'inspecting');
 
   useEffect(() => {
     setCelestialPaused(scenePaused || !isPageVisible);
+    raceSession.clock.setPaused(scenePaused || !isPageVisible);
     return () => setCelestialPaused(false);
   }, [scenePaused, isPageVisible]);
 
@@ -261,6 +280,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 
           {/* Controlador de Câmera em Perspectiva Isométrica (FOV 30°) */}
           <CameraController
+            isRacingCamera={raceActive}
             gameMode={gameMode}
             vehiclePos={vehiclePos}
             vehicleRotation={vehicleRotation}
@@ -274,6 +294,8 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
               MOTOR DE FÍSICA RAPIER 3D (SISTEMA SOLAR CELESTE)
              ========================================================== */}
           <RapierPhysicsProvider gravity={[0, 0, 0]} paused={scenePaused}>
+            {raceActive && <><AsteroidTrack /><GhostRacer /></>}
+            <RaceSparks graphicsQuality={graphicsQuality} />
             {/* Asteroides, Satélites e Caixas de Carga Interativas com Rapier */}
             <PhysicsSpacePlayground
               graphicsQuality={graphicsQuality}
@@ -288,11 +310,12 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
               onSelectIsland={onSelectIsland}
               orbitActive={gameMode === 'landing'}
               sharedVehiclePos={sharedVehiclePos}
-              isModalOpen={isModalOpen}
+              isModalOpen={isModalOpen || raceActive}
             />
 
             {/* Nave Espacial com Corpo Rígido Dinâmico e Colisor Primitivo (Pré-montada e persistente na GPU) */}
             <SpaceVehicle
+              raceState={raceState}
               onBoundaryReturn={onBoundaryReturn}
               visible={gameMode !== 'landing'}
               position={vehiclePos}
@@ -338,6 +361,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
 
             {/* Argolas de Turbo Espacial Interativas (Speed Booster Rings) */}
             <SpeedRings
+              raceState={raceState}
               sharedVehiclePos={sharedVehiclePos}
               graphicsQuality={graphicsQuality}
               isRacing={isRacing}
@@ -354,7 +378,7 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
             />
 
             {/* Gerenciador de Explosões Low-Poly estilo Bruno Simon */}
-            <LowPolyExplosions graphicsQuality={graphicsQuality} />
+            <LowPolyExplosions graphicsQuality={graphicsQuality} enabled={!raceActive} />
 
             {/* Regiões Secretas e Easter Eggs Cósmicos */}
             <GoldenSecretAsteroid

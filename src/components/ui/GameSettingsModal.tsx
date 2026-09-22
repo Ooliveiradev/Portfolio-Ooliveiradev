@@ -1,3 +1,4 @@
+import { RANKING_KEY } from '../../utils/raceSession';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -69,7 +70,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
 
   const [raceLeaderboard, setRaceLeaderboard] = useState<RaceLeaderboardEntry[]>(() => {
     try {
-      const saved = localStorage.getItem('galactic_portfolio_race_ranking');
+      const saved = localStorage.getItem(RANKING_KEY);
       if (saved) {
         return JSON.parse(saved);
       }

@@ -12,7 +12,8 @@ import { SecretType } from './components/ui/SecretMessageModal';
 import { whispersService } from './services/whispersService';
 import { useKonamiCode } from './hooks/useKonamiCode';
 import { useFPSQualityGuard } from './hooks/useFPSQualityGuard';
-import { SPEED_RINGS } from './components/3d/SpeedRings';
+import { RACE_CHECKPOINTS } from './utils/raceTrack';
+import { raceSession, BEST_TIME_KEY, RANKING_KEY } from './utils/raceSession';
 import { Preloader } from './components/ui/Preloader';
 
 // Heavy UI Modals loaded on-demand (Tier 3 - #9: Code Splitting)
@@ -195,34 +196,6 @@ export default function App() {
     }
   }, [stats]);
 
-  // ESC key handler for closing modals or opening settings
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isPreloading || e.repeat) return;
-      if (e.key === 'Escape') {
-        if (showSettingsModal) {
-          setShowSettingsModal(false);
-        } else if (activeChallengeIsland) {
-          setActiveChallengeIsland(null);
-        } else if (gameMode === 'inspecting' || selectedIslandId) {
-          setGameMode('takeoff');
-        } else {
-          setSettingsModalTab('options');
-          setShowSettingsModal(true);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    isPreloading,
-    showSettingsModal,
-    activeChallengeIsland,
-    selectedIslandId,
-    previousGameMode,
-    gameMode,
-  ]);
-
   // Award XP helper
   const addXp = useCallback((amount: number) => {
     sounds.playCoin();
@@ -306,13 +279,12 @@ export default function App() {
   const [countdownNumber, setCountdownNumber] = useState<number>(3);
   const [raceElapsedTime, setRaceElapsedTime] = useState<number>(0);
   const [currentCheckpoint, setCurrentCheckpoint] = useState<number>(0);
-  const totalCheckpoints = 6;
-  const raceStartTimeRef = useRef<number>(0);
+  const totalCheckpoints = RACE_CHECKPOINTS.length;
 
   const [bestRaceTime, setBestRaceTime] = useState<number | null>(() => {
     try {
-      const saved = localStorage.getItem('galactic_portfolio_best_race_time');
-      if (saved) return parseFloat(saved);
+      const saved = Number(localStorage.getItem(BEST_TIME_KEY));
+      if (Number.isFinite(saved) && saved > 0) return saved;
     } catch {
       // fallback
     }
@@ -323,16 +295,25 @@ export default function App() {
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    raceSession.cancel();
   }, []);
 
   const handleStartRace = useCallback(() => {
+    if (raceSession.active) return;
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    raceSession.prepare();
+    setTargetVehiclePos(null);
+    setSelectedIslandId(null);
+    setGameMode('driving');
+    setCurrentCheckpoint(0);
+    setRaceElapsedTime(0);
     setRaceState('countdown');
     setCountdownNumber(3);
     sounds.playCountdownBeep(false);
 
     let count = 3;
     countdownIntervalRef.current = setInterval(() => {
+      if (document.hidden) return;
       count -= 1;
       if (count > 0) {
         setCountdownNumber(count);
@@ -340,22 +321,21 @@ export default function App() {
       } else if (count === 0) {
         setCountdownNumber(0);
         sounds.playCountdownBeep(true);
-      } else {
         clearInterval(countdownIntervalRef.current!);
         countdownIntervalRef.current = null;
+        raceSession.start();
         setRaceState('racing');
         setCurrentCheckpoint(0);
-        raceStartTimeRef.current = performance.now();
         setRaceElapsedTime(0);
       }
     }, 850);
   }, []);
 
   const handleReachCheckpoint = useCallback((index: number) => {
-    if (index === currentCheckpoint) {
+    if (raceSession.running && index === currentCheckpoint) {
       if (index === totalCheckpoints - 1) {
         // Race Finished!
-        const finalTime = (performance.now() - raceStartTimeRef.current) / 1000;
+        const finalTime = raceSession.finish();
         setRaceElapsedTime(finalTime);
         setRaceState('finished');
         sounds.playRaceVictory();
@@ -375,7 +355,7 @@ export default function App() {
         setBestRaceTime((prev) => {
           if (prev === null || finalTime < prev) {
             try {
-              localStorage.setItem('galactic_portfolio_best_race_time', finalTime.toString());
+              localStorage.setItem(BEST_TIME_KEY, finalTime.toString());
             } catch {
               // fallback
             }
@@ -390,12 +370,48 @@ export default function App() {
   }, [currentCheckpoint, totalCheckpoints, addXp, unlockBadge]);
 
   const handleCancelRace = useCallback(() => {
+    raceSession.cancel();
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     countdownIntervalRef.current = null;
     setRaceState('idle');
     setCurrentCheckpoint(0);
     setRaceElapsedTime(0);
   }, []);
+
+  // ESC key handler for closing modals or opening settings
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isPreloading || e.repeat || e.defaultPrevented) return;
+      if (e.key === 'Escape') {
+        if (raceState === 'countdown' || raceState === 'racing') {
+          e.preventDefault();
+          handleCancelRace();
+          return;
+        }
+        if (showSettingsModal) {
+          setShowSettingsModal(false);
+        } else if (activeChallengeIsland) {
+          setActiveChallengeIsland(null);
+        } else if (gameMode === 'inspecting' || selectedIslandId) {
+          setGameMode('takeoff');
+        } else {
+          setSettingsModalTab('options');
+          setShowSettingsModal(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    raceState,
+    handleCancelRace,
+    isPreloading,
+    showSettingsModal,
+    activeChallengeIsland,
+    selectedIslandId,
+    previousGameMode,
+    gameMode,
+  ]);
 
   const handleRecoverCargo = useCallback((_id: string) => {
     addXp(35);
@@ -411,12 +427,12 @@ export default function App() {
     };
 
     try {
-      const saved = localStorage.getItem('galactic_portfolio_race_ranking');
+      const saved = localStorage.getItem(RANKING_KEY);
       const currentList: RaceLeaderboardEntry[] = saved ? JSON.parse(saved) : [];
       const updated = [...currentList, newEntry]
         .sort((a, b) => a.timeSeconds - b.timeSeconds)
         .slice(0, 10);
-      localStorage.setItem('galactic_portfolio_race_ranking', JSON.stringify(updated));
+      localStorage.setItem(RANKING_KEY, JSON.stringify(updated));
     } catch {
       // fallback
     }
@@ -592,6 +608,7 @@ export default function App() {
 
   // Handle Island Selection / Cinematic Docking
   const handleSelectIsland = useCallback((id: IslandId) => {
+    if (raceSession.active) return;
     const island = ISLANDS_CONFIG.find((i) => i.id === id);
     if (!island) return;
 
@@ -640,6 +657,7 @@ export default function App() {
 
   // Handle Return to Landing Screen with cinematic fly-out
   const handleReturnToLanding = () => {
+    handleCancelRace();
     sounds.playClick();
     setGameMode('exiting');
   };
@@ -750,6 +768,10 @@ export default function App() {
     showWhispersListModal ||
     raceState === 'finished';
 
+  useEffect(() => {
+    if (raceSession.active && (isModalOpen || gameMode !== 'driving')) handleCancelRace();
+  }, [isModalOpen, gameMode, handleCancelRace]);
+
   useFPSQualityGuard({
     currentQuality: graphicsQuality,
     onAutoAdjustQuality: setGraphicsQuality,
@@ -775,6 +797,7 @@ export default function App() {
     <div data-graphics-quality={graphicsQuality} className="relative w-screen h-screen overflow-hidden bg-[#070b14] text-white">
       {/* 3D WebGL Three.js Galaxy Scene */}
       <GalaxyScene
+        raceState={raceState}
         gameMode={gameMode}
         vehiclePos={INITIAL_VEHICLE_POSITION}
         vehicleRotation={0}
@@ -806,7 +829,7 @@ export default function App() {
       />
 
       {/* Screen-Edge Lens Blur & Vignette (Tilt-Shift periférico estilo Bruno Simon) */}
-      <ScreenEdgeBlur graphicsQuality={graphicsQuality} />
+      <ScreenEdgeBlur graphicsQuality={graphicsQuality} enabled={raceState !== 'countdown' && raceState !== 'racing'} />
       <BoundaryAlert active={gameMode === 'driving' && !isModalOpen} />
 
       {/* Tela 0: Preloader Cinematográfico de Inicialização e Certificação de Sistemas */}
@@ -853,7 +876,7 @@ export default function App() {
             recentXpGained={recentXpGained}
             crystals={crystals}
             targetVehiclePos={targetVehiclePos}
-            isRacing={raceState === 'racing'}
+            isRacing={raceState === 'racing' || raceState === 'countdown'}
             currentCheckpoint={currentCheckpoint}
           />
 
@@ -861,7 +884,7 @@ export default function App() {
           {gameMode === 'driving' && (
             <MobileControls
               virtualInputRef={virtualInputRef}
-              enabled={!isModalOpen}
+              enabled={!isModalOpen && raceState !== 'countdown'}
               onDockNearest={handleDockNearest}
             />
           )}
@@ -873,11 +896,10 @@ export default function App() {
             raceState={raceState}
             countdownNumber={countdownNumber}
             elapsedTime={raceElapsedTime}
-            startedAt={raceStartTimeRef.current}
             currentCheckpoint={currentCheckpoint}
             totalCheckpoints={totalCheckpoints}
             bestTime={bestRaceTime}
-            targetRingPosition={SPEED_RINGS[currentCheckpoint]?.position}
+            targetRingPosition={RACE_CHECKPOINTS[currentCheckpoint]?.position}
             onStartRace={handleStartRace}
             onCancelRace={handleCancelRace}
             onSaveScore={handleSaveRaceScore}

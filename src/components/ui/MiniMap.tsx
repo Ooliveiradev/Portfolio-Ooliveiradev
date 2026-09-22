@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from './MaterialIcon';
 import { IslandConfig, IslandId, CrystalCollectible, CosmicWhisper } from '../../types';
 import { sounds } from '../../audio/soundManager';
-import { SPEED_RINGS } from '../3d/SpeedRings';
+import { SPEED_RINGS, RACE_GATES, RACE_CHECKPOINTS, raceCurve } from '../../utils/raceTrack';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
 import { getVehiclePosition, getVehicleRotation } from '../../utils/vehicleTelemetry';
 import { useVisibleTick } from '../../hooks/useVisibleTick';
@@ -32,6 +32,11 @@ const ASTEROIDS = [
   { x: -14, z: -20, r: 1.7 },
 ];
 
+const RACE_PATH = raceCurve.getSpacedPoints(160).map((point, index) => {
+  const p = toRadarPoint(point.x, point.z);
+  return `${index === 0 ? 'M' : 'L'}${p.x},${p.y}`;
+}).join(' ') + ' Z';
+
 export const MiniMap: React.FC<MiniMapProps> = ({
   islands,
   visitedIslands,
@@ -46,6 +51,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const [isLargeSize, setIsLargeSize] = useState(false);
   const [hoveredIsland, setHoveredIsland] = useState<IslandConfig | null>(null);
+
+  useEffect(() => {
+    if (isRacing && window.matchMedia('(max-width: 639px)').matches) setIsExpanded(false);
+  }, [isRacing]);
 
   // Real-time radar refresh for celestial orbit tracking even when ship is stationary
   const radarTick = useVisibleTick(isExpanded ? 100 : 250);
@@ -75,6 +84,20 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   }, [targetVehiclePos, selectedIslandId, islands, radarTick]);
 
   const visitedCount = visitedIslands.length;
+
+  if (isRacing) {
+    const next = RACE_CHECKPOINTS[currentCheckpoint];
+    const target = next ? toRadarPoint(next.position[0], next.position[2]) : null;
+    return <div className="w-28 sm:w-36 rounded-2xl border border-slate-700/60 bg-slate-950/75 p-1 pointer-events-none">
+      <svg viewBox="0 0 200 200" aria-label="Mapa do circuito" role="img" className="w-full">
+        <path d={RACE_PATH} fill="none" stroke="#476b7b" strokeWidth="5" />
+        {target && <circle cx={target.x} cy={target.y} r="5" fill="#fbbf24" />}
+        <g transform={`translate(${clampedShip.x} ${clampedShip.y}) rotate(${headingAngleDeg})`}>
+          <path d="M0 -6 L4 5 L0 3 L-4 5 Z" fill="#e0f2fe" stroke="#38bdf8" strokeWidth="1" />
+        </g>
+      </svg>
+    </div>;
+  }
 
   return (
     <div className="pointer-events-auto flex flex-col items-end select-none">
@@ -337,9 +360,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                 )}
 
                 {/* 6.5 Speed Rings & Active Race Checkpoint Target */}
-                {SPEED_RINGS.map((ring, idx) => {
+                {isRacing && <path d={RACE_PATH} fill="none" stroke="#67e8f9" strokeWidth="2.5" strokeOpacity="0.5" />}
+                {(isRacing ? RACE_GATES : SPEED_RINGS).map((ring, idx) => {
                   const pos = toSvg(ring.position[0], ring.position[2]);
-                  const isCurrentTarget = isRacing && currentCheckpoint === idx;
+                  const isCurrentTarget = isRacing && RACE_CHECKPOINTS[currentCheckpoint]?.id === idx;
                   const isStart = ring.id === 0;
 
                   return (
@@ -391,12 +415,12 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                 })}
 
                 {/* Race Flight Corridor Line to Target Ring */}
-                {isRacing && SPEED_RINGS[currentCheckpoint] && (
+                {isRacing && RACE_CHECKPOINTS[currentCheckpoint] && (
                   <line
                     x1={clampedShip.x}
                     y1={clampedShip.y}
-                    x2={toSvg(SPEED_RINGS[currentCheckpoint].position[0], SPEED_RINGS[currentCheckpoint].position[2]).x}
-                    y2={toSvg(SPEED_RINGS[currentCheckpoint].position[0], SPEED_RINGS[currentCheckpoint].position[2]).y}
+                    x2={toSvg(RACE_CHECKPOINTS[currentCheckpoint].position[0], RACE_CHECKPOINTS[currentCheckpoint].position[2]).x}
+                    y2={toSvg(RACE_CHECKPOINTS[currentCheckpoint].position[0], RACE_CHECKPOINTS[currentCheckpoint].position[2]).y}
                     stroke="#fde047"
                     strokeWidth="1.1"
                     strokeDasharray="2.5 1.5"

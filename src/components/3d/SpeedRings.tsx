@@ -1,62 +1,15 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../audio/soundManager';
 import { GraphicsQuality } from '../../types';
 
-export interface SpeedRingDef {
-  id: number;
-  position: [number, number, number];
-  rotationY: number; // yaw angle in radians
-  forward: [number, number, number];
-}
-
-export const SPEED_RINGS: SpeedRingDef[] = [
-  // 0. LARGADA (Ao lado do Sol / Marco Zero)
-  {
-    id: 0,
-    position: [18, 1.0, 18],
-    rotationY: 0.78,
-    forward: [Math.sin(0.78), 0, Math.cos(0.78)],
-  },
-  // 1. Corredor Sol -> Ilha dos Projetos (R=48)
-  {
-    id: 1,
-    position: [46, 1.0, -14],
-    rotationY: 2.2,
-    forward: [Math.sin(2.2), 0, Math.cos(2.2)],
-  },
-  // 2. Corredor Projetos -> Ilha da Carreira (R=66)
-  {
-    id: 2,
-    position: [34, 1.0, -58],
-    rotationY: -2.8,
-    forward: [Math.sin(-2.8), 0, Math.cos(-2.8)],
-  },
-  // 3. Corredor Carreira -> Ilha de Tecnologias (R=84)
-  {
-    id: 3,
-    position: [-36, 1.0, -76],
-    rotationY: -1.9,
-    forward: [Math.sin(-1.9), 0, Math.cos(-1.9)],
-  },
-  // 4. Corredor Tecnologias -> Ilha Acadêmica (R=102)
-  {
-    id: 4,
-    position: [-88, 1.0, 38],
-    rotationY: -0.6,
-    forward: [Math.sin(-0.6), 0, Math.cos(-0.6)],
-  },
-  // 5. CHEGADA: Slingshot Acadêmica -> Portal do Desenvolvedor / Sol
-  {
-    id: 5,
-    position: [-22, 1.0, 26],
-    rotationY: 1.2,
-    forward: [Math.sin(1.2), 0, Math.cos(1.2)],
-  },
-];
+import { SPEED_RINGS, RACE_GATES, RACE_CHECKPOINTS, RACE_CHECKPOINT_HALF_WIDTH, raceCurve, crossGate, RaceState } from '../../utils/raceTrack';
+import { createTrackFrame, sampleTrackFrame } from '../../utils/raceWallGuide';
+export { SPEED_RINGS } from '../../utils/raceTrack';
 
 interface SpeedRingsProps {
+  raceState?: RaceState;
   sharedVehiclePos: React.MutableRefObject<THREE.Vector3>;
   graphicsQuality?: GraphicsQuality;
   isRacing?: boolean;
@@ -69,10 +22,13 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
   sharedVehiclePos,
   graphicsQuality = 'mid',
   isRacing = false,
+  raceState = 'idle',
   currentCheckpoint = 0,
   onReachCheckpoint,
   onNearStartGate,
 }) => {
+  const raceActive = raceState === 'countdown' || raceState === 'racing';
+  const rings = raceActive ? RACE_GATES : SPEED_RINGS;
   const ringsGroupRef = useRef<THREE.Group>(null);
   const ripplesRef = useRef<(THREE.Mesh | null)[]>([]);
   const fieldMatsRef = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
@@ -80,26 +36,35 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
   const targetGroundPingRef = useRef<THREE.Mesh>(null);
   const waypointGroupRef = useRef<THREE.Group>(null);
   const corridorGroupRef = useRef<THREE.Group>(null);
+  const trackFrame = useRef(createTrackFrame());
+  const markerPoint = useMemo(() => new THREE.Vector3(), []);
   const innerRingsRef = useRef<(THREE.Group | null)[]>([]);
 
   // State per ring: cooldown & shockwave timer
   const ringStates = useMemo(() => {
-    return SPEED_RINGS.map(() => ({
+    return rings.map(() => ({
       cooldown: 0,
       rippleProgress: 1.0,
     }));
-  }, []);
+  }, [rings]);
 
   const wasNearRef = useRef(false);
+  const previousShip = useRef(new THREE.Vector3());
+  const crossingReady = useRef(false);
+  useEffect(() => {
+    crossingReady.current = false;
+    ringStates.forEach(state => { state.cooldown = 0; });
+  }, [raceState, ringStates]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
     const time = Date.now() * 0.003;
     const ship = sharedVehiclePos.current;
+    if (!crossingReady.current) { previousShip.current.copy(ship); crossingReady.current = true; }
 
     // Counter-rotate mechanical gyro rings inside every jump gate
     innerRingsRef.current.forEach((innerGroup, idx) => {
-      if (innerGroup) {
+      if (innerGroup && !raceActive) {
         innerGroup.rotation.z = time * (idx % 2 === 0 ? 0.75 : -0.75);
       }
     });
@@ -117,7 +82,7 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
     }
 
     // Animate rings, detect crossing and handle shockwaves
-    SPEED_RINGS.forEach((ring, idx) => {
+    rings.forEach((ring, idx) => {
       const state = ringStates[idx];
       const rippleMesh = ripplesRef.current[idx];
       const fieldMat = fieldMatsRef.current[idx];
@@ -132,29 +97,37 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
       const dz = ship.z - ring.position[2];
       const distSq = dx * dx + dy * dy + dz * dz;
 
-      const isCurrentTarget = isRacing && currentCheckpoint === idx;
+      const isCurrentTarget = isRacing && RACE_CHECKPOINTS[currentCheckpoint]?.id === idx;
 
       // Ring activation trigger (within 3.2 units of ring center)
-      if (distSq < 3.2 * 3.2 && state.cooldown <= 0) {
+      const crossingRadius = crossGate(previousShip.current, ship, ring, isRacing ? RACE_CHECKPOINT_HALF_WIDTH : 3.05);
+      const perfect = crossingRadius !== null && crossingRadius <= 2.2;
+      const previousDistanceSq = (previousShip.current.x - ring.position[0]) ** 2 +
+        (previousShip.current.y - ring.position[1]) ** 2 + (previousShip.current.z - ring.position[2]) ** 2;
+      const activated = isRacing ? isCurrentTarget && crossingRadius !== null :
+        distSq < 3.2 * 3.2 && previousDistanceSq >= 3.2 * 3.2;
+      if (raceState !== 'countdown' && raceState !== 'finished' && activated && state.cooldown <= 0) {
         state.cooldown = 1.8;
-        state.rippleProgress = 0.0;
+        state.rippleProgress = raceActive ? 1 : 0;
 
         // Sound effect
         sounds.playSpeedRing();
 
         // Physical boost event for Rapier vehicle: propel in the direction the rocket is facing
-        window.dispatchEvent(
+        if (!isRacing || perfect) window.dispatchEvent(
           new CustomEvent('app:boost-vehicle', {
             detail: {
-              useRocketFacing: true,
-              force: 680,
+              useRocketFacing: !isRacing,
+              direction: ring.forward,
+              force: perfect ? 420 : 180,
+              perfect: isRacing && perfect,
             },
           })
         );
 
         // Notify race system if racing and hit correct checkpoint
-        if (isRacing && currentCheckpoint === idx) {
-          onReachCheckpoint?.(idx);
+        if (isRacing && RACE_CHECKPOINTS[currentCheckpoint]?.id === idx) {
+          onReachCheckpoint?.(currentCheckpoint);
         }
       }
 
@@ -177,7 +150,9 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
 
       // Energy field pulse styling
       if (fieldMat) {
-        if (isCurrentTarget) {
+        if (raceActive) {
+          fieldMat.opacity = 0;
+        } else if (isCurrentTarget) {
           // Intense golden/cyan beacon pulse for race target ring
           const activePulse = 0.55 + Math.sin(time * 3.0) * 0.25;
           fieldMat.opacity = activePulse;
@@ -188,8 +163,10 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
       }
     });
 
+    previousShip.current.copy(ship);
+
     // Directional guidance to current target ring (3D Arrow, Runway Corridor, Beacon & Sonar)
-    const targetRing = isRacing ? SPEED_RINGS[currentCheckpoint] : null;
+    const targetRing = isRacing ? RACE_CHECKPOINTS[currentCheckpoint] : null;
     if (targetRing) {
       const dx = targetRing.position[0] - ship.x;
       const dz = targetRing.position[2] - ship.z;
@@ -197,7 +174,7 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
 
       // 1. Waypoint Arrow hovering directly over the vehicle
       if (waypointGroupRef.current) {
-        waypointGroupRef.current.visible = true;
+        waypointGroupRef.current.visible = false;
         const hoverY = ship.y + 2.0 + Math.sin(time * 3.5) * 0.12;
         waypointGroupRef.current.position.set(ship.x, hoverY, ship.z);
         waypointGroupRef.current.rotation.set(0, targetAngle, 0);
@@ -208,16 +185,14 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
         corridorGroupRef.current.visible = true;
         const children = corridorGroupRef.current.children;
         const count = children.length;
+        const progress = sampleTrackFrame(ship.x, ship.z, trackFrame.current).distance;
 
         for (let i = 0; i < count; i++) {
           const marker = children[i] as THREE.Mesh;
           const phase = (i / count + (time * 0.4) % 1.0) % 1.0;
           const t = 0.08 + phase * 0.84;
-          marker.position.set(
-            ship.x + dx * t,
-            0.65 + Math.sin(t * Math.PI) * 0.5,
-            ship.z + dz * t
-          );
+          raceCurve.getPointAt((progress + (i + 1) * 0.009) % 1, markerPoint);
+          marker.position.set(markerPoint.x, -0.05, markerPoint.z);
           const s = 0.28 + Math.sin(t * Math.PI) * 0.35;
           marker.scale.set(s, s, s);
         }
@@ -225,7 +200,7 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
 
       // 3. Tall sky-piercing beacon column (80u height)
       if (targetBeaconRef.current) {
-        targetBeaconRef.current.visible = true;
+        targetBeaconRef.current.visible = false;
         targetBeaconRef.current.position.set(
           targetRing.position[0],
           targetRing.position[1] + 40,
@@ -239,7 +214,7 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
 
       // 4. Concentric floor sonar wave expanding at the target ring
       if (targetGroundPingRef.current) {
-        targetGroundPingRef.current.visible = true;
+        targetGroundPingRef.current.visible = false;
         targetGroundPingRef.current.position.set(
           targetRing.position[0],
           0.2,
@@ -360,15 +335,34 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
         />
       </mesh>
 
-      {SPEED_RINGS.map((ring, idx) => {
+      {rings.map((ring, idx) => {
         const isStartRing = ring.id === 0;
-        const isCurrentTarget = isRacing && currentCheckpoint === idx;
+        const isCurrentTarget = isRacing && RACE_CHECKPOINTS[currentCheckpoint]?.id === idx;
+
+        if (raceActive) {
+          const color = isCurrentTarget ? '#fbbf24' : isStartRing ? '#fde68a' : '#49889c';
+          return <group key={ring.id} position={ring.position} rotation={[0, ring.rotationY, 0]}>
+            {[-15.8, 15.8].map(side => <mesh key={side} position={[side, 1.6, 0]}>
+              <boxGeometry args={[0.18, 5.5, 0.18]} /><meshBasicMaterial color={color} />
+            </mesh>)}
+            <mesh position={[0, 4.3, 0]}>
+              <boxGeometry args={[31.6, 0.16, 0.16]} /><meshBasicMaterial color={color} />
+            </mesh>
+            <mesh position={[0, -1.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[30, 0.4]} /><meshBasicMaterial color={color} transparent opacity={0.65} />
+            </mesh>
+            <mesh position={[0, 4.3, 0]}>
+              <boxGeometry args={[4.4, 0.3, 0.3]} /><meshBasicMaterial color={isCurrentTarget ? '#fff3ba' : '#77a9b9'} />
+            </mesh>
+          </group>;
+        }
 
         return (
           <group
             key={ring.id}
             position={ring.position}
             rotation={[0, ring.rotationY, 0]}
+            scale={raceActive ? [4.9, 1.3, 1] : [1, 1, 1]}
           >
             {/* Outer Heavy Octagonal Jump Gate Chassis (Machined Dark Gunmetal) */}
             <mesh castShadow={graphicsQuality !== 'low'}>
@@ -474,7 +468,7 @@ const SpeedRingsComponent: React.FC<SpeedRingsProps> = ({
             </mesh>
 
             {/* Concentric Inner Energy Vortex Ripple Ring */}
-            <mesh rotation={[0, 0, idx * 0.45]}>
+            <mesh rotation={[0, 0, idx * 0.45]} visible={!raceActive}>
               <ringGeometry args={[1.5, 1.7, 24]} />
               <meshBasicMaterial
                 color={isStartRing ? '#fde047' : isCurrentTarget ? '#fbbf24' : '#38bdf8'}
