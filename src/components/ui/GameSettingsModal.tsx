@@ -285,10 +285,14 @@ Confira em: ${window.location.href}`;
                 <button
                   type="button"
                   onClick={() => { sounds.playClick(); onAvatarClick?.(); }}
-                  className="w-20 h-20 md:w-40 md:h-40 rounded-full border border-slate-700/80 bg-[#0b1018] flex items-center justify-center shrink-0 cursor-pointer hover:border-sky-400/60 transition-colors"
+                  className="w-20 h-20 md:w-40 md:h-40 rounded-full border border-slate-700/80 bg-[#0b1018] overflow-hidden shrink-0 cursor-pointer hover:border-sky-400/60 transition-colors"
                   aria-label="Avatar de Danilo Ribeiro"
                 >
-                  <span className="text-4xl md:text-6xl" aria-hidden="true">👨‍💻</span>
+                  <img
+                    src="assets/danilo-ribeiro.jpg"
+                    alt="Danilo Ribeiro"
+                    className="h-full w-full object-cover object-center transition-transform duration-300 hover:scale-105"
+                  />
                 </button>
                 <div className="md:text-center">
                   <p className="text-sm font-semibold text-slate-100">{PERSONAL_INFO.name}</p>

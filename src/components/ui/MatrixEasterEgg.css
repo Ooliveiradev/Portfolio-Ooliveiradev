@@ -1,0 +1,53 @@
+.matrix-easter-egg {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #020a08a6;
+  color: #ddfff0;
+  font-family: 'JetBrains Mono', monospace;
+}
+.matrix-rain, .matrix-vignette { position: absolute; inset: 0; width: 100%; height: 100%; }
+.matrix-vignette {
+  background: radial-gradient(ellipse at center, transparent 10%, #020a081a 60%, #020a0866 100%);
+}
+.matrix-terminal {
+  position: relative;
+  width: min(100%, 490px);
+  overflow: hidden;
+  border: 1px solid #56e6a84d;
+  border-radius: 12px;
+  background: #04110ff5;
+  box-shadow: 0 24px 90px #000a, 0 0 65px #16b87a14;
+}
+.matrix-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 20px;
+  border-bottom: 1px solid #56e6a81f;
+  color: #76a18f;
+  font-size: 10px;
+}
+.matrix-terminal-bar > span:last-child { margin-left: auto; font-size: 8px; letter-spacing: 1px; }
+.matrix-terminal-lights { display: flex; gap: 5px; }
+.matrix-terminal-lights i { width: 5px; height: 5px; border-radius: 50%; background: #4f7865; }
+.matrix-terminal-lights i:last-child { background: #72efb3; }
+.matrix-terminal-body { padding: clamp(24px, 5vw, 38px); }
+.matrix-command { color: #7d9e8f; font-size: 11px; margin: 0 0 32px; }
+.matrix-command span { color: #6befb1; margin-right: 8px; }
+.matrix-access { color: #6befb1; letter-spacing: 3px; font-size: 10px; margin-bottom: 12px; }
+.matrix-terminal h2 { font-size: clamp(25px, 5vw, 36px); line-height: 1.25; letter-spacing: -1.5px; font-weight: 500; }
+.matrix-cursor { color: #6befb1; animation: matrix-cursor 1.2s steps(2, jump-none) infinite; }
+.matrix-description { margin-top: 20px; color: #9fb5aa; font-size: 12px; line-height: 1.9; }
+.matrix-terminal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 32px; padding-top: 20px; border-top: 1px solid #56e6a81f; }
+.matrix-terminal-footer span { color: #76a18f; font-size: 8px; letter-spacing: 1.3px; }
+.matrix-terminal-footer strong { color: #8bfbc0; font-size: 13px; white-space: nowrap; }
+.matrix-session-progress { height: 2px; background: #67e8a6; transform-origin: left; animation: matrix-session 6.5s linear forwards; opacity: .6; }
+@keyframes matrix-session { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes matrix-cursor { to { opacity: .2; } }
+@media (max-width: 420px) { .matrix-terminal-bar > span:last-child { display: none; } }
+@media (prefers-reduced-motion: reduce) { .matrix-cursor { animation: none; } }
