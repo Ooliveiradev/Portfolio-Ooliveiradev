@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
 import { ProjectDetailModal } from './ProjectDetailModal';
@@ -8,14 +8,9 @@ import {
   ProjectItem,
   UserStats
 } from '../../types';
-import {
-  PERSONAL_INFO,
-  PROJECTS_DATA,
-  EXPERIENCE_DATA,
-  EDUCATION_DATA,
-  SKILLS_DATA,
-} from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
+import { useI18n } from '../../i18n/I18nProvider';
+import { getPortfolioContent } from '../../i18n/portfolio';
 
 interface IslandModalProps {
   island: IslandConfig;
@@ -32,6 +27,13 @@ export const IslandModal: React.FC<IslandModalProps> = ({
   onStartChallenge,
   onInspectProject,
 }) => {
+  const { locale } = useI18n();
+  const content = useMemo(() => getPortfolioContent(locale), [locale]);
+  const PERSONAL_INFO = content.personalInfo;
+  const PROJECTS_DATA = content.projects;
+  const EXPERIENCE_DATA = content.experience;
+  const EDUCATION_DATA = content.education;
+  const SKILLS_DATA = content.skills;
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [contactMessage, setContactMessage] = useState('');
@@ -82,7 +84,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
 
     // Dispara abertura no cliente de email para o endereço de Danilo
     const mailtoUrl = `mailto:${PERSONAL_INFO.email}?subject=${encodeURIComponent(
-      'Contato via Portfólio 3D - Danilo Ribeiro'
+      locale === 'pt' ? 'Contato via Portfólio 3D - Danilo Ribeiro' : 'Contact from 3D Portfolio - Danilo Ribeiro'
     )}&body=${encodeURIComponent(contactMessage)}`;
     window.location.href = mailtoUrl;
 

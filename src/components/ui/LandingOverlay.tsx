@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
 import { IslandConfig, IslandId } from '../../types';
-import { PERSONAL_INFO } from '../../data/portfolioData';
 import { sounds } from '../../audio/soundManager';
+import { useI18n } from '../../i18n/I18nProvider';
+import { getPortfolioContent } from '../../i18n/portfolio';
+import { LanguageToggle } from './LanguageToggle';
 
 interface LandingOverlayProps {
   onStartGame: () => void;
@@ -20,6 +22,8 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
   onSelectIsland,
   onOpenSettings,
 }) => {
+  const { locale } = useI18n();
+  const PERSONAL_INFO = useMemo(() => getPortfolioContent(locale).personalInfo, [locale]);
   const handleStart = () => {
     sounds.playBoost();
     onStartGame();
@@ -35,6 +39,8 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
         className="flex items-center justify-end w-full max-w-7xl mx-auto pointer-events-auto"
       >
         {/* Top Right: Single Clean Settings & Menu Button */}
+        <div className="flex items-center gap-2">
+        <LanguageToggle compact />
         {onOpenSettings && (
           <button
             onClick={() => {
@@ -48,6 +54,7 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
             <span className="hidden sm:inline">Menu</span>
           </button>
         )}
+        </div>
       </motion.div>
 
       {/* Minimalist Center Hero */}

@@ -1,12 +1,14 @@
 import { RANKING_KEY } from '../../utils/raceSession';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
 import { UserStats, CrystalCollectible, LeaderboardEntry, RaceLeaderboardEntry, GraphicsQuality } from '../../types';
-import { PERSONAL_INFO, BADGES_DATA, INITIAL_LEADERBOARD, INITIAL_RACE_LEADERBOARD } from '../../data/portfolioData';
 import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetector';
+import { LanguageToggle } from './LanguageToggle';
+import { useI18n } from '../../i18n/I18nProvider';
+import { getPortfolioContent } from '../../i18n/portfolio';
 
 export type SettingsTab = 'home' | 'options' | 'controls' | 'achievements' | 'ranking' | 'behind' | 'about';
 
@@ -41,6 +43,12 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   onUpdateStats,
   onAvatarClick,
 }) => {
+  const { locale, t } = useI18n();
+  const content = useMemo(() => getPortfolioContent(locale), [locale]);
+  const PERSONAL_INFO = content.personalInfo;
+  const BADGES_DATA = content.badges;
+  const INITIAL_LEADERBOARD = content.leaderboard;
+  const INITIAL_RACE_LEADERBOARD = content.raceLeaderboard;
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>('keyboard');
 
@@ -85,6 +93,13 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   const collectedCount = crystals.filter((c) => c.collected).length;
 
   const getRankTitle = (xp: number) => {
+    if (locale === 'en') {
+      if (xp >= 1400) return 'Supreme Commander';
+      if (xp >= 1000) return 'Star Pilot';
+      if (xp >= 600) return 'Galactic Engineer';
+      if (xp >= 300) return 'Cosmic Navigator';
+      return 'Star Cadet';
+    }
     if (xp >= 1400) return 'Comandante Supremo';
     if (xp >= 1000) return 'Piloto Estelar';
     if (xp >= 600) return 'Engenheiro Galáctico';
@@ -166,12 +181,12 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
             spread: 70,
             origin: { y: 0.5 },
           });
-          alert('Progresso galáctico restaurado com sucesso!');
+          alert(locale === 'pt' ? 'Progresso galáctico restaurado com sucesso!' : 'Galactic progress restored successfully!');
         } else {
-          alert('Arquivo de save inválido.');
+          alert(locale === 'pt' ? 'Arquivo de save inválido.' : 'Invalid save file.');
         }
       } catch {
-        alert('Erro ao ler arquivo de progresso.');
+        alert(locale === 'pt' ? 'Erro ao ler arquivo de progresso.' : 'Could not read the progress file.');
       }
     };
     reader.readAsText(file);
@@ -188,7 +203,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
       score: stats.xp,
       badgesCount: stats.unlockedBadges.length,
       title: getRankTitle(stats.xp),
-      date: 'Hoje',
+      date: locale === 'pt' ? 'Hoje' : 'Today',
     };
 
     const updated = [...leaderboard, newEntry]
@@ -213,12 +228,19 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   };
 
   const handleCopySummary = () => {
-    const text = `🚀 Explorei o Universo 3D de ${PERSONAL_INFO.name}!
+    const text = locale === 'pt'
+      ? `🚀 Explorei o Universo 3D de ${PERSONAL_INFO.name}!
 🏆 Pontuação: ${stats.xp} XP (${getRankTitle(stats.xp)})
 🎖️ Conquistas Desbloqueadas: ${stats.unlockedBadges.length}/${BADGES_DATA.length}
-💎 Cristais Coletados: ${collectedCount}/{crystals.length}
+💎 Cristais Coletados: ${collectedCount}/${crystals.length}
 🌌 Ilhas Visitadas: ${stats.visitedIslands.length}/5
-Confira em: ${window.location.href}`;
+Confira em: ${window.location.href}`
+      : `🚀 I explored ${PERSONAL_INFO.name}'s 3D Universe!
+🏆 Score: ${stats.xp} XP (${getRankTitle(stats.xp)})
+🎖️ Achievements Unlocked: ${stats.unlockedBadges.length}/${BADGES_DATA.length}
+💎 Crystals Collected: ${collectedCount}/${crystals.length}
+🌌 Islands Visited: ${stats.visitedIslands.length}/5
+Explore it at: ${window.location.href}`;
 
     navigator.clipboard.writeText(text);
     setCopiedSummary(true);
@@ -337,6 +359,13 @@ Confira em: ${window.location.href}`;
                   </h2>
 
                   <div className="space-y-2.5 font-sans">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 border border-slate-800/60">
+                      <div>
+                        <span className="text-sm font-medium text-slate-200 font-mono block">{t('language')}</span>
+                        <span className="text-[11px] text-slate-400">PT-BR / English</span>
+                      </div>
+                      <LanguageToggle />
+                    </div>
                     {/* Audio Option */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
                       <div>

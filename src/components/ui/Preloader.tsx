@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { sounds } from '../../audio/soundManager';
-import { PERSONAL_INFO } from '../../data/portfolioData';
 import './Preloader.css';
+import { useI18n } from '../../i18n/I18nProvider';
+import { getPortfolioContent } from '../../i18n/portfolio';
 
 interface PreloaderProps {
   isSceneReady: boolean;
@@ -10,6 +11,8 @@ interface PreloaderProps {
 }
 
 export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }) => {
+  const { locale } = useI18n();
+  const PERSONAL_INFO = useMemo(() => getPortfolioContent(locale).personalInfo, [locale]);
   const [fontsReady, setFontsReady] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const reducedMotion = useReducedMotion();

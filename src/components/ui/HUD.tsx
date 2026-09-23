@@ -5,6 +5,7 @@ import { IslandConfig, IslandId, UserStats, CrystalCollectible, CosmicWhisper } 
 import { sounds } from '../../audio/soundManager';
 import { MiniMap } from './MiniMap';
 import { NearbyTransmission } from './NearbyTransmission';
+import { LanguageToggle } from './LanguageToggle';
 
 interface HUDProps {
   stats: UserStats;
@@ -115,6 +116,7 @@ export const HUD: React.FC<HUDProps> = ({
         {/* Minimalist Top Right Toolbar: Menu Inicial e Configurações */}
         <div className="flex flex-col items-end gap-2.5">
           <div className="flex items-center gap-2">
+            <LanguageToggle compact />
             {/* Transmit Cosmic Whisper Button */}
             {onOpenDropWhisper && (
               <button

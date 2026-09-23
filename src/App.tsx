@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GalaxyScene } from './components/GalaxyScene';
 import { LandingOverlay } from './components/ui/LandingOverlay';
@@ -25,9 +25,7 @@ const WhisperReaderModal = lazy(() => import('./components/ui/WhisperReaderModal
 const DropWhisperModal = lazy(() => import('./components/ui/DropWhisperModal').then(m => ({ default: m.DropWhisperModal })));
 const WhispersListModal = lazy(() => import('./components/ui/WhispersListModal').then(m => ({ default: m.WhispersListModal })));
 import {
-  ISLANDS_CONFIG,
   CRYSTALS_DATA,
-  BADGES_DATA,
   formatRaceTime,
 } from './data/portfolioData';
 import { IslandId, UserStats, CrystalCollectible, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
@@ -38,9 +36,15 @@ import { getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
 import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
 import { createVehicleInput, isEditableTarget } from './utils/gameInput';
+import { useI18n } from './i18n/I18nProvider';
+import { getPortfolioContent } from './i18n/portfolio';
 import { hasCollectedAllCrystals } from './utils/achievements';
 
 export default function App() {
+  const { locale } = useI18n();
+  const localizedContent = useMemo(() => getPortfolioContent(locale), [locale]);
+  const islands = localizedContent.islands;
+  const badges = localizedContent.badges;
   // Preloading & System Certification: certifica Rapier WASM, shaders GPU e fontes antes de liberar jogabilidade
   const [isPreloading, setIsPreloading] = useState<boolean>(true);
   const [isSceneReady, setIsSceneReady] = useState<boolean>(false);
@@ -234,7 +238,7 @@ export default function App() {
         return false;
       }
 
-      const badge = BADGES_DATA.find((item) => item.id === badgeId);
+      const badge = badges.find((item) => item.id === badgeId);
       if (!badge) return false;
 
       // 2. Mark immediately in synchronous ref so no concurrent frame/event can re-trigger
@@ -277,7 +281,7 @@ export default function App() {
 
       return true;
     },
-    [addXp]
+    [addXp, badges]
   );
 
   // Cosmic Time Trial Race State
@@ -548,8 +552,10 @@ export default function App() {
       });
       addXp(150);
       window.dispatchEvent(new CustomEvent('app:boost-vehicle'));
-      alert('🎮 CÓDIGO KONAMI ATIVADO! MODO HYPERDRIVE ARCO-ÍRIS SUPREMO (+150 XP)!');
-    }, [addXp])
+      alert(locale === 'pt'
+        ? '🎮 CÓDIGO KONAMI ATIVADO! MODO HYPERDRIVE ARCO-ÍRIS SUPREMO (+150 XP)!'
+        : '🎮 KONAMI CODE ACTIVATED! ULTIMATE RAINBOW HYPERDRIVE MODE (+150 XP)!');
+    }, [addXp, locale])
   );
 
   // Descoberta de segredos 3D (Asteroide Dourado, Ilha Oculta, Pato de Depuração) - trava rigorosa de 1x
@@ -613,7 +619,7 @@ export default function App() {
   // Handle Island Selection / Cinematic Docking
   const handleSelectIsland = useCallback((id: IslandId) => {
     if (raceSession.active) return;
-    const island = ISLANDS_CONFIG.find((i) => i.id === id);
+    const island = islands.find((i) => i.id === id);
     if (!island) return;
 
     if (gameMode !== 'inspecting' && gameMode !== 'landing-island') {
@@ -634,7 +640,7 @@ export default function App() {
       }
       return prev;
     });
-  }, [gameMode, addXp]);
+  }, [gameMode, addXp, islands]);
 
   // Handle cinematic animation completions
   const handleCinematicComplete = useCallback((finishedMode: GameMode) => {
@@ -725,10 +731,10 @@ export default function App() {
   // Dock at nearest island on mobile
   const handleDockNearest = () => {
     const vehiclePos = getVehiclePosition();
-    let nearestIsland = ISLANDS_CONFIG[0];
+    let nearestIsland = islands[0];
     let minDistance = Infinity;
 
-    ISLANDS_CONFIG.forEach((isl) => {
+    islands.forEach((isl) => {
       const [ix, , iz] = getIslandLivePosition(isl);
       const dist = Math.hypot(vehiclePos[0] - ix, vehiclePos[2] - iz);
       if (dist < minDistance) {
@@ -810,7 +816,7 @@ export default function App() {
         onVehicleRotationChange={updateVehicleRotation}
         onSelectIsland={handleSelectIsland}
         selectedIslandId={selectedIslandId}
-        islands={ISLANDS_CONFIG}
+        islands={islands}
         visitedIslands={stats.visitedIslands}
         crystals={crystals}
         onCollectCrystal={handleCollectCrystal}
@@ -851,7 +857,7 @@ export default function App() {
         {gameMode === 'landing' && (
           <LandingOverlay
             onStartGame={handleStartGame}
-            islands={ISLANDS_CONFIG}
+            islands={islands}
             visitedIslands={stats.visitedIslands}
             onSelectIsland={handleSelectIsland}
             onOpenSettings={() => handleOpenSettingsModal('home')}
@@ -864,7 +870,7 @@ export default function App() {
         <>
           <HUD
             stats={stats}
-            islands={ISLANDS_CONFIG}
+            islands={islands}
             selectedIslandId={selectedIslandId}
             onSelectIsland={handleSelectIsland}
             onResetVehicle={handleResetVehicle}
@@ -918,7 +924,7 @@ export default function App() {
         {gameMode === 'inspecting' && selectedIslandId && (
           <Suspense fallback={null}>
             <IslandModal
-              island={ISLANDS_CONFIG.find((i) => i.id === selectedIslandId)!}
+              island={islands.find((i) => i.id === selectedIslandId)!}
               stats={stats}
               onClose={() => {
                 setGameMode('takeoff');
