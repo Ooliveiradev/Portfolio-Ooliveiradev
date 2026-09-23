@@ -8,6 +8,7 @@ import {
   LeaderboardEntry,
   RaceLeaderboardEntry
 } from '../types';
+import { TEST_PROJECT_MEDIA, TEST_CERTIFICATE_MEDIA } from './mediaTestAssets';
 
 export const PERSONAL_INFO = {
   name: 'Danilo Ribeiro',
@@ -94,6 +95,7 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
 export const PROJECTS_DATA: ProjectItem[] = [
   {
     id: 'quantia-mvp',
+    media: TEST_PROJECT_MEDIA,
     title: 'QuantIA (MVP)',
     category: 'IA Aplicada & Engenharia Civil',
     role: 'Full Stack & AI Integrations Developer',
@@ -220,6 +222,7 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
   },
   {
     id: 'ecofinance',
+    media: TEST_PROJECT_MEDIA,
     title: 'EcoFinance',
     category: 'Fintech & Gestão Pessoal',
     role: 'Full Stack & Mobile Developer',
@@ -334,6 +337,7 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
   },
   {
     id: 'portfolio-3d',
+    media: TEST_PROJECT_MEDIA,
     title: 'Portfolio Cósmico 3D',
     category: 'Creative 3D & WebGL',
     role: 'Creative Developer & 3D Engineer',
@@ -429,6 +433,7 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
   },
   {
     id: 'nutrilife',
+    media: TEST_PROJECT_MEDIA,
     title: 'NutriLife',
     category: 'Saúde & Nutrição',
     role: 'Front-end & UX Developer',
@@ -586,6 +591,7 @@ export const EDUCATION_DATA: EducationItem[] = [
   },
   {
     id: 'edu-certificacoes',
+    certificates: TEST_CERTIFICATE_MEDIA,
     degree: 'Qualificações Técnicas & Cursos de Extensão',
     institution: 'Rocketseat · Curso em Vídeo · Criadores do Futuro · CCAA',
     period: '2021 – 2025',

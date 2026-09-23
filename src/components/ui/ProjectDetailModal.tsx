@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { ProjectItem } from '../../types';
 import { MaterialIcon, GithubIcon } from './MaterialIcon';
 import { MarkdownViewer } from './MarkdownViewer';
 import { sounds } from '../../audio/soundManager';
+import { CinematicDialog } from './narrative/CinematicDialog';
+import { MediaGallery } from './narrative/MediaGallery';
+import { CodeStory } from './narrative/CodeStory';
+import { useI18n } from '../../i18n/I18nProvider';
 
 interface ProjectDetailModalProps {
   project: ProjectItem;
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  lowPower?: boolean;
 }
 
 type ProjectTab = 'readme' | 'overview' | 'architecture' | 'quickstart';
@@ -19,17 +23,19 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   onClose,
   onPrev,
   onNext,
+  lowPower = false,
 }) => {
   const [activeTab, setActiveTab] = useState<ProjectTab>('readme');
+  const { locale } = useI18n();
   const [copiedRaw, setCopiedRaw] = useState(false);
   const [copiedGit, setCopiedGit] = useState(false);
 
   // Close with Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowLeft' && onPrev) {
+      if (Array.from(document.querySelectorAll('[data-narrative-dialog]')).at(-1)?.getAttribute('aria-labelledby') !== 'project-title') return;
+      if (e.defaultPrevented || (e.target as HTMLElement).closest('input, textarea, video, [contenteditable="true"]')) return;
+      if (e.key === 'ArrowLeft' && onPrev) {
         onPrev();
       } else if (e.key === 'ArrowRight' && onNext) {
         onNext();
@@ -58,19 +64,8 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   const readmeApproxKb = (new Blob([project.readme]).size / 1024).toFixed(1);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 bg-[#070a10]/90 backdrop-blur-2xl flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden"
-    >
-      <motion.div
-        initial={{ scale: 0.95, y: 15, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.96, y: 10, opacity: 0 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-        className="relative w-full max-w-5xl h-[92vh] max-h-[880px] bg-[#0d121c] border border-slate-800/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
+    <CinematicDialog titleId="project-title" onClose={onClose} layer={50} lowPower={lowPower}
+        className="relative w-full max-w-5xl h-[92dvh] max-h-[880px] bg-[#0d121c] border border-slate-800/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
       >
         {/* ================= TOP HEADER ================= */}
         <div className="px-5 py-4 border-b border-slate-800/80 bg-[#111724]/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -84,7 +79,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-bold font-sans text-white tracking-tight truncate">
+                <h2 id="project-title" className="text-lg sm:text-xl font-bold font-sans text-white tracking-tight truncate">
                   {project.title}
                 </h2>
                 {project.statusBadge && (
@@ -264,6 +259,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
         {/* ================= MODAL BODY / SCROLL AREA ================= */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          {activeTab === 'readme' && <MediaGallery key={project.id} items={project.media} lowPower={lowPower} title={locale === 'pt' ? 'Projeto em ação' : 'Project in action'} />}
           {/* TAB 1: README.MD (The star requested feature) */}
           {activeTab === 'readme' && (
             <div className="max-w-4xl mx-auto space-y-4">
@@ -327,7 +323,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
                 {/* Markdown Rendered Content */}
                 <div className="p-5 sm:p-8 bg-[#090d16]">
-                  <MarkdownViewer content={project.readme} accentColor={project.accentColor} />
+                  <MarkdownViewer key={project.id} content={project.readme} accentColor={project.accentColor} />
                 </div>
               </div>
             </div>
@@ -506,6 +502,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   </div>
 
                   {/* Terminal Box */}
+                  <CodeStory language="bash" code={[project.quickStart.cloneCmd, project.quickStart.installCmd, project.quickStart.runCmd].join('\n')} lineInterval={350} />
                   <div className="rounded-2xl border border-slate-700/80 bg-[#090d16] overflow-hidden shadow-xl">
                     <div className="px-4 py-2.5 bg-[#111724] border-b border-slate-700/80 flex items-center justify-between text-xs font-mono text-slate-400">
                       <div className="flex items-center gap-2">
@@ -630,7 +627,6 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             )}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+    </CinematicDialog>
   );
 };
