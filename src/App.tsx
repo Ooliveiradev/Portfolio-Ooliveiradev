@@ -924,6 +924,7 @@ export default function App() {
         {gameMode === 'inspecting' && selectedIslandId && (
           <Suspense fallback={null}>
             <IslandModal
+              lowPower={graphicsQuality === 'low'}
               island={islands.find((i) => i.id === selectedIslandId)!}
               stats={stats}
               onClose={() => {
@@ -941,6 +942,7 @@ export default function App() {
         {activeChallengeIsland && (
           <Suspense fallback={null}>
             <ChallengeModal
+              lowPower={graphicsQuality === 'low'}
               islandId={activeChallengeIsland}
               onComplete={handleCompleteChallenge}
               onClose={() => setActiveChallengeIsland(null)}
