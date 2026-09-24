@@ -6,4 +6,5 @@ import '../tests/gameInput.test.ts';
 import '../tests/navigationUi.test.ts';
 import '../tests/cosmicBoundary.test.ts';
 import '../tests/race.test.ts';
+import '../tests/rocketLaunch.test.ts';
 import './tests/audio-performance.test.mjs';

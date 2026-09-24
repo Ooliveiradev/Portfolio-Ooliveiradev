@@ -12,6 +12,7 @@ import { RACE_GRID, RaceState } from '../../utils/raceTrack';
 import { raceSession, consumeNitro } from '../../utils/raceSession';
 import { raceTurnRate, smoothRaceSteering, raceSpeedScale, stepRaceDrive, RACE_CRUISE_SPEED, RACE_BOOST_SPEED } from '../../utils/raceHandling';
 import { RaceWallGuide } from '../../utils/raceWallGuide';
+import { screenFlightDirection, stepScreenFlight, faceFlightDirection } from '../../utils/joystick';
 
 import { GraphicsQuality, GameMode, IslandId } from '../../types';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
@@ -42,6 +43,8 @@ const _forwardVec = new THREE.Vector3();
 const _rightVec = new THREE.Vector3();
 const _safeQuat = new THREE.Quaternion();
 const _shipLinVel = new THREE.Vector3();
+const _touchDirection = { x: 0, z: 0, strength: 0, yaw: 0 };
+const _touchVelocity = { x: 0, z: 0 };
 
 interface ExhaustPuff {
   active: boolean;
@@ -465,7 +468,7 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
   }, [raceState, isReady]);
 
   // Frame animation & physics loop
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
     if (!groupRef.current) return;
     // Tab restores and stalled frames must not inject seconds of impulse.
     delta = Math.min(delta, 0.05);
@@ -740,10 +743,12 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       // Normal Driving Manual Physics Loop
       const canDrive = controlsEnabled && !inputSuspended.current && boundary.current.frame.recovery === 0;
       const input = canDrive ? (virtualInputRef?.current ?? virtualInput ?? NO_INPUT) : NO_INPUT;
-      const forwardKey = canDrive && Boolean(keys.current['arrowup'] || keys.current['w'] || input.y < -0.2);
-      const backwardKey = canDrive && Boolean(keys.current['arrowdown'] || keys.current['s'] || input.y > 0.2);
-      const leftKey = canDrive && Boolean(keys.current['arrowleft'] || keys.current['a'] || input.x < -0.2);
-      const rightKey = canDrive && Boolean(keys.current['arrowright'] || keys.current['d'] || input.x > 0.2);
+      const forwardKey = canDrive && Boolean(keys.current['arrowup'] || keys.current['w']);
+      const backwardKey = canDrive && Boolean(keys.current['arrowdown'] || keys.current['s']);
+      const leftKey = canDrive && Boolean(keys.current['arrowleft'] || keys.current['a']);
+      const rightKey = canDrive && Boolean(keys.current['arrowright'] || keys.current['d']);
+      screenFlightDirection(_touchDirection, input.x, input.y, camera.matrixWorld.elements);
+      const touchFlying = _touchDirection.strength > 0;
       const nitroRequested = canDrive && Boolean(keys.current['shift'] || keys.current[' '] || input.boost);
       const nitroActive = nitroRequested && (!raceSession.active || raceSession.nitro > 0);
       if (raceSession.running) raceSession.nitro = consumeNitro(raceSession.nitro, nitroActive, delta);
@@ -760,8 +765,8 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         backwardKey ||
         leftKey ||
         rightKey ||
-        Math.abs(input.x) > 0.1 ||
-        Math.abs(input.y) > 0.1;
+        input.x !== 0 ||
+        input.y !== 0;
 
       if (isManualInput && targetPosition) {
         onClearTargetPosition?.();
@@ -775,8 +780,10 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
       if (leftKey) turn += 1;
       if (rightKey) turn -= 1;
 
-      if (Math.abs(input.x) > 0.1) turn = -input.x * 1.6;
-      if (Math.abs(input.y) > 0.1) thrust = -input.y * (raceSession.running ? 1 : 1.4);
+      if (touchFlying) {
+        thrust = _touchDirection.strength;
+        turn = 0;
+      }
 
       if (raceSession.running) {
         const currentVelocity = body && isReady ? body.linvel() : velocity.current;
@@ -819,8 +826,15 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
           }
         }
 
-        // Update yaw steering
-        yaw += turn * turnSpeed * delta * (1 - boundary.current.frame.strength * 0.5);
+        // Touch travels in screen space; the nose follows without steering the
+        // thrust through an unwanted arc. Keyboard retains its original handling.
+        if (touchFlying) {
+          const nextYaw = faceFlightDirection(yaw, _touchDirection.yaw, delta);
+          turn = THREE.MathUtils.clamp((nextYaw - yaw) / Math.max(delta * turnSpeed, 0.001), -1, 1);
+          yaw = nextYaw;
+        } else {
+          yaw += turn * turnSpeed * delta * (1 - boundary.current.frame.strength * 0.5);
+        }
 
         // Directional vectors
         const forwardX = Math.sin(yaw);
@@ -833,7 +847,11 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         const vLateral = linvel.x * rightX + linvel.z * rightZ;
 
         // Apply forward / reverse impulse
-        if (raceSession.running) {
+        if (touchFlying) {
+          stepScreenFlight(_touchVelocity, linvel.x, linvel.z, _touchDirection,
+            raceSession.running ? raceSpeedCap.current : baseSpeed, delta);
+          body.setLinvel({ x: _touchVelocity.x, y: linvel.y, z: _touchVelocity.z }, true);
+        } else if (raceSession.running) {
           stepRaceDrive(raceVelocity, linvel.x, linvel.z, yaw, thrust, raceSpeedCap.current, delta);
           body.setLinvel({ x: raceVelocity.x, y: linvel.y, z: raceVelocity.z }, true);
         } else {
@@ -956,7 +974,13 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
         }
       } else {
         // Kinematic fallback with drift & spring banking
-        rotationY.current += turn * turnSpeed * delta * (1 - boundary.current.frame.strength * 0.5);
+        if (touchFlying) {
+          const nextYaw = faceFlightDirection(rotationY.current, _touchDirection.yaw, delta);
+          turn = THREE.MathUtils.clamp((nextYaw - rotationY.current) / Math.max(delta * turnSpeed, 0.001), -1, 1);
+          rotationY.current = nextYaw;
+        } else {
+          rotationY.current += turn * turnSpeed * delta * (1 - boundary.current.frame.strength * 0.5);
+        }
         const fX = Math.sin(rotationY.current);
         const fZ = Math.cos(rotationY.current);
         const rX = Math.cos(rotationY.current);
@@ -964,7 +988,10 @@ const SpaceVehicleComponent: React.FC<SpaceVehicleProps> = ({
 
         const vL = velocity.current.x * rX + velocity.current.z * rZ;
 
-        if (raceSession.running) {
+        if (touchFlying) {
+          stepScreenFlight(velocity.current, velocity.current.x, velocity.current.z, _touchDirection,
+            raceSession.running ? raceSpeedCap.current : baseSpeed, delta);
+        } else if (raceSession.running) {
           stepRaceDrive(raceVelocity, velocity.current.x, velocity.current.z, rotationY.current,
             thrust, raceSpeedCap.current, delta);
           velocity.current.x = raceVelocity.x;

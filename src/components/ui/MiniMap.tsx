@@ -1,3 +1,4 @@
+import { usesTouchLayout } from '../../utils/mobileExperience';
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from './MaterialIcon';
@@ -48,7 +49,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   currentCheckpoint = 0,
   whispers = [],
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(() => !usesTouchLayout());
   const [isLargeSize, setIsLargeSize] = useState(false);
   const [hoveredIsland, setHoveredIsland] = useState<IslandConfig | null>(null);
 
@@ -131,7 +132,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 8 }}
             transition={{ duration: 0.18 }}
-            className={`bg-[#0c1017]/95 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col p-2.5 transition-all duration-300 ${
+            className={`minimap-panel bg-[#0c1017]/95 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col p-2.5 transition-all duration-300 ${
               isLargeSize ? 'w-80 sm:w-92 max-w-[calc(100vw-2rem)]' : 'w-56 sm:w-72'
             }`}
           >

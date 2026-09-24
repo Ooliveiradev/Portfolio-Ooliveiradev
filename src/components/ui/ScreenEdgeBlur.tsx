@@ -25,7 +25,7 @@ export const ScreenEdgeBlur: React.FC<ScreenEdgeBlurProps> = ({
 
   return (
     <div
-      className="fixed inset-0 pointer-events-none z-20 select-none overflow-hidden"
+      className="screen-vignette fixed inset-0 pointer-events-none z-20 select-none overflow-hidden"
       aria-hidden="true"
     >
 

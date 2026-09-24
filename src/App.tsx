@@ -1,3 +1,4 @@
+import { initialGraphicsQuality } from './utils/mobileExperience';
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GalaxyScene } from './components/GalaxyScene';
@@ -61,17 +62,15 @@ export default function App() {
 
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  // Graphics Quality Preset: 'low' (ultra lightweight), 'mid' (balanced), 'high' (high fidelity default)
+  // Respect explicit preferences; start touch devices with a lightweight preset.
   const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>(() => {
     try {
       const saved = localStorage.getItem('galactic_portfolio_graphics');
-      if (saved === 'low' || saved === 'mid' || saved === 'high') {
-        return saved;
-      }
+      return initialGraphicsQuality(saved);
     } catch {
       // fallback
     }
-    return 'high';
+    return initialGraphicsQuality(null);
   });
 
   const handleSelectGraphicsQuality = useCallback((quality: GraphicsQuality) => {
@@ -804,7 +803,7 @@ export default function App() {
   }, [gameMode, isModalOpen]);
 
   return (
-    <div data-graphics-quality={graphicsQuality} className="relative w-screen h-screen overflow-hidden bg-[#070b14] text-white">
+    <div data-graphics-quality={graphicsQuality} className="game-shell relative w-full h-dvh overflow-hidden bg-[#070b14] text-white">
       {/* 3D WebGL Three.js Galaxy Scene */}
       <GalaxyScene
         raceState={raceState}
@@ -896,6 +895,7 @@ export default function App() {
               virtualInputRef={virtualInputRef}
               enabled={!isModalOpen && raceState !== 'countdown'}
               onDockNearest={handleDockNearest}
+              dockingAvailable={raceState === 'idle'}
             />
           )}
 
@@ -924,6 +924,7 @@ export default function App() {
         {gameMode === 'inspecting' && selectedIslandId && (
           <Suspense fallback={null}>
             <IslandModal
+              lowPower={graphicsQuality === 'low'}
               island={islands.find((i) => i.id === selectedIslandId)!}
               stats={stats}
               onClose={() => {
@@ -941,6 +942,7 @@ export default function App() {
         {activeChallengeIsland && (
           <Suspense fallback={null}>
             <ChallengeModal
+              lowPower={graphicsQuality === 'low'}
               islandId={activeChallengeIsland}
               onComplete={handleCompleteChallenge}
               onClose={() => setActiveChallengeIsland(null)}

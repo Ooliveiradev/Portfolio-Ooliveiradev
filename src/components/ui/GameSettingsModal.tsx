@@ -1,3 +1,4 @@
+import { usesTouchLayout } from '../../utils/mobileExperience';
 import { RANKING_KEY } from '../../utils/raceSession';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -50,7 +51,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   const INITIAL_LEADERBOARD = content.leaderboard;
   const INITIAL_RACE_LEADERBOARD = content.raceLeaderboard;
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
-  const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>('keyboard');
+  const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>(() => usesTouchLayout() ? 'touch' : 'keyboard');
 
   // WebGPU & Hardware Telemetry (Issue 16)
   const [gpuCapability, setGpuCapability] = useState<WebGPUCapability | null>(null);
@@ -250,7 +251,7 @@ Explore it at: ${window.location.href}`;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
+      <div className="mobile-sheet-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
         {/* Backdrop blur overlay */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -266,12 +267,12 @@ Explore it at: ${window.location.href}`;
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 15 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="relative z-10 flex flex-col items-end max-w-4xl w-full"
+          className="mobile-sheet-panel settings-sheet relative z-10 flex flex-col items-end max-w-4xl w-full"
           role="dialog"
           aria-modal="true"
           aria-label="Menu do portfólio"
         >
-          <div className="max-w-full flex items-center bg-[#0c1017] border border-b-0 border-slate-800/80 rounded-t-2xl overflow-hidden shrink-0">
+          <div className="settings-tabs max-w-full flex items-center bg-[#0c1017] border border-b-0 border-slate-800/80 rounded-t-2xl overflow-hidden shrink-0">
             <nav className="min-w-0 flex items-center" aria-label="Seções do menu">
               {([
                 ['home', 'home', 'Início'],
@@ -295,13 +296,13 @@ Explore it at: ${window.location.href}`;
                 </button>
               ))}
             </nav>
-            <button type="button" onClick={() => { sounds.playClick(); onClose(); }} className="w-9 sm:w-10 h-10 shrink-0 flex items-center justify-center bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer border-l border-slate-800/80 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400" aria-label="Fechar menu" title="Fechar (ESC)">
+            <button type="button" onClick={() => { sounds.playClick(); onClose(); }} className="modal-close w-11 h-11 shrink-0 flex items-center justify-center bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer border-l border-slate-800/80 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400" aria-label="Fechar menu" title="Fechar (ESC)">
               <MaterialIcon name="close" size={18} />
             </button>
           </div>
 
           {/* Modal Main Body Card (Fixed Dimensions Two Column Split) */}
-          <div className="w-full bg-[#0c1017] border border-slate-800/80 rounded-b-2xl rounded-tl-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[580px] max-h-[calc(100dvh-7rem)]">
+          <div className="settings-sheet-body w-full bg-[#0c1017] border border-slate-800/80 rounded-b-2xl rounded-tl-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[580px] max-h-[calc(100dvh-7rem)]">
             {activeTab === 'about' && (
               <aside className="w-full md:w-64 p-5 md:p-8 flex flex-row md:flex-col items-center justify-center gap-4 md:gap-5 bg-[#101620] border-b md:border-b-0 md:border-r border-slate-800/80 shrink-0" aria-label="Perfil do desenvolvedor">
                 <button
@@ -359,7 +360,7 @@ Explore it at: ${window.location.href}`;
                   </h2>
 
                   <div className="space-y-2.5 font-sans">
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 border border-slate-800/60">
+                    <div className="settings-option flex items-center justify-between gap-3 p-3 rounded-xl bg-[#111622]/50 border border-slate-800/60">
                       <div>
                         <span className="text-sm font-medium text-slate-200 font-mono block">{t('language')}</span>
                         <span className="text-[11px] text-slate-400">PT-BR / English</span>
@@ -367,7 +368,7 @@ Explore it at: ${window.location.href}`;
                       <LanguageToggle />
                     </div>
                     {/* Audio Option */}
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
+                    <div className="settings-option flex items-center justify-between gap-3 p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
                       <div>
                         <span className="text-sm font-medium text-slate-200 font-mono block">
                           Áudio & Efeitos Sonoros
@@ -437,7 +438,7 @@ Explore it at: ${window.location.href}`;
                     </div>
 
                     {/* I'm stuck! (Respawn) */}
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
+                    <div className="settings-option flex items-center justify-between gap-3 p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
                       <div>
                         <span className="text-sm font-medium text-slate-200 font-mono block">
                           Recuperar Posição
@@ -461,7 +462,7 @@ Explore it at: ${window.location.href}`;
 
                     {/* Reset Collectibles */}
                     {onResetCrystals && (
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
+                      <div className="settings-option flex items-center justify-between gap-3 p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
                         <div>
                           <span className="text-sm font-medium text-slate-200 font-mono block">
                             Cristais Orbitais
@@ -603,11 +604,11 @@ Explore it at: ${window.location.href}`;
                     <div className="space-y-2.5 font-sans text-xs text-slate-300">
                       <div className="p-3.5 bg-[#111622]/50 border border-slate-800/60 rounded-xl">
                         <p className="font-bold text-slate-100 mb-1 font-mono">Joystick Virtual (Canto Inferior Esquerdo)</p>
-                        <p className="text-slate-400">Arraste o botão analógico em qualquer direção para guiar a proa do foguete.</p>
+                        <p className="text-slate-400">{locale === 'pt' ? 'Toque na área inferior esquerda e arraste na direção desejada na tela: baixo vai para baixo; diagonal vai na diagonal. A nave vira sozinha. Quanto mais arrastar, mais rápido voa. Solte para desacelerar.' : 'Touch the lower-left area and drag in the desired screen direction: down flies down; diagonals fly diagonally. The ship turns automatically. Drag farther to fly faster. Release to slow down.'}</p>
                       </div>
                       <div className="p-3.5 bg-[#111622]/50 border border-slate-800/60 rounded-xl">
                         <p className="font-bold text-slate-100 mb-1 font-mono">Botão de Turbo (Canto Inferior Direito)</p>
-                        <p className="text-slate-400">Toque no ícone de relâmpago para ativar a propulsão máxima com partículas estendidas.</p>
+                        <p className="text-slate-400">{locale === 'pt' ? 'Segure Turbo com o polegar direito enquanto pilota com o esquerdo. Use Pousar para se aproximar e acessar a ilha mais próxima.' : 'Hold Turbo with your right thumb while steering with your left. Use Dock to approach and open the nearest island.'}</p>
                       </div>
                     </div>
                   )}

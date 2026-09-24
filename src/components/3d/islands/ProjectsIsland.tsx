@@ -2,15 +2,17 @@ import React, { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sounds } from '../../../audio/soundManager';
+import { RocketExhaust, RocketLaunchEffects, useRocketLaunch } from './RocketLaunchEffects';
 
 interface ProjectsIslandProps {
   isNear?: boolean;
+  paused?: boolean;
 }
 
-const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
+const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = ({ paused = false }) => {
   // Animation refs
-  const rocketRef = useRef<THREE.Group>(null);
-  const smokeRef = useRef<THREE.Group>(null);
+  const launch = useRocketLaunch(paused);
+  const { rocketRef, smokeRef, armRef, start: handleTowerRocketClick } = launch;
   const beaconRef = useRef<THREE.MeshStandardMaterial>(null);
   const holoMeshRef = useRef<THREE.Group>(null);
   const arcadeScreenRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -23,7 +25,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
   const [joystickTilt, setJoystickTilt] = useState({ x: 0, z: 0 });
   const [holoModel, setHoloModel] = useState(0);
   const [holoFlash, setHoloFlash] = useState(false);
-  const [ventBurst, setVentBurst] = useState(false);
   const [pressedKey, setPressedKey] = useState<number | null>(null);
   const magneticTravel = pressedKey !== null ? 0.85 : 0;
   const magneticPulse = pressedKey !== null ? 0.85 : 0;
@@ -33,21 +34,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
   // Main frame loop for fluid mechanical and atmospheric animations
   useFrame(({ clock }, delta) => {
     const time = clock.elapsedTime;
-
-    // --- Levitação e respiração do foguete experimental com tremor de recoil ---
-    if (rocketRef.current) {
-      const recoilY = ventBurst ? Math.sin(time * 14.0) * 0.28 : 0;
-      rocketRef.current.position.y = 2.6 + Math.sin(time * 2.2) * 0.14 + recoilY;
-      rocketRef.current.rotation.z = Math.sin(time * 1.6) * 0.025;
-      rocketRef.current.rotation.x = Math.sin(time * 1.9) * 0.015;
-    }
-
-    // --- Nuvens de vapor volumétrico com expansão na baforada pneumática ---
-    if (smokeRef.current) {
-      smokeRef.current.rotation.y += delta * (ventBurst ? 2.6 : 0.45);
-      const targetScale = ventBurst ? 1.65 : 1.0;
-      smokeRef.current.scale.set(targetScale, targetScale * 0.9, targetScale);
-    }
 
     // --- Farol estroboscópico de aviação no topo da torre Gantry ---
     if (beaconRef.current) {
@@ -100,13 +86,6 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
       setActiveBtnIdx(null);
       setJoystickTilt({ x: 0, z: 0 });
     }, 600);
-  };
-
-  const handleTowerRocketClick = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    sounds.playPneumaticVent();
-    setVentBurst(true);
-    setTimeout(() => setVentBurst(false), 1200);
   };
 
   const handleHoloClick = (e: { stopPropagation: () => void }) => {
@@ -436,10 +415,11 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
       {/* ===================================================================
           3. 🚀 TORRE DE LANÇAMENTO TRELIÇADA & FOGUETE EXPERIMENTAL
              Setor posterior direito [2.2, 0.1, -1.6]
-             Com Micro-Interatividade de Baforada Pneumática e Vapor Volumétrico
+             Sequência de ignição, decolagem e materialização
          =================================================================== */}
       <group
         position={[2.2, 0.1, -1.6]}
+        userData={{ onRocketLaunch: handleTowerRocketClick }}
         onClick={handleTowerRocketClick}
         onPointerOver={(e) => {
           e.stopPropagation();
@@ -508,7 +488,7 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
         ))}
 
         {/* Braço Umbilical Articulado em Amarelo/Laranja conectando ao foguete */}
-        <group position={[-0.8, 3.8, 0]}>
+        <group ref={armRef} position={[-0.8, 3.8, 0]}>
           <mesh position={[-0.6, 0, 0]} castShadow>
             <boxGeometry args={[1.4, 0.18, 0.22]} />
             <meshStandardMaterial color="#f59e0b" roughness={0.4} metalness={0.2} />
@@ -537,6 +517,7 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
       {/* Foguete Experimental estilizado em levitação orgânica */}
       <group
         ref={rocketRef}
+        userData={{ onRocketLaunch: handleTowerRocketClick }}
         position={[0.8, 2.6, -1.6]}
         onClick={handleTowerRocketClick}
         onPointerOver={(e) => {
@@ -592,11 +573,14 @@ const ProjectsIslandComponent: React.FC<ProjectsIslandProps> = () => {
           <cylinderGeometry args={[0.42, 0.58, 0.52, 14]} />
           <meshStandardMaterial color="#1e293b" roughness={0.35} metalness={0.35} />
         </mesh>
+        <RocketExhaust controller={launch} />
       </group>
+      <RocketLaunchEffects controller={launch} />
 
       {/* Volutas de fumaça poligonal estilizada sob o foguete (Low-Poly Vapor Cloud) */}
       <group
         ref={smokeRef}
+        userData={{ onRocketLaunch: handleTowerRocketClick }}
         position={[0.8, 0.45, -1.6]}
         onClick={handleTowerRocketClick}
         onPointerOver={(e) => {

@@ -1,5 +1,92 @@
 @import "tailwindcss";
 
+html, body, #root { min-height: 100%; overscroll-behavior: none; }
+.game-shell { height: 100vh; height: 100dvh; }
+.game-shell canvas { touch-action: none; }
+.game-hud {
+  padding-top: max(.75rem, env(safe-area-inset-top));
+  padding-left: max(.75rem, env(safe-area-inset-left));
+  padding-right: max(.75rem, env(safe-area-inset-right));
+}
+.mobile-controls { display: none; }
+.mobile-sheet-panel { touch-action: auto; }
+.mobile-sheet-panel [class*="overflow-y-auto"] { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 639px), (pointer: coarse) {
+  .mobile-controls {
+    position: absolute; inset: 50% 0 0; z-index: 25; display: block;
+    overflow: hidden; pointer-events: none; touch-action: none; user-select: none;
+    -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
+  }
+  .joystick-zone {
+    position: absolute; left: env(safe-area-inset-left); top: 0;
+    bottom: max(12px, env(safe-area-inset-bottom)); width: 54%;
+    pointer-events: auto; touch-action: none;
+  }
+  .joystick-base {
+    position: absolute; left: 50%; top: calc(100% - 90px); width: 120px; height: 120px;
+    transform: translate(-50%, -50%); border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; pointer-events: none;
+    background: #0c101799; border: 1px solid #64748b70;
+    box-shadow: inset 0 0 24px #38bdf80a; opacity: .7;
+  }
+  .joystick-base[data-active] { opacity: 1; border-color: #7dd3fc; background: #0c1017cc; }
+  .joystick-hint { position: absolute; bottom: 6px; width: 100%; text-align: center; color: #94a3b8; font-size: 11px; pointer-events: none; }
+  .joystick-zone:has([data-active]) .joystick-hint { opacity: 0; }
+  .mobile-flight-actions {
+    position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 12px; pointer-events: auto; touch-action: none;
+  }
+  .mobile-flight-actions button { touch-action: none; }
+  .hud-topbar { position: relative; gap: 4px; pointer-events: none; }
+  .hud-topbar > :first-child { position: absolute; top: 56px; left: 0; }
+  .hud-topbar > :last-child { margin-left: auto; pointer-events: auto; }
+  .hud-toolbar { gap: 4px; }
+  .hud-toolbar button { min-width: 44px; min-height: 44px; }
+  .hud-toolbar [class*="sm:inline"], .hud-topbar > button { display: none; }
+  .minimap-panel { max-height: calc(50dvh - env(safe-area-inset-top) - 72px); overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+  .screen-vignette { top: env(safe-area-inset-top); opacity: .4; }
+  .mobile-sheet-overlay.mobile-sheet-overlay {
+    align-items: flex-end; padding: max(8px, env(safe-area-inset-top)) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  .mobile-sheet-overlay .mobile-sheet-panel {
+    width: 100%; max-width: 100%; margin: 0; max-height: calc(100dvh - max(8px, env(safe-area-inset-top)));
+    border-radius: 20px 20px 0 0; padding-bottom: max(20px, env(safe-area-inset-bottom));
+    overflow-wrap: anywhere;
+  }
+  .mobile-sheet-panel button { min-height: 44px; }
+  .mobile-sheet-panel input, .mobile-sheet-panel textarea, .mobile-sheet-panel select { font-size: 16px; }
+  .island-sheet-header { gap: 8px; padding: 16px; }
+  .island-sheet-header > :first-child { min-width: 0; gap: 10px; }
+  .island-sheet-header > :first-child > :last-child { min-width: 0; }
+  .island-sheet-header > :first-child > :last-child > :first-child { flex-wrap: wrap; gap: 4px; }
+  .island-sheet-header > :last-child { flex-shrink: 0; }
+  .challenge-sheet-header { position: sticky; top: -24px; z-index: 2; background: #0c1017; padding-top: 12px; }
+  .challenge-sheet-header > :first-child { min-width: 0; gap: 8px; }
+  .challenge-sheet-header h3 { font-size: 18px; }
+  .mobile-sheet-overlay .settings-sheet { height: calc(100dvh - max(8px, env(safe-area-inset-top))); padding-bottom: 0; }
+  .settings-sheet .settings-tabs { width: 100%; }
+  .settings-tabs nav { flex: 1; overflow-x: auto; touch-action: pan-x; }
+  .settings-tabs nav button { min-width: 44px; }
+  .settings-sheet .settings-sheet-body { flex: 1; min-height: 0; max-height: none; border-radius: 0; padding-bottom: env(safe-area-inset-bottom); }
+  .settings-option > :first-child { min-width: 0; }
+  .settings-option > button { flex-shrink: 0; }
+  .nearby-transmission { bottom: calc(50% + 8px); left: 12px; transform: none; max-width: min(288px, calc(100% - 24px)); }
+  .race-overlay { padding-top: max(12px, env(safe-area-inset-top)); }
+  .race-overlay .race-nitro { top: calc(env(safe-area-inset-top) + 82px); bottom: auto; width: 180px; padding: 8px; font-size: 10px; }
+  .race-nitro button { min-height: 44px; }
+  .race-minimap { top: calc(env(safe-area-inset-top) + 82px); right: max(12px, env(safe-area-inset-right)); }
+  .race-overlay .race-start-prompt { bottom: 50%; width: min(340px, calc(100% - 24px)); padding: 12px; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  .mobile-flight-actions { flex-direction: row; }
+  .joystick-base { top: 50%; }
+  .hud-toolbar { flex-wrap: wrap; }
+  .race-overlay .race-nitro { top: calc(env(safe-area-inset-top) + 8px); left: max(12px, env(safe-area-inset-left)); }
+  .race-minimap { display: none; }
+  .race-start-prompt p { display: none; }
+}
+
 .boundary-danger-pulse { animation: boundary-pulse 1.8s ease-in-out infinite; }
 @keyframes boundary-pulse { 50% { opacity: .4; } }
 @media (prefers-reduced-motion: reduce) {

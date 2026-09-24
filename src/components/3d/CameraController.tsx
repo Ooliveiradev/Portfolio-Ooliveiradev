@@ -1,3 +1,5 @@
+import { cameraFraming } from '../../utils/mobileExperience';
+import { useTouchLayout } from '../../hooks/useTouchLayout';
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -35,7 +37,9 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
   sharedVehiclePos,
   sharedVehicleRotation,
 }) => {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
+  const framing = cameraFraming(size.width, size.height);
+  const touchLayout = useTouchLayout();
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
   const landingAngle = useRef(0);
   const isFirstMount = useRef(true);
@@ -49,13 +53,13 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
   const smoothedSpeed = useRef(0);
   const smoothedLookAhead = useRef(new THREE.Vector3(vehiclePos[0], vehiclePos[1], vehiclePos[2]));
 
-  // Set perspective camera with low FOV (30 degrees) for miniature diorama effect
+  // Widen portrait framing; size updates also handle device rotation.
   useEffect(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = 30;
+      camera.fov = framing.fov;
       camera.updateProjectionMatrix();
     }
-  }, [camera]);
+  }, [camera, framing.fov]);
 
   // Initial mount position without hard-snapping on subsequent transitions
   useEffect(() => {
@@ -69,12 +73,14 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
 
   useFrame((_, delta) => {
     delta = Math.min(delta, 0.05);
-    if (isRacingCamera && sharedVehiclePos) {
+    // A rotating chase camera makes a held screen-space direction spin in circles.
+    // Touch keeps the same stable isometric reference during exploration and races.
+    if (isRacingCamera && sharedVehiclePos && !touchLayout) {
       _raceTargetRotation.setFromEuler(raceEuler.current.set(0, sharedVehicleRotation?.current ?? vehicleRotation, 0, 'YXZ'));
       if (!wasRacing.current) raceRotation.current.copy(_raceTargetRotation);
       raceRotation.current.slerp(_raceTargetRotation, 1 - Math.exp(-6 * delta));
       wasRacing.current = true;
-      _desiredCamPos.set(0, 7.5, -16).applyQuaternion(raceRotation.current).add(sharedVehiclePos.current);
+      _desiredCamPos.set(0, 7.5 * framing.distance, -16 * framing.distance).applyQuaternion(raceRotation.current).add(sharedVehiclePos.current);
       // A steady follow offset avoids the spring stretching when a portal boosts the ship.
       camera.position.lerp(_desiredCamPos, 1 - Math.exp(-14 * delta));
       _targetLookAt.set(0, 0.4, 10).applyQuaternion(raceRotation.current).add(sharedVehiclePos.current);
@@ -82,7 +88,7 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
       camera.up.set(0, 1, 0);
       camera.lookAt(currentLookAt.current);
       if (camera instanceof THREE.PerspectiveCamera) {
-        const fov = THREE.MathUtils.lerp(camera.fov, 58, 1 - Math.exp(-5 * delta));
+        const fov = THREE.MathUtils.lerp(camera.fov, framing.raceFov, 1 - Math.exp(-5 * delta));
         if (Math.abs(fov - camera.fov) > 0.001) {
           camera.fov = fov;
           camera.updateProjectionMatrix();
@@ -98,10 +104,10 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
     // 1. LANDING & EXITING MODES: Smooth panoramic orbit around the entire solar system
     if (gameMode === 'landing' || gameMode === 'exiting') {
       landingAngle.current += delta * 0.12;
-      const radius = 72;
+      const radius = 72 * framing.distance;
       const camX = Math.sin(landingAngle.current) * radius;
       const camZ = Math.cos(landingAngle.current) * radius;
-      const camY = 54 + Math.sin(landingAngle.current * 0.5) * 3.5;
+      const camY = 54 * framing.distance + Math.sin(landingAngle.current * 0.5) * 3.5;
 
       _targetPos.set(camX, camY, camZ);
       const lerpFactor = gameMode === 'exiting' ? delta * 2.0 : delta * 2.5;
@@ -109,8 +115,8 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
       currentLookAt.current.lerp(_centerLookAt, delta * 3.5);
       camera.lookAt(currentLookAt.current);
 
-      if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - 30) > 0.05) {
-        camera.fov = THREE.MathUtils.lerp(camera.fov, 30, delta * 3.0);
+      if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - framing.fov) > 0.05) {
+        camera.fov = THREE.MathUtils.lerp(camera.fov, framing.fov, delta * 3.0);
         camera.updateProjectionMatrix();
       }
       return;
@@ -129,9 +135,9 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
         const orbitZ = Math.cos(inspectTime) * 1.6;
 
         _desiredCamPos.set(
-          _islandPos.x + 17 + orbitX,
-          _islandPos.y + 17,
-          _islandPos.z + 19 + orbitZ
+          _islandPos.x + 17 * framing.distance + orbitX,
+          _islandPos.y + 17 * framing.distance,
+          _islandPos.z + 19 * framing.distance + orbitZ
         );
 
         _targetLookAt.set(_islandPos.x, _islandPos.y + 1.8, _islandPos.z + 1.8);
@@ -140,8 +146,8 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
         currentLookAt.current.lerp(_targetLookAt, delta * 4.0);
         camera.lookAt(currentLookAt.current);
 
-        if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - 30) > 0.05) {
-          camera.fov = THREE.MathUtils.lerp(camera.fov, 30, delta * 3.0);
+        if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - framing.fov) > 0.05) {
+          camera.fov = THREE.MathUtils.lerp(camera.fov, framing.fov, delta * 3.0);
           camera.updateProjectionMatrix();
         }
         return;
@@ -160,7 +166,7 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
       smoothedSpeed.current = 0;
       smoothedLookAhead.current.set(vx, vy + 0.6, vz + 1.2);
       currentLookAt.current.copy(smoothedLookAhead.current);
-      camera.position.set(vx + ISO_OFFSET.x, vy + ISO_OFFSET.y, vz + ISO_OFFSET.z);
+      camera.position.set(vx + ISO_OFFSET.x * framing.distance, vy + ISO_OFFSET.y * framing.distance, vz + ISO_OFFSET.z * framing.distance);
     }
 
     // Estimate vehicle speed for dynamic camera responsiveness
@@ -190,7 +196,7 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
     _targetLookAt.copy(smoothedLookAhead.current);
 
     // Speed-responsive subtle camera pull-back for high velocity sensation
-    const speedOffsetFactor = 1.0 + (smoothedSpeed.current / 240);
+    const speedOffsetFactor = framing.distance * (1.0 + smoothedSpeed.current / 240);
     _desiredCamPos.set(
       vx + ISO_OFFSET.x * speedOffsetFactor,
       vy + ISO_OFFSET.y * speedOffsetFactor,
@@ -200,8 +206,8 @@ const CameraControllerComponent: React.FC<CameraControllerProps> = ({
     // Dynamic FOV kick on high speed & boost
     if (camera instanceof THREE.PerspectiveCamera) {
       const targetFov = THREE.MathUtils.lerp(
-        30.0,
-        32.5,
+        framing.fov,
+        framing.fov + 2.5,
         THREE.MathUtils.clamp((smoothedSpeed.current - 12) / 28, 0, 1)
       );
       if (Math.abs(camera.fov - targetFov) > 0.01) {

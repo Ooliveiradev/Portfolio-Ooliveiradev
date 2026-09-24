@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
 import { ProjectDetailModal } from './ProjectDetailModal';
 import {
@@ -11,6 +11,12 @@ import {
 import { sounds } from '../../audio/soundManager';
 import { useI18n } from '../../i18n/I18nProvider';
 import { getPortfolioContent } from '../../i18n/portfolio';
+import { CinematicDialog } from './narrative/CinematicDialog';
+import { NarrativeHero } from './narrative/NarrativeHero';
+import { MediaGallery } from './narrative/MediaGallery';
+import { NarrativeTimeline } from './narrative/NarrativeTimeline';
+import { CodeStory } from './narrative/CodeStory';
+import clockSource from '../../utils/pausableClock.ts?raw';
 
 interface IslandModalProps {
   island: IslandConfig;
@@ -18,6 +24,7 @@ interface IslandModalProps {
   onClose: () => void;
   onStartChallenge: (islandId: IslandId) => void;
   onInspectProject: (projectId: string) => void;
+  lowPower?: boolean;
 }
 
 export const IslandModal: React.FC<IslandModalProps> = ({
@@ -26,6 +33,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
   onClose,
   onStartChallenge,
   onInspectProject,
+  lowPower = false,
 }) => {
   const { locale } = useI18n();
   const content = useMemo(() => getPortfolioContent(locale), [locale]);
@@ -95,15 +103,11 @@ export const IslandModal: React.FC<IslandModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md overflow-y-auto">
-      <motion.div
-        initial={{ scale: 0.92, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.92, opacity: 0, y: 20 }}
-        className="bg-[#0c1017] border border-slate-800/80 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col my-auto max-h-[90vh]"
+    <CinematicDialog titleId="island-title" onClose={onClose} lowPower={lowPower}
+        className="bg-[#0c1017] border border-slate-800/80 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col my-auto max-h-[90dvh]"
       >
         {/* Modal Header */}
-        <div className="relative p-5 sm:p-6 border-b border-slate-800/80 bg-gradient-to-r from-[#0c1017] via-[#111622] to-[#0c1017] flex items-center justify-between">
+        <div className="island-sheet-header shrink-0 relative p-5 sm:p-6 border-b border-slate-800/80 bg-gradient-to-r from-[#0c1017] via-[#111622] to-[#0c1017] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
@@ -120,7 +124,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                   +100 XP Coletados
                 </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-sans font-bold text-slate-100 leading-tight">
+              <h2 id="island-title" className="text-xl sm:text-2xl font-sans font-bold text-slate-100 leading-tight">
                 {island.name}
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 font-medium tracking-wide mt-1 flex items-center gap-1.5">
@@ -165,8 +169,9 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                 sounds.playClick();
                 onClose();
               }}
-              className="w-9 h-9 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center transition-colors cursor-pointer"
+              className="modal-close w-11 h-11 shrink-0 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center transition-colors cursor-pointer"
               title="Fechar e Retomar Navegação"
+              aria-label={locale === 'pt' ? 'Fechar ilha' : 'Close island'}
             >
               <MaterialIcon name="close" size={18} />
             </button>
@@ -174,11 +179,11 @@ export const IslandModal: React.FC<IslandModalProps> = ({
         </div>
 
         {/* Mobile Challenge Banner */}
-        <div className="sm:hidden px-5 py-2.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
+        <div className="shrink-0 sm:hidden px-5 py-2.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
           <span className="text-xs text-slate-300 font-mono">Desafio Técnico:</span>
           <button
             onClick={() => onStartChallenge(island.id)}
-            className={`px-3 py-1 rounded-lg text-xs font-mono font-bold ${
+            className={`min-h-11 px-3 py-1 rounded-lg text-xs font-mono font-bold ${
               isChallengeDone
                 ? 'bg-emerald-500/20 text-emerald-300'
                 : 'bg-amber-500 text-black'
@@ -189,7 +194,19 @@ export const IslandModal: React.FC<IslandModalProps> = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-5 sm:p-8 overflow-y-auto space-y-6">
+        <div data-narrative-scroll className="p-5 sm:p-8 overflow-y-auto space-y-6 min-h-0">
+          <NarrativeHero
+            eyebrow={`${String(['projects', 'experience', 'skills', 'education', 'about'].indexOf(island.id) + 1).padStart(2, '0')} / ${island.name}`}
+            title={island.id === 'about' ? PERSONAL_INFO.name : island.tagline}
+            description={island.id === 'about' ? PERSONAL_INFO.subtitle :
+              island.id === 'projects' ? (locale === 'pt' ? 'Da proposta à arquitetura: explore as decisões, o código e os resultados de cada aplicação.' : 'From concept to architecture: explore the decisions, code and results behind each application.') :
+              island.id === 'experience' ? (locale === 'pt' ? 'Da atuação operacional ao desenvolvimento de interfaces: uma trajetória em ordem cronológica, da experiência mais recente às primeiras atividades.' : 'From operations to interface development: a journey from the most recent experience to the earliest roles.') :
+              island.id === 'education' ? (locale === 'pt' ? 'Formação acadêmica e cursos que sustentam a prática em desenvolvimento de software.' : 'Academic education and courses supporting hands-on software development.') :
+              (locale === 'pt' ? 'Interfaces, dados e inteligência artificial conectados na construção dos projetos deste portfólio.' : 'Interfaces, data and artificial intelligence connected across the projects in this portfolio.')}
+            accent={island.color} lowPower={lowPower}
+            facts={island.id === 'skills' ? SKILLS_DATA.map(category => category.title) : undefined}
+            portrait={island.id === 'about' ? { src: '/assets/danilo-ribeiro.jpg', alt: PERSONAL_INFO.name } : undefined}
+          />
           {/* PROJECTS ISLAND CONTENT */}
           {island.id === 'projects' && (
             <div className="space-y-6">
@@ -271,7 +288,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                               <GithubIcon className="w-3.5 h-3.5" />
                             </a>
                           )}
-                          {project.liveUrl && (
+                          {project.liveUrl && project.liveUrl !== '#' && (
                             <a
                               href={project.liveUrl}
                               target="_blank"
@@ -293,61 +310,29 @@ export const IslandModal: React.FC<IslandModalProps> = ({
 
           {/* EXPERIENCE ISLAND CONTENT */}
           {island.id === 'experience' && (
-            <div className="space-y-6">
-              <div className="relative pl-6 border-l-2 border-slate-800 space-y-8">
-                {EXPERIENCE_DATA.map((item) => (
-                  <div key={item.id} className="relative group">
-                    {/* Glowing Marker */}
-                    <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-sky-400 ring-4 ring-[#0c1017] shadow-md" />
-
-                    <div className="bg-[#111622]/60 border border-slate-800/60 p-5 rounded-xl">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
-                        <h3 className="text-base font-sans font-bold text-slate-100">
-                          {item.role}
-                        </h3>
-                        <span className="text-xs font-mono text-sky-400 flex items-center gap-1">
-                          <MaterialIcon name="calendar_today" size={14} />
-                          {item.period}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs font-medium text-slate-300 mb-3">
-                        <span className="font-semibold text-sky-400">{item.company}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <MaterialIcon name="location_on" size={14} />
-                          {item.location}
-                        </span>
-                      </div>
-
-                      <ul className="space-y-1.5 text-xs text-slate-300 mb-4 list-disc list-inside">
-                        {item.highlights.map((point, idx) => (
-                          <li key={idx} className="leading-relaxed">
-                            {point}
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-800/80">
-                        {item.techStack.map((tech, idx) => (
-                          <span
-                            key={idx}
-                            className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-amber-300/80 border border-amber-500/20"
-                          >
-                            {tech}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+            <NarrativeTimeline label={locale === 'pt' ? 'Trajetória profissional, da mais recente à mais antiga' : 'Career history, newest first'} lowPower={lowPower}
+              items={EXPERIENCE_DATA.map(item => ({
+                id: item.id, date: item.period, title: item.role, subtitle: item.company + ' · ' + item.location,
+                content: <>
+                  <ul className="space-y-2 text-xs text-slate-300 mb-4 list-disc list-inside">
+                    {item.highlights.map(point => <li key={point} className="leading-relaxed">{point}</li>)}
+                  </ul>
+                  <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-800/80">
+                    {item.techStack.map(tech => <span key={tech} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-amber-300/80 border border-amber-500/20">{tech}</span>)}
                   </div>
-                ))}
-              </div>
-            </div>
+                </>,
+              }))}
+            />
           )}
 
           {/* SKILLS ISLAND CONTENT */}
           {island.id === 'skills' && (
             <div className="space-y-6">
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold">{locale === 'pt' ? 'Código deste portfólio: tempo de simulação pausável' : 'Code from this portfolio: pausable simulation time'}</h3>
+                <p className="text-xs text-slate-400">src/utils/pausableClock.ts</p>
+                <CodeStory code={clockSource.trim()} language="typescript" lineInterval={140} />
+              </section>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {SKILLS_DATA.map((cat, idx) => (
                   <div
@@ -386,6 +371,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           {/* EDUCATION ISLAND CONTENT */}
           {island.id === 'education' && (
             <div className="space-y-4">
+              <MediaGallery items={EDUCATION_DATA.flatMap(edu => edu.certificates ?? [])} lowPower={lowPower} title={locale === 'pt' ? 'Certificados e diplomas' : 'Certificates and diplomas'} />
               <div className="grid grid-cols-1 gap-4">
                 {EDUCATION_DATA.map((edu) => (
                   <div
@@ -564,13 +550,13 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           {selectedProject && (
             <ProjectDetailModal
               project={selectedProject}
+              lowPower={lowPower}
               onClose={() => setSelectedProject(null)}
               onPrev={handlePrevProject}
               onNext={handleNextProject}
             />
           )}
         </AnimatePresence>
-      </motion.div>
-    </div>
+    </CinematicDialog>
   );
 };

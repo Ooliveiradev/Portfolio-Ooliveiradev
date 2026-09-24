@@ -13,7 +13,7 @@ import type { Badge, EducationItem, ExperienceItem, IslandConfig, ProjectItem, S
 import type { Locale } from './locale';
 
 const englishIslands: Record<IslandConfig['id'], Pick<IslandConfig, 'name' | 'tagline' | 'challengeTitle'>> = {
-  projects: { name: 'Projects Island', tagline: 'Production Apps, Full-Stack Engineering & Integrated AI', challengeTitle: 'Cosmic Deployment Terminal' },
+  projects: { name: 'Projects Island', tagline: 'Projects That Become Real Solutions', challengeTitle: 'Cosmic Deployment Terminal' },
   experience: { name: 'Career Island', tagline: 'Professional Journey, Technical Work & Real Solutions', challengeTitle: 'Operational Milestone Activation' },
   skills: { name: 'Technology Island', tagline: 'Technology Stack, Modern Ecosystem & Web Architecture', challengeTitle: 'Tech Frequency Tuning' },
   education: { name: 'Academic Island', tagline: 'Systems Analysis at PUC Minas, Engineering at CEFET-MG & Certifications', challengeTitle: 'Quick Algorithm Challenge' },

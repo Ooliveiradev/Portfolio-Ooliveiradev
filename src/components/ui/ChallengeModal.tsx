@@ -4,18 +4,27 @@ import confetti from 'canvas-confetti';
 import { MaterialIcon } from './MaterialIcon';
 import { IslandId } from '../../types';
 import { sounds } from '../../audio/soundManager';
+import { CinematicDialog } from './narrative/CinematicDialog';
+import { useNarrativeMotion } from './narrative/useNarrativeMotion';
+import { useI18n } from '../../i18n/I18nProvider';
+import { getPortfolioContent } from '../../i18n/portfolio';
 
 interface ChallengeModalProps {
   islandId: IslandId;
   onComplete: (islandId: IslandId) => void;
   onClose: () => void;
+  lowPower?: boolean;
 }
 
 export const ChallengeModal: React.FC<ChallengeModalProps> = ({
   islandId,
   onComplete,
   onClose,
+  lowPower = false,
 }) => {
+  const { locale } = useI18n();
+  const { simple } = useNarrativeMotion(lowPower);
+  const milestones = getPortfolioContent(locale).experience.slice(0, 3).map((item, index) => ({ id: index + 1, title: item.company, desc: item.role }));
   const [completed, setCompleted] = useState(false);
 
   // Challenge 1: Terminal Deploy Pipeline
@@ -34,7 +43,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
   const triggerVictory = () => {
     setCompleted(true);
     sounds.playBadgeUnlocked();
-    confetti({
+    if (!simple) confetti({
       particleCount: 75,
       spread: 60,
       origin: { y: 0.6 },
@@ -45,15 +54,11 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-[#0c1017] border border-slate-800/80 rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative"
+    <CinematicDialog titleId="challenge-title" onClose={onClose} layer={60} lowPower={lowPower}
+        className="bg-[#0c1017] border border-slate-800/80 rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative max-h-[90dvh] overflow-y-auto"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-6">
+        <div className="challenge-sheet-header flex items-center justify-between gap-2 pb-4 border-b border-slate-800/80 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
               <MaterialIcon name="emoji_events" size={18} />
@@ -62,7 +67,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
               <div className="text-[10px] font-mono text-amber-400 uppercase font-bold">
                 Desafio Técnico • +150 XP
               </div>
-              <h3 className="text-xl font-sans font-bold text-slate-100 tracking-tight">
+              <h3 id="challenge-title" className="text-xl font-sans font-bold text-slate-100 tracking-tight">
                 {islandId === 'projects' && 'Terminal Cósmico de Deploy'}
                 {islandId === 'skills' && 'Sintonia de Frequência Tech'}
                 {islandId === 'experience' && 'Sincronização de Marcos'}
@@ -72,11 +77,12 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
             </div>
           </div>
           <button
+            aria-label={locale === 'pt' ? 'Fechar desafio' : 'Close challenge'}
             onClick={() => {
               sounds.playClick();
               onClose();
             }}
-            className="w-8 h-8 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center cursor-pointer transition-colors"
+            className="modal-close w-11 h-11 shrink-0 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/50 flex items-center justify-center cursor-pointer transition-colors"
           >
             <MaterialIcon name="close" size={18} />
           </button>
@@ -224,11 +230,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
             </p>
 
             <div className="space-y-2">
-              {[
-                { id: 1, title: 'Nexus Digital Labs', desc: 'Creative 3D & Microinterações' },
-                { id: 2, title: 'Vanguard Tech', desc: 'Microsserviços e Arquitetura Resiliente' },
-                { id: 3, title: 'Starlight Interactive', desc: 'Design System & Performance 98+' },
-              ].map((item) => {
+              {milestones.map((item) => {
                 const isDone = milestonesSynced.includes(item.id);
 
                 return (
@@ -239,7 +241,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       if (!isDone) {
                         const next = [...milestonesSynced, item.id];
                         setMilestonesSynced(next);
-                        if (next.length === 3) {
+                        if (next.length === milestones.length) {
                           triggerVictory();
                         }
                       }
@@ -347,7 +349,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
         {/* Victory Banner */}
         {completed && (
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: simple ? 1 : 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="mt-6 p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-center"
           >
@@ -357,7 +359,6 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
             </div>
           </motion.div>
         )}
-      </motion.div>
-    </div>
+    </CinematicDialog>
   );
 };

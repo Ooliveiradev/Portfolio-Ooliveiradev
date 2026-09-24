@@ -7,6 +7,7 @@ import { getVehiclePosition, getVehicleRotation } from '../../utils/vehicleTelem
 import { raceSession } from '../../utils/raceSession';
 import { useVisibleTick } from '../../hooks/useVisibleTick';
 import { canHandleGameKey } from '../../utils/gameInput';
+import { useTouchLayout } from '../../hooks/useTouchLayout';
 
 interface RaceOverlayProps {
   controlsEnabled?: boolean;
@@ -41,6 +42,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
   onRetryRace,
   onCloseModal,
 }) => {
+  const touchLayout = useTouchLayout();
   const [pilotName, setPilotName] = useState('');
   const [hasSaved, setHasSaved] = useState(false);
   const now = useVisibleTick(50, raceState === 'racing');
@@ -59,10 +61,12 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
     const dz = targetRingPosition[2] - vehiclePos[2];
     const distance = Math.round(Math.hypot(dx, dz));
     // Heading relative to the chase camera, whose forward direction is local +Z.
-    const angleRad = getVehicleRotation() - Math.atan2(dx, dz);
+    const angleRad = touchLayout
+      ? Math.atan2(dx - dz, -(dx + dz) * (26 / Math.hypot(24, 26, 24)))
+      : getVehicleRotation() - Math.atan2(dx, dz);
     const angleDeg = (angleRad * 180) / Math.PI;
     return { distance, angleDeg };
-  }, [vehiclePos, targetRingPosition, now]);
+  }, [vehiclePos, targetRingPosition, now, touchLayout]);
 
   // Keyboard shortcut [E] to start race when near gate
   React.useEffect(() => {
@@ -86,9 +90,9 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
   };
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 select-none">
+    <div className="race-overlay pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 select-none">
       {(raceState === 'countdown' || raceState === 'racing') && (
-        <div className="pointer-events-auto absolute left-3 bottom-3 sm:bottom-6 w-52 rounded-xl border border-cyan-500/30 bg-slate-950/85 p-3 text-xs font-mono">
+        <div className="race-nitro pointer-events-auto absolute left-3 bottom-3 sm:bottom-6 w-52 rounded-xl border border-cyan-500/30 bg-slate-950/85 p-3 text-xs font-mono">
           <div className="flex justify-between text-cyan-200 mb-2"><span>NITRO · Shift / Turbo</span><span>{nitro}%</span></div>
           <div className="text-slate-300 mb-2">Velocidade · {Math.round(raceSession.speed)} u/s</div>
           <div role="progressbar" aria-label="Carga de nitro" aria-valuemin={0} aria-valuemax={100} aria-valuenow={nitro} className="h-2 rounded bg-slate-800 overflow-hidden">
@@ -106,7 +110,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="pointer-events-auto absolute bottom-10 left-1/2 -translate-x-1/2 max-w-sm w-full bg-[#0c1017]/95 border border-slate-800/80 rounded-2xl p-4 shadow-2xl backdrop-blur-xl"
+            className="race-start-prompt pointer-events-auto absolute bottom-10 left-1/2 -translate-x-1/2 max-w-sm w-full bg-[#0c1017]/95 border border-slate-800/80 rounded-2xl p-4 shadow-2xl backdrop-blur-xl"
           >
             <div className="flex items-start justify-between gap-3 mb-2">
               <div className="flex items-center gap-2.5">
@@ -224,7 +228,7 @@ export const RaceOverlay: React.FC<RaceOverlayProps> = ({
                     className="w-4 h-4 flex items-center justify-center transition-transform duration-100 ease-out"
                     style={{ transform: `rotate(${navData.angleDeg}deg)` }}
                   >
-                    <MaterialIcon name="near_me" size={14} />
+                    <MaterialIcon name={touchLayout ? 'navigation' : 'near_me'} size={14} />
                   </div>
                   <span>
                     {navData.distance < 12 ? 'Na Mira!' : `${navData.distance}m`}

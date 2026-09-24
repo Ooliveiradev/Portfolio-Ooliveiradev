@@ -20,7 +20,7 @@ export const NearbyTransmission: React.FC<NearbyTransmissionProps> = ({ whispers
   useEffect(() => { previousId.current = nearby?.id ?? null; }, [nearby?.id]);
 
   return (
-    <div className="absolute bottom-48 sm:bottom-8 left-1/2 sm:left-6 -translate-x-1/2 sm:translate-x-0 w-[min(18rem,calc(100vw-3rem))] sm:w-72 pointer-events-none" role="status" aria-live="polite">
+    <div className="nearby-transmission absolute bottom-48 sm:bottom-8 left-1/2 sm:left-6 -translate-x-1/2 sm:translate-x-0 w-[min(18rem,calc(100vw-3rem))] sm:w-72 pointer-events-none" role="status" aria-live="polite">
       {nearby && (
         <button
           type="button"

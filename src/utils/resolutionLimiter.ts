@@ -1,4 +1,5 @@
 import type { GraphicsQuality } from '../types';
+import { usesTouchLayout } from './mobileExperience';
 
 export const MAX_RENDER_WIDTH = 1920;
 export const MAX_RENDER_HEIGHT = 1080;
@@ -13,12 +14,13 @@ interface RenderViewport {
   width: number;
   height: number;
   dpr: number;
+  touch?: boolean;
 }
 
 function getViewport(): RenderViewport {
   return typeof window === 'undefined'
     ? { width: MAX_RENDER_WIDTH, height: MAX_RENDER_HEIGHT, dpr: 1 }
-    : { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 };
+    : { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1, touch: usesTouchLayout() };
 }
 
 /**
@@ -34,6 +36,7 @@ export function getClamped1080pDpr(
     budget.width / Math.max(1, viewport.width),
     budget.height / Math.max(1, viewport.height),
     budget.dpr,
+    viewport.touch ? (quality === 'low' ? 1 : 1.25) : Infinity,
     viewport.dpr > 0 ? viewport.dpr : 1,
   );
 }

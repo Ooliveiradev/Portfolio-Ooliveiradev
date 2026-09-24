@@ -1,5 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { CinematicDialog } from './narrative/CinematicDialog';
+import { useI18n } from '../../i18n/I18nProvider';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
 
@@ -11,6 +12,7 @@ interface SecretMessageModalProps {
 }
 
 export const SecretMessageModal: React.FC<SecretMessageModalProps> = ({ type, onClose }) => {
+  const { locale } = useI18n();
   if (!type) return null;
 
   const getSecretContent = () => {
@@ -63,16 +65,10 @@ export const SecretMessageModal: React.FC<SecretMessageModalProps> = ({ type, on
   const content = getSecretContent();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl select-none">
-      <AnimatePresence>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.88, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className={`relative w-full max-w-lg bg-[#0b0f19]/95 border ${content.borderColor} rounded-3xl p-6 sm:p-8 shadow-2xl ${content.glowColor} overflow-hidden`}
-        >
+    <CinematicDialog titleId="secret-title" onClose={onClose} layer={50}
+      className={`relative w-full max-w-lg bg-[#0b0f19] border ${content.borderColor} rounded-3xl p-6 sm:p-8 shadow-2xl ${content.glowColor} max-h-[90dvh] overflow-y-auto`}>
           {/* Luz de Fundo */}
-          <div className="absolute -top-24 -right-24 w-52 h-52 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-400/5 to-transparent pointer-events-none" />
 
           {/* Cabeçalho */}
           <div className="flex items-center justify-between mb-4">
@@ -88,13 +84,14 @@ export const SecretMessageModal: React.FC<SecretMessageModalProps> = ({ type, on
                 sounds.playClick();
                 onClose();
               }}
-              className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/80 transition cursor-pointer"
+              aria-label={locale === 'pt' ? 'Fechar mensagem' : 'Close message'}
+              className="modal-close w-11 h-11 shrink-0 flex items-center justify-center text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/80 transition cursor-pointer"
             >
               <MaterialIcon name="close" size={20} />
             </button>
           </div>
 
-          <h3 className="text-xl sm:text-2xl font-sans font-bold text-slate-100 mb-3 tracking-tight">
+          <h3 id="secret-title" className="text-xl sm:text-2xl font-sans font-bold text-slate-100 mb-3 tracking-tight">
             {content.title}
           </h3>
 
@@ -109,7 +106,7 @@ export const SecretMessageModal: React.FC<SecretMessageModalProps> = ({ type, on
           </p>
 
           {/* Rodapé com Recompensa e Ação */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+          <div className="flex flex-wrap gap-3 items-center justify-between pt-4 border-t border-slate-800/80">
             <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/70 px-3 py-1 rounded-xl border border-emerald-500/40 flex items-center gap-1 shadow-sm">
               <MaterialIcon name="bolt" fill size={14} className="text-emerald-400" />
               +{content.xp} XP COLETADOS
@@ -120,13 +117,11 @@ export const SecretMessageModal: React.FC<SecretMessageModalProps> = ({ type, on
                 sounds.playCoin();
                 onClose();
               }}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-mono text-xs font-semibold shadow-lg shadow-sky-500/25 transition cursor-pointer"
+              className="min-h-11 px-5 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-mono text-xs font-semibold shadow-lg shadow-sky-500/25 transition cursor-pointer"
             >
               Continuar Exploração
             </button>
           </div>
-        </motion.div>
-      </AnimatePresence>
-    </div>
+    </CinematicDialog>
   );
 };

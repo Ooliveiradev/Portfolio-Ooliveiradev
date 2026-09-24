@@ -25,7 +25,19 @@ export interface IslandConfig {
   challengeXp: number;
 }
 
+/** Keep media local or on an explicitly approved host; test assets stay visibly labelled. */
+export interface PortfolioMedia {
+  id: string;
+  kind: 'image' | 'video';
+  src: string;
+  thumbnail: string;
+  alt: string;
+  caption: string;
+  testOnly?: boolean;
+}
+
 export interface ProjectItem {
+  media?: PortfolioMedia[];
   id: string;
   title: string;
   category: string;
@@ -67,6 +79,7 @@ export interface ExperienceItem {
 }
 
 export interface EducationItem {
+  certificates?: PortfolioMedia[];
   id: string;
   degree: string;
   institution: string;

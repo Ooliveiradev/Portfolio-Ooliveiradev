@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:performance": "node --import tsx scripts/test-performance.mjs"
+    "test:performance": "node --import tsx scripts/test-performance.mjs",
+    "test:mobile": "node --import tsx --test tests/mobileExperience.test.ts",
+    "test:mobile:browser": "node scripts/test-mobile-browser.mjs",
+    "test:narrative": "node --import tsx --test tests/narrative.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

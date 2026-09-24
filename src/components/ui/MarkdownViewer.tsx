@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MaterialIcon } from './MaterialIcon';
 import { sounds } from '../../audio/soundManager';
+import { CodeStory } from './narrative/CodeStory';
 
 interface MarkdownViewerProps {
   content: string;
@@ -131,20 +132,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, accentC
             </div>
 
             {/* Code Content */}
-            <div className="p-4 overflow-x-auto font-mono text-xs leading-relaxed text-slate-200">
-              <pre className="m-0">
-                <code>
-                  {codeBuffer.map((line, lIdx) => (
-                    <div key={lIdx} className="table-row">
-                      <span className="table-cell select-none text-slate-600 text-right pr-4 text-[11px]">
-                        {lIdx + 1}
-                      </span>
-                      <span className="table-cell whitespace-pre">{line}</span>
-                    </div>
-                  ))}
-                </code>
-              </pre>
-            </div>
+            <CodeStory code={fullCode} language={codeLanguage} />
           </div>
         );
         codeBuffer = [];

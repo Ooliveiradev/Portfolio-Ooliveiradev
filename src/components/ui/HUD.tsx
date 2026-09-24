@@ -49,15 +49,15 @@ export const HUD: React.FC<HUDProps> = ({
   isRacing = false,
   currentCheckpoint = 0,
 }) => {
-  if (isRacing) return <div className="absolute right-3 top-20 z-20 pointer-events-none">
+  if (isRacing) return <div className="race-minimap absolute right-3 top-20 z-20 pointer-events-none">
     <MiniMap islands={islands} visitedIslands={stats.visitedIslands} selectedIslandId={null}
       onSelectIsland={onSelectIsland} isRacing currentCheckpoint={currentCheckpoint} />
   </div>;
   return (
-    <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 sm:p-6 select-none">
+    <div className="game-hud absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 sm:p-6 select-none">
       {onInspectWhisper && <NearbyTransmission whispers={whispers} onInspect={onInspectWhisper} />}
       {/* Top Bar */}
-      <div className="flex items-start justify-between w-full max-w-7xl mx-auto pointer-events-auto gap-3">
+      <div className="hud-topbar flex items-start justify-between w-full max-w-7xl mx-auto pointer-events-auto gap-3">
         {/* Left Side: Floating XP Gain Notification */}
         <div className="flex items-center gap-3">
           <AnimatePresence>
@@ -74,21 +74,6 @@ export const HUD: React.FC<HUDProps> = ({
             )}
           </AnimatePresence>
         </div>
-
-        {/* Floating XP Notification */}
-        <AnimatePresence>
-          {recentXpGained !== null && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.8 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              className="px-3.5 py-1.5 rounded-full bg-[#0c1017]/95 border border-amber-400/40 text-amber-300 font-mono text-xs shadow-xl backdrop-blur-md flex items-center gap-1.5"
-            >
-              <MaterialIcon name="bolt" fill className="text-amber-400" size={15} />
-              <span>+{recentXpGained} XP!</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Social Presence Pill: Exploradores Online & Sinais Cósmicos */}
         {onOpenWhispersList && (
@@ -115,7 +100,7 @@ export const HUD: React.FC<HUDProps> = ({
 
         {/* Minimalist Top Right Toolbar: Menu Inicial e Configurações */}
         <div className="flex flex-col items-end gap-2.5">
-          <div className="flex items-center gap-2">
+          <div className="hud-toolbar flex items-center gap-2">
             <LanguageToggle compact />
             {/* Transmit Cosmic Whisper Button */}
             {onOpenDropWhisper && (

@@ -1,4 +1,5 @@
 // Procedural Web Audio API sound generator - no external dependencies or loading issues
+import { ROCKET_TIMING } from '../utils/rocketLaunch';
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -19,6 +20,8 @@ class SoundEngine {
   private isThrusterActive: boolean = false;
   private thrusterBoosting = false;
   private resumePending = false;
+  private rocketLaunchCleanup: (() => void) | null = null;
+  private rocketLaunchNoise: AudioBuffer | null = null;
 
   private initCtx() {
     if (!this.ctx) {
@@ -51,6 +54,7 @@ class SoundEngine {
     if (this.isMuted) {
       this.stopAmbient();
       this.stopThrusterSound();
+      this.stopRocketLaunch();
     } else {
       this.startAmbient();
     }
@@ -222,6 +226,72 @@ class SoundEngine {
     } catch {
       // safe fallback
     }
+  }
+
+  /** Island launch audio has its own graph, independent of the player's engine. */
+  public playRocketLaunchPhase(phase: 'ignition' | 'liftoff' | 'flying', remainingSeconds = ROCKET_TIMING[phase]) {
+    this.stopRocketLaunch();
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+      const duration = Math.max(0.01, Math.min(ROCKET_TIMING[phase], remainingSeconds));
+      if (!this.rocketLaunchNoise) {
+        this.rocketLaunchNoise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
+        const data = this.rocketLaunchNoise.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.rocketLaunchNoise;
+      noise.loop = true;
+      const rumble = ctx.createOscillator();
+      rumble.type = 'triangle';
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      const gain = ctx.createGain();
+      const pitch = phase === 'ignition' ? 38 : phase === 'liftoff' ? 52 : 76;
+      const cutoff = phase === 'ignition' ? 180 : phase === 'liftoff' ? 350 : 700;
+      const volume = phase === 'ignition' ? 0.07 : phase === 'liftoff' ? 0.10 : 0.14;
+      rumble.frequency.setValueAtTime(pitch, now);
+      rumble.frequency.linearRampToValueAtTime(pitch * 1.5, now + duration);
+      filter.frequency.setValueAtTime(cutoff, now);
+      filter.frequency.linearRampToValueAtTime(cutoff * 2, now + duration);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(volume * 0.65, now + Math.min(0.06, duration * 0.2));
+      gain.gain.linearRampToValueAtTime(volume, now + duration * 0.85);
+      gain.gain.linearRampToValueAtTime(0, now + duration);
+      noise.connect(filter);
+      rumble.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        noise.onended = null;
+        try { noise.stop(); } catch { /* Already ended. */ }
+        try { rumble.stop(); } catch { /* Already ended. */ }
+        noise.disconnect();
+        rumble.disconnect();
+        filter.disconnect();
+        gain.disconnect();
+        if (this.rocketLaunchCleanup === cleanup) this.rocketLaunchCleanup = null;
+      };
+      this.rocketLaunchCleanup = cleanup;
+      noise.onended = cleanup;
+      noise.start(now);
+      rumble.start(now);
+      noise.stop(now + duration);
+      rumble.stop(now + duration);
+    } catch {
+      this.stopRocketLaunch();
+    }
+  }
+
+  public stopRocketLaunch() {
+    this.rocketLaunchCleanup?.();
   }
 
   // High-pressure pneumatic steam / nitrogen purge release

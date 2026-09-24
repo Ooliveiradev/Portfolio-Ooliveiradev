@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
@@ -150,7 +150,20 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
         position={[0, 1.5, 0]}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
-        onClick={handleClick}
+        onClick={(event: ThreeEvent<MouseEvent>) => {
+          // The broad island hit proxy must not swallow launch-pad interactions.
+          for (const hit of config.id === 'projects' ? event.intersections : []) {
+            let object: THREE.Object3D | null = hit.object;
+            while (object) {
+              if (typeof object.userData.onRocketLaunch === 'function') {
+                object.userData.onRocketLaunch(event);
+                return;
+              }
+              object = object.parent;
+            }
+          }
+          handleClick(event);
+        }}
       >
         <cylinderGeometry args={[6.5, 6.5, 4.0, 12]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -160,7 +173,7 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
       <group scale={currentScale}>
         {config.id === 'education' && <EducationIsland isNear={isNear} />}
         {config.id === 'skills' && <SkillsIsland isNear={isNear} />}
-        {config.id === 'projects' && <ProjectsIsland isNear={isNear} />}
+        {config.id === 'projects' && <ProjectsIsland isNear={isNear} paused={isModalOpen} />}
         {config.id === 'experience' && <ExperienceIsland isNear={isNear} />}
         {config.id === 'about' && <AboutIsland isNear={isNear} />}
 
