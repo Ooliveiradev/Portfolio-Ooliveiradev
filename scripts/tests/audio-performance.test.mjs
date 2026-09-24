@@ -12,11 +12,15 @@ const compiled = ts.transpile(source, {
 });
 
 function createEngine(initialState = 'running') {
-  const metrics = { contexts: 0, resumes: 0, events: [], ramps: [], starts: 0, disconnects: 0, sources: [], context: null, finishResume: null };
+  const metrics = { contexts: 0, resumes: 0, events: [], ramps: [], starts: 0, disconnects: 0, sources: [], panners: [], context: null, finishResume: null };
   const parameter = () => ({
-    setValueAtTime() {},
-    linearRampToValueAtTime(value, time) { metrics.ramps.push({ value, time }); },
+    value: 0,
+    setValueAtTime(value) { this.value = value; },
+    cancelScheduledValues() {},
+    linearRampToValueAtTime(value, time) { this.value = value; metrics.ramps.push({ value, time }); },
+    exponentialRampToValueAtTime(value, time) { this.value = value; metrics.ramps.push({ value, time }); },
     setTargetAtTime(value, time, constant) {
+      this.value = value;
       metrics.events.push({ value, time, constant });
     },
   });
@@ -28,6 +32,7 @@ function createEngine(initialState = 'running') {
     gain: parameter(),
     frequency: parameter(),
     Q: parameter(),
+    detune: parameter(),
   });
 
   class AudioContextMock {
@@ -35,6 +40,11 @@ function createEngine(initialState = 'running') {
     currentTime = 1;
     sampleRate = 48000;
     destination = {};
+    listener = {
+      positionX: parameter(), positionY: parameter(), positionZ: parameter(),
+      forwardX: parameter(), forwardY: parameter(), forwardZ: parameter(),
+      upX: parameter(), upY: parameter(), upZ: parameter(),
+    };
 
     constructor() {
       metrics.contexts++;
@@ -54,6 +64,17 @@ function createEngine(initialState = 'running') {
     createGain() { return audioNode(); }
     createBiquadFilter() { return audioNode(); }
     createOscillator() { return audioNode(); }
+    createPanner() {
+      const panner = {
+        ...audioNode(),
+        positionX: parameter(), positionY: parameter(), positionZ: parameter(),
+        panningModel: 'equalpower', distanceModel: 'inverse', refDistance: 1,
+        maxDistance: 10000, rolloffFactor: 1, coneInnerAngle: 360, coneOuterAngle: 360,
+        setPosition() {},
+      };
+      metrics.panners.push(panner);
+      return panner;
+    }
     createBufferSource() {
       const source = audioNode();
       metrics.sources.push(source);
@@ -190,4 +211,40 @@ test('resuming near a phase boundary schedules a short, ordered audio envelope',
   assert.ok(envelope[0].time < envelope[1].time);
   assert.ok(envelope[1].time < envelope[2].time);
   assert.equal(envelope[2].time, metrics.context.currentTime + 0.02);
+});
+
+test('spatial ambience creates one 3D source per island plus the sun and tracks the ship listener', () => {
+  const { sounds, metrics } = createEngine();
+  sounds.startAmbient();
+  assert.equal(metrics.panners.length, 6);
+  assert.ok(metrics.panners.every((panner) => panner.panningModel === 'HRTF'));
+  assert.ok(metrics.panners.every((panner) => panner.distanceModel === 'linear'));
+
+  const before = metrics.events.length;
+  sounds.updateSpatialSoundscape(
+    [4, 1, 9],
+    Math.PI / 2,
+    [
+      { id: 'projects', position: [48, -3.8, 0] },
+      { id: 'experience', position: [20, -4.2, 60] },
+      { id: 'skills', position: [-70, -3.8, 30] },
+      { id: 'education', position: [-90, -4.4, -20] },
+      { id: 'about', position: [10, -4, -25], focused: true },
+      { id: 'sun', position: [0, 0, 0] },
+    ],
+    12,
+  );
+
+  assert.ok(metrics.events.length > before, 'listener and source positions should be smoothly automated');
+  const listener = metrics.context.listener;
+  assert.equal(listener.positionX.value, 4);
+  assert.equal(listener.positionY.value, 1);
+  assert.equal(listener.positionZ.value, 9);
+  assert.ok(Math.abs(listener.forwardX.value - 1) < 1e-9);
+  assert.ok(Math.abs(listener.forwardZ.value) < 1e-9);
+  assert.equal(metrics.panners[0].positionX.value, 48);
+  assert.equal(metrics.panners[0].positionY.value, -3.8);
+  assert.equal(metrics.panners[0].positionZ.value, 0);
+  assert.equal(metrics.panners[0].maxDistance, 68);
+  assert.equal(metrics.panners.at(-1).maxDistance, 118);
 });

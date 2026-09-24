@@ -12,6 +12,26 @@ html, body, #root { min-height: 100%; overscroll-behavior: none; }
 .mobile-sheet-panel { touch-action: auto; }
 .mobile-sheet-panel [class*="overflow-y-auto"] { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 
+.audio-volume-slider { appearance: none; -webkit-appearance: none; height: 28px; background: transparent; touch-action: none; }
+.audio-volume-slider::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(to right, #38bdf8 var(--audio-progress), #334155 var(--audio-progress));
+}
+.audio-volume-slider::-moz-range-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(to right, #38bdf8 var(--audio-progress), #334155 var(--audio-progress));
+}
+.audio-volume-slider::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px;
+  border: 3px solid #e0f2fe; border-radius: 50%; background: #0ea5e9;
+  box-shadow: 0 0 0 3px #0ea5e944, 0 2px 8px #02061780;
+}
+.audio-volume-slider::-moz-range-thumb {
+  width: 12px; height: 12px; border: 3px solid #e0f2fe; border-radius: 50%;
+  background: #0ea5e9; box-shadow: 0 0 0 3px #0ea5e944, 0 2px 8px #02061780;
+}
+.audio-volume-slider:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; border-radius: 999px; }
+
 @media (max-width: 639px), (pointer: coarse) {
   .mobile-controls {
     position: absolute; inset: 50% 0 0; z-index: 25; display: block;

@@ -326,7 +326,7 @@ Veja [o diagnóstico, os limites e o roteiro de validação](docs/PERFORMANCE.md
 
 - [ ] Modo multiplayer cooperativo via WebSockets para voar com amigos na galáxia.
 - [ ] Personalização de skins e cores para o chassi e jatos do foguete na oficina.
-- [ ] Suporte a áudio espacial 3D posicional via `PannerNode` em torno de cada ilha e do Sol.
+- [x] Suporte a áudio espacial 3D posicional via `PannerNode` em torno de cada ilha e do Sol.
 - [ ] Conquistas adicionais com integração à API do GitHub (exibições de commits reais em tempo real).
 - [ ] Localização de idiomas (i18n): Português / Inglês.
 

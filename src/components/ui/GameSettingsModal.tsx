@@ -52,6 +52,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   const INITIAL_RACE_LEADERBOARD = content.raceLeaderboard;
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [controlsSubTab, setControlsSubTab] = useState<'keyboard' | 'touch'>(() => usesTouchLayout() ? 'touch' : 'keyboard');
+  const [audioLevels, setAudioLevels] = useState(() => sounds.getVolumes());
 
   // WebGPU & Hardware Telemetry (Issue 16)
   const [gpuCapability, setGpuCapability] = useState<WebGPUCapability | null>(null);
@@ -367,40 +368,61 @@ Explore it at: ${window.location.href}`;
                       </div>
                       <LanguageToggle />
                     </div>
-                    {/* Audio Option */}
-                    <div className="settings-option flex items-center justify-between gap-3 p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition">
-                      <div>
-                        <span className="text-sm font-medium text-slate-200 font-mono block">
-                          Áudio & Efeitos Sonoros
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          Música ambiente e sons da nave
-                        </span>
+                    <section className="overflow-hidden rounded-2xl border border-sky-400/20 bg-gradient-to-br from-[#152535] via-[#101b2a] to-[#101620] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" aria-label={locale === 'pt' ? 'Configurações de áudio' : 'Audio settings'}>
+                      <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-white/[0.07]">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300 ring-1 ring-sky-400/20">
+                            <MaterialIcon name="graphic_eq" size={19} />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-semibold text-slate-100">{locale === 'pt' ? 'Áudio' : 'Audio'}</h3>
+                            <p className="text-[11px] leading-tight text-slate-400">{locale === 'pt' ? 'Ajuste os sons da exploração' : 'Tune your exploration sound'}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={locale === 'pt' ? 'Ativar ou silenciar áudio' : 'Enable or mute audio'}
+                          aria-pressed={!isMuted}
+                          onClick={() => { sounds.playClick(); onToggleMute(); }}
+                          className={`flex h-9 min-w-24 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 ${!isMuted ? 'border-sky-400/35 bg-sky-400/15 text-sky-200' : 'border-slate-600/70 bg-slate-800/70 text-slate-300'}`}
+                        >
+                          <MaterialIcon name={isMuted ? 'volume_off' : 'volume_up'} size={16} />
+                          {isMuted ? (locale === 'pt' ? 'Mudo' : 'Muted') : (locale === 'pt' ? 'Ligado' : 'On')}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onToggleMute();
-                        }}
-                        className={`w-28 py-1.5 rounded-xl border text-xs font-mono font-medium transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                          !isMuted
-                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        {!isMuted ? (
-                          <>
-                            <MaterialIcon name="volume_up" className="text-emerald-400" size={14} />
-                            <span>Ligado</span>
-                          </>
-                        ) : (
-                          <>
-                            <MaterialIcon name="volume_off" className="text-rose-400" size={14} />
-                            <span>Mudo</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                      <div className={`grid gap-0 divide-y divide-white/[0.06] px-4 transition-opacity ${isMuted ? 'opacity-55' : 'opacity-100'}`}>
+                        {(['ambient', 'engine', 'effects'] as const).map((category) => {
+                          const details = {
+                            ambient: { icon: 'public', pt: 'Ambiente e ilhas', en: 'Ambience and islands' },
+                            engine: { icon: 'rocket_launch', pt: 'Motor da nave', en: 'Ship engine' },
+                            effects: { icon: 'auto_awesome', pt: 'Efeitos e conquistas', en: 'Effects and achievements' },
+                          }[category];
+                          const label = locale === 'pt' ? details.pt : details.en;
+                          const percent = Math.round(audioLevels[category] * 100);
+                          return <label key={category} className="block py-2.5 first:pt-3 last:pb-3">
+                            <span className="flex items-center gap-2.5 text-xs font-medium text-slate-200">
+                              <MaterialIcon name={details.icon} size={16} className="text-sky-300/80" />
+                              <span className="min-w-0 flex-1">{label}</span>
+                              <output className="rounded-md bg-slate-900/65 px-2 py-0.5 font-mono text-[11px] tabular-nums text-sky-200">{percent}%</output>
+                            </span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={percent}
+                              aria-label={label}
+                              onChange={(event) => {
+                                const volume = Number(event.target.value) / 100;
+                                sounds.setVolume(category, volume);
+                                setAudioLevels((current) => ({ ...current, [category]: volume }));
+                              }}
+                              className="audio-volume-slider mt-1.5 w-full cursor-pointer"
+                              style={{ '--audio-progress': `${percent}%` } as React.CSSProperties}
+                            />
+                          </label>;
+                        })}
+                      </div>
+                    </section>
 
                     {/* Quality Mode: Low / Mid / High */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-[#111622]/50 hover:bg-[#111622]/80 border border-slate-800/60 hover:border-slate-700/80 transition gap-2">

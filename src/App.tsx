@@ -27,15 +27,16 @@ const DropWhisperModal = lazy(() => import('./components/ui/DropWhisperModal').t
 const WhispersListModal = lazy(() => import('./components/ui/WhispersListModal').then(m => ({ default: m.WhispersListModal })));
 import {
   CRYSTALS_DATA,
+  ISLANDS_CONFIG,
   formatRaceTime,
 } from './data/portfolioData';
 import { IslandId, UserStats, CrystalCollectible, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
 import { sounds } from './audio/soundManager';
 import { BoundaryAlert } from './components/ui/BoundaryAlert';
 import { MatrixEasterEgg } from './components/ui/MatrixEasterEgg';
-import { getIslandLivePosition } from './utils/celestialCoords';
+import { getCelestialTime, getIslandLivePosition } from './utils/celestialCoords';
 import confetti from 'canvas-confetti';
-import { INITIAL_VEHICLE_POSITION, getVehiclePosition, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
+import { INITIAL_VEHICLE_POSITION, getVehiclePosition, getVehicleRotation, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
 import { createVehicleInput, isEditableTarget } from './utils/gameInput';
 import { useI18n } from './i18n/I18nProvider';
 import { getPortfolioContent } from './i18n/portfolio';
@@ -84,6 +85,31 @@ export default function App() {
 
   // Active modals
   const [selectedIslandId, setSelectedIslandId] = useState<IslandId | null>(null);
+
+  useEffect(() => {
+    if (gameMode === 'landing' || gameMode === 'entering') return;
+    let previous = getVehiclePosition();
+    let previousTime = performance.now();
+    const timer = window.setInterval(() => {
+      const position = getVehiclePosition();
+      const time = performance.now();
+      const elapsed = Math.max(0.001, (time - previousTime) / 1000);
+      const speed = Math.min(30, Math.hypot(position[0] - previous[0], position[2] - previous[2]) / elapsed);
+      previous = position;
+      previousTime = time;
+      const heading = getVehicleRotation();
+      const orbitalTime = getCelestialTime();
+      const spatialSources: Array<{ id: string; position: [number, number, number]; focused: boolean }> = ISLANDS_CONFIG.map((island) => ({
+        id: island.id,
+        position: getIslandLivePosition(island, orbitalTime),
+        focused: island.id === selectedIslandId && gameMode === 'inspecting',
+      }));
+      spatialSources.push({ id: 'sun', position: [0, 0, 0], focused: false });
+      sounds.updateSpatialSoundscape(position, heading, spatialSources, speed);
+    }, 150);
+    return () => window.clearInterval(timer);
+  }, [gameMode, selectedIslandId]);
+
   const [activeChallengeIsland, setActiveChallengeIsland] = useState<IslandId | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [settingsModalTab, setSettingsModalTab] = useState<SettingsTab>('options');
@@ -620,6 +646,7 @@ export default function App() {
     if (raceSession.active) return;
     const island = islands.find((i) => i.id === id);
     if (!island) return;
+    sounds.startAmbient();
 
     if (gameMode !== 'inspecting' && gameMode !== 'landing-island') {
       setPreviousGameMode(gameMode);
