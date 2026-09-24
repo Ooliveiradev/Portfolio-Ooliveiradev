@@ -308,9 +308,12 @@ const GalaxySceneComponent: React.FC<GalaxySceneProps> = ({
               islands={islands}
               visitedIslands={visitedIslands}
               onSelectIsland={onSelectIsland}
+              selectedIslandId={selectedIslandId}
+              transferIslandId={gameMode === 'landing-island' || gameMode === 'inspecting' ? selectedIslandId : null}
               orbitActive={gameMode === 'landing'}
               sharedVehiclePos={sharedVehiclePos}
               isModalOpen={isModalOpen || raceActive}
+              graphicsQuality={graphicsQuality}
             />
 
             {/* Nave Espacial com Corpo Rígido Dinâmico e Colisor Primitivo (Pré-montada e persistente na GPU) */}

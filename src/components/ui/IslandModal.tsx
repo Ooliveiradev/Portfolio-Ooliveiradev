@@ -18,6 +18,7 @@ import { MediaGallery } from './narrative/MediaGallery';
 import { NarrativeTimeline } from './narrative/NarrativeTimeline';
 import { CodeStory } from './narrative/CodeStory';
 import clockSource from '../../utils/pausableClock.ts?raw';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
 
 interface IslandModalProps {
   island: IslandConfig;
@@ -140,7 +141,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
 
           <div className="flex items-center gap-2">
             {/* Challenge Button */}
-            <button
+            {island.id !== 'analytics' && <button
               onClick={() => {
                 sounds.playClick();
                 onStartChallenge(island.id);
@@ -162,7 +163,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                   <span>Desafio da Ilha (+150 XP)</span>
                 </>
               )}
-            </button>
+            </button>}
 
             {/* Close Button */}
             <button
@@ -180,7 +181,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
         </div>
 
         {/* Mobile Challenge Banner */}
-        <div className="shrink-0 sm:hidden px-5 py-2.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
+        {island.id !== 'analytics' && <div className="shrink-0 sm:hidden px-5 py-2.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
           <span className="text-xs text-slate-300 font-mono">Desafio Técnico:</span>
           <button
             onClick={() => onStartChallenge(island.id)}
@@ -192,22 +193,26 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           >
             {isChallengeDone ? '✓ Concluído' : 'Jogar (+150 XP)'}
           </button>
-        </div>
+        </div>}
 
         {/* Modal Scrollable Body */}
         <div data-narrative-scroll className="p-5 sm:p-8 overflow-y-auto space-y-6 min-h-0">
-          <NarrativeHero
-            eyebrow={`${String(['projects', 'experience', 'skills', 'education', 'about'].indexOf(island.id) + 1).padStart(2, '0')} / ${island.name}`}
-            title={island.id === 'about' ? PERSONAL_INFO.name : island.tagline}
-            description={island.id === 'about' ? PERSONAL_INFO.subtitle :
-              island.id === 'projects' ? (locale === 'pt' ? 'Da proposta à arquitetura: explore as decisões, o código e os resultados de cada aplicação.' : 'From concept to architecture: explore the decisions, code and results behind each application.') :
-              island.id === 'experience' ? (locale === 'pt' ? 'Da atuação operacional ao desenvolvimento de interfaces: uma trajetória em ordem cronológica, da experiência mais recente às primeiras atividades.' : 'From operations to interface development: a journey from the most recent experience to the earliest roles.') :
-              island.id === 'education' ? (locale === 'pt' ? 'Formação acadêmica e cursos que sustentam a prática em desenvolvimento de software.' : 'Academic education and courses supporting hands-on software development.') :
-              (locale === 'pt' ? 'Interfaces, dados e inteligência artificial conectados na construção dos projetos deste portfólio.' : 'Interfaces, data and artificial intelligence connected across the projects in this portfolio.')}
-            accent={island.color} lowPower={lowPower}
-            facts={island.id === 'skills' ? SKILLS_DATA.map(category => category.title) : undefined}
-            portrait={island.id === 'about' ? { src: portraitUrl, alt: PERSONAL_INFO.name } : undefined}
-          />
+          {island.id !== 'analytics' && (
+            <NarrativeHero
+              eyebrow={`${String(['projects', 'experience', 'skills', 'education', 'about', 'analytics'].indexOf(island.id) + 1).padStart(2, '0')} / ${island.name}`}
+              title={island.id === 'about' ? PERSONAL_INFO.name : island.tagline}
+              description={island.id === 'about' ? PERSONAL_INFO.subtitle :
+                island.id === 'projects' ? (locale === 'pt' ? 'Da proposta à arquitetura: explore as decisões, o código e os resultados de cada aplicação.' : 'From concept to architecture: explore the decisions, code and results behind each application.') :
+                island.id === 'experience' ? (locale === 'pt' ? 'Da atuação operacional ao desenvolvimento de interfaces: uma trajetória em ordem cronológica, da experiência mais recente às primeiras atividades.' : 'From operations to interface development: a journey from the most recent experience to the earliest roles.') :
+                island.id === 'education' ? (locale === 'pt' ? 'Formação acadêmica e cursos que sustentam a prática em desenvolvimento de software.' : 'Academic education and courses supporting hands-on software development.') :
+                (locale === 'pt' ? 'Interfaces, dados e inteligência artificial conectados na construção dos projetos deste portfólio.' : 'Interfaces, data and artificial intelligence connected across the projects in this portfolio.')}
+              accent={island.color} lowPower={lowPower}
+              facts={island.id === 'skills' ? SKILLS_DATA.map(category => category.title) : undefined}
+              portrait={island.id === 'about' ? { src: portraitUrl, alt: PERSONAL_INFO.name } : undefined}
+            />
+          )}
+
+          {island.id === 'analytics' && <AnalyticsDashboard lowPower={lowPower} />}
           {/* PROJECTS ISLAND CONTENT */}
           {island.id === 'projects' && (
             <div className="space-y-6">

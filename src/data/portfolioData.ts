@@ -90,6 +90,19 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
     challengeTitle: 'Conexão de Frequência Segura',
     challengeXp: 150,
   },
+  {
+    id: 'analytics',
+    name: 'Ilha de Analytics',
+    tagline: 'Telemetria Anônima & Fluxos em Tempo Real',
+    color: '#22d3ee',
+    orbitRadius: 120,
+    orbitSpeed: -0.04,
+    angleOffset: 5.8,
+    elevation: -3.6,
+    iconName: 'QueryStats',
+    challengeTitle: 'Observatório de Dados',
+    challengeXp: 0,
+  },
 ];
 
 export const PROJECTS_DATA: ProjectItem[] = [
@@ -341,8 +354,8 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
     category: 'Creative 3D & WebGL',
     role: 'Creative Developer & 3D Engineer',
     statusBadge: 'Em Produção · 60-120 FPS',
-    shortDesc: 'Portfólio interativo gamificado em universo 3D com física inercial Rapier, iluminação de estúdio e 5 ilhas orbitais.',
-    description: 'Experiência web 3D de alto impacto inspirada no trabalho de Bruno Simon. Desenvolvida com Three.js e React Three Fiber, apresenta simulação física inercial de veículo espacial com drift e suspensão elástica, iluminação de estúdio cósmico (Key/Fill/Rim), órbitas celestes matemáticas sincronizadas, 5 ilhas planetárias com Foguetipontos [F], minigame de corrida de checkpoints e desafios técnicos interativos.',
+    shortDesc: 'Portfólio interativo gamificado em universo 3D com física inercial Rapier, iluminação de estúdio e 6 ilhas orbitais.',
+    description: 'Experiência web 3D de alto impacto inspirada no trabalho de Bruno Simon. Desenvolvida com Three.js e React Three Fiber, apresenta simulação física inercial de veículo espacial com drift e suspensão elástica, iluminação de estúdio cósmico (Key/Fill/Rim), órbitas celestes matemáticas sincronizadas, 6 ilhas planetárias com Foguetipontos [F], minigame de corrida de checkpoints, analytics holográfico e desafios técnicos interativos.',
     tags: ['React Three Fiber', 'Three.js', 'Rapier 3D', 'TypeScript', 'Tailwind CSS', 'Vite'],
     metrics: 'Taxa estável de 60-120 FPS com sombras PCF e iluminação de estúdio cinematográfica',
     liveUrl: '#',
@@ -358,7 +371,7 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
     highlights: [
       'Controle inercial de veículo espacial com aceleração vetorial, atrito, drift e suspensão elástica.',
       'Iluminação de estúdio cinematográfica (Key Light, Fill Light, Rim Light e Ambient Light) calibrada.',
-      '5 ilhas orbitais flutuantes com mecânica de atracamento automático [F] e câmera orbital adaptativa.',
+      '6 ilhas orbitais flutuantes com mecânica de atracamento automático [F] e câmera orbital adaptativa.',
       'Minigame de corrida contra o relógio com checkpoints colidíveis, contagem regressiva e Hall da Fama.',
       'Sintetizador sonoro sintetizado em tempo real na Web Audio API sem arquivos externos de áudio.',
     ],
@@ -390,7 +403,7 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
 
 ## 📌 Visão Geral
 
-Desenvolvido para transformar o clássico currículo web em uma jornada memorável, o **Portfolio Cósmico 3D** coloca o recrutador ou visitante no comando de um foguete espacial com física inercial completa, capaz de pousar em 5 ilhas planetárias orbitais que revelam cada faceta da carreira de Danilo Ribeiro.
+Desenvolvido para transformar o clássico currículo web em uma jornada memorável, o **Portfolio Cósmico 3D** coloca o recrutador ou visitante no comando de um foguete espacial com física inercial completa, capaz de pousar em 6 ilhas planetárias orbitais que revelam cada faceta da carreira de Danilo Ribeiro.
 
 ## ⚡ Destaques Técnicos
 
@@ -651,7 +664,7 @@ export const BADGES_DATA: Badge[] = [
   {
     id: 'badge-explorer',
     title: 'Cosmo Navegador',
-    description: 'Visitou e explorou todas as 5 ilhas orbitais do sistema.',
+    description: 'Visitou e explorou todas as 6 ilhas orbitais do sistema.',
     icon: 'Globe',
     xpReward: 300,
     unlocked: false,

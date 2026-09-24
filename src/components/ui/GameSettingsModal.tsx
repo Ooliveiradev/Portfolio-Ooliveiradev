@@ -236,13 +236,13 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
 🏆 Pontuação: ${stats.xp} XP (${getRankTitle(stats.xp)})
 🎖️ Conquistas Desbloqueadas: ${stats.unlockedBadges.length}/${BADGES_DATA.length}
 💎 Cristais Coletados: ${collectedCount}/${crystals.length}
-🌌 Ilhas Visitadas: ${stats.visitedIslands.length}/5
+🌌 Ilhas Visitadas: ${stats.visitedIslands.length}/${content.islands.length}
 Confira em: ${window.location.href}`
       : `🚀 I explored ${PERSONAL_INFO.name}'s 3D Universe!
 🏆 Score: ${stats.xp} XP (${getRankTitle(stats.xp)})
 🎖️ Achievements Unlocked: ${stats.unlockedBadges.length}/${BADGES_DATA.length}
 💎 Crystals Collected: ${collectedCount}/${crystals.length}
-🌌 Islands Visited: ${stats.visitedIslands.length}/5
+🌌 Islands Visited: ${stats.visitedIslands.length}/${content.islands.length}
 Explore it at: ${window.location.href}`;
 
     navigator.clipboard.writeText(text);

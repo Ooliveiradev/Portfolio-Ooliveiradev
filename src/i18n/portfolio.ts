@@ -18,6 +18,7 @@ const englishIslands: Record<IslandConfig['id'], Pick<IslandConfig, 'name' | 'ta
   skills: { name: 'Technology Island', tagline: 'Technology Stack, Modern Ecosystem & Web Architecture', challengeTitle: 'Tech Frequency Tuning' },
   education: { name: 'Academic Island', tagline: 'Systems Analysis at PUC Minas, Engineering at CEFET-MG & Certifications', challengeTitle: 'Quick Algorithm Challenge' },
   about: { name: 'Developer Portal', tagline: 'Professional Profile, Journey & Direct Contact Channels', challengeTitle: 'Secure Frequency Connection' },
+  analytics: { name: 'Analytics Island', tagline: 'Anonymous Telemetry & Real-Time Flows', challengeTitle: 'Data Observatory' },
 };
 const projectTranslations: Record<string, Partial<ProjectItem>> = {
   'quantia-mvp': {
@@ -91,7 +92,7 @@ const englishEducation: Record<string, Partial<EducationItem>> = {
 
 const englishBadges: Record<string, Pick<Badge, 'title' | 'description'> & { unlockedAt?: string }> = {
   'badge-ignition': { title: 'First Contact', description: 'Started navigating the portfolio’s 3D universe.', unlockedAt: 'At Launch' },
-  'badge-explorer': { title: 'Cosmic Navigator', description: 'Visited all five orbital islands.' },
+  'badge-explorer': { title: 'Cosmic Navigator', description: 'Visited all six orbital islands.' },
   'badge-coder': { title: 'Challenge Master', description: 'Completed at least two technical island challenges.' },
   'badge-crystal-novice': { title: 'Star Miner', description: 'Collected at least three cosmic crystals.' },
   'badge-crystal': { title: 'Cosmic Collector', description: 'Collected every energy crystal in space.' },

@@ -118,7 +118,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           </div>
           <span className="font-semibold tracking-wider text-slate-200">MAPA</span>
           <span className="text-[10px] text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded-md border border-emerald-500/30">
-            {visitedCount}/5
+            {visitedCount}/{islands.length}
           </span>
           <MaterialIcon name="expand_more" className="text-slate-400" size={18} />
         </button>
@@ -658,7 +658,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
             <div className="flex items-center justify-between px-1.5 pt-1.5 text-[9px] font-mono text-slate-400 border-t border-slate-800/60 mt-1">
               <span className="flex items-center gap-1 text-slate-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                {visitedCount}/5 Conhecidas
+                {visitedCount}/{islands.length} Conhecidas
               </span>
               <span className="text-slate-500 font-mono">
                 X:{Math.round(vehiclePos[0])} Z:{Math.round(vehiclePos[2])}

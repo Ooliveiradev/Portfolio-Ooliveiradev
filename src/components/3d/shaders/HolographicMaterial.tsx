@@ -10,6 +10,7 @@ interface HolographicMaterialProps {
   scanlineSpeed?: number;
   iridescenceSpeed?: number;
   opacity?: number;
+  additive?: boolean;
 }
 
 /**
@@ -29,13 +30,15 @@ export const HolographicMaterial: React.FC<HolographicMaterialProps> = ({
   scanlineSpeed = 1.8,
   iridescenceSpeed = 0.8,
   opacity = 0.92,
+  additive = false,
 }) => {
   const matRef = useRef<THREE.ShaderMaterial>(null);
 
   const material = useMemo(() => {
     return new THREE.ShaderMaterial({
       transparent: true,
-      depthWrite: true,
+      depthWrite: !additive,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
       side: THREE.DoubleSide,
       uniforms: {
         uTime: { value: 0 },
@@ -112,7 +115,7 @@ export const HolographicMaterial: React.FC<HolographicMaterialProps> = ({
         }
       `,
     });
-  }, [baseColor, fresnelColor, fresnelPower, scanlineDensity, scanlineSpeed, iridescenceSpeed, opacity]);
+  }, [baseColor, fresnelColor, fresnelPower, scanlineDensity, scanlineSpeed, iridescenceSpeed, opacity, additive]);
 
   useEffect(() => () => material.dispose(), [material]);
 

@@ -1,4 +1,4 @@
-export type IslandId = 'projects' | 'experience' | 'skills' | 'education' | 'about';
+export type IslandId = 'projects' | 'experience' | 'skills' | 'education' | 'about' | 'analytics';
 
 export type GameMode =
   | 'landing'
@@ -150,5 +150,34 @@ export interface CosmicWhisper {
   createdAt: string;
   likes: number;
   color: WhisperColor;
+}
+
+export interface ProjectVisitMetric {
+  projectId: string;
+  projectName: string;
+  visits: number;
+  percentage: number;
+}
+
+export interface DayMetric {
+  date: string;
+  visits: number;
+}
+
+export interface HeatmapSample {
+  x: number;
+  y: number;
+  z: number;
+  intensity: number;
+}
+
+export interface PortfolioAnalyticsData {
+  totalVisits: number;
+  uniqueVisitors: number;
+  avgDurationSeconds: number;
+  topProjects: ProjectVisitMetric[];
+  dailyVisits: DayMetric[];
+  spatialHeatmap: HeatmapSample[];
+  lastUpdated: string;
 }
 

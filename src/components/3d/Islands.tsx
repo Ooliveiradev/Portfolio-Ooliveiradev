@@ -3,7 +3,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { IslandConfig, IslandId } from '../../types';
+import { GraphicsQuality, IslandConfig, IslandId } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { useRapier } from './physics/RapierPhysicsContext';
 import { getIslandLivePosition } from '../../utils/celestialCoords';
@@ -13,23 +13,30 @@ import { ProjectsIsland } from './islands/ProjectsIsland';
 import { ExperienceIsland } from './islands/ExperienceIsland';
 import { AboutIsland } from './islands/AboutIsland';
 import { IslandLife } from './islands/IslandLife';
+import { AnalyticsIsland } from './islands/AnalyticsIsland';
 
 interface IslandsProps {
   islands: IslandConfig[];
   visitedIslands: IslandId[];
   onSelectIsland: (id: IslandId) => void;
+  selectedIslandId?: IslandId | null;
+  transferIslandId?: IslandId | null;
   orbitActive: boolean;
   sharedVehiclePos?: React.RefObject<THREE.Vector3>;
   isModalOpen: boolean;
+  graphicsQuality?: GraphicsQuality;
 }
 
 interface ThematicIslandProps {
   config: IslandConfig;
   isVisited: boolean;
   onSelect: (id: IslandId) => void;
+  selectedIslandId?: IslandId | null;
+  transferIslandId?: IslandId | null;
   orbitActive: boolean;
   sharedVehiclePos?: React.RefObject<THREE.Vector3>;
   isModalOpen: boolean;
+  graphicsQuality: GraphicsQuality;
 }
 
 const ISLAND_SCALES: Record<string, [number, number, number]> = {
@@ -38,15 +45,19 @@ const ISLAND_SCALES: Record<string, [number, number, number]> = {
   skills: [1.10, 1.0, 1.10],      // Tech motherboard mainframe
   education: [1.0, 1.0, 1.0],     // Terraced academic knolls
   about: [0.92, 1.0, 0.92],       // Intimate developer workstation
+  analytics: [1.04, 1.0, 1.04],   // Holographic telemetry observatory
 };
 
 const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
   config,
   isVisited,
   onSelect,
+  selectedIslandId,
+  transferIslandId,
   orbitActive,
   sharedVehiclePos,
   isModalOpen,
+  graphicsQuality,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
@@ -176,9 +187,16 @@ const ThematicIslandComponent: React.FC<ThematicIslandProps> = ({
         {config.id === 'projects' && <ProjectsIsland isNear={isNear} paused={isModalOpen} />}
         {config.id === 'experience' && <ExperienceIsland isNear={isNear} />}
         {config.id === 'about' && <AboutIsland isNear={isNear} />}
+        {config.id === 'analytics' && (
+          <AnalyticsIsland
+            isNear={isNear}
+            graphicsQuality={graphicsQuality}
+            transferToUi={transferIslandId === 'analytics'}
+          />
+        )}
 
         {/* Autonomous Scout Drones, Telemetry Radar & Approach Runway Lights */}
-        {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && (
+        {config.id !== 'about' && config.id !== 'education' && config.id !== 'experience' && config.id !== 'analytics' && (
           <IslandLife
             islandId={config.id}
             themeColor={config.color}
@@ -472,9 +490,12 @@ const IslandsComponent: React.FC<IslandsProps> = ({
   islands,
   visitedIslands,
   onSelectIsland,
+  selectedIslandId,
+  transferIslandId,
   orbitActive,
   sharedVehiclePos,
   isModalOpen,
+  graphicsQuality = 'mid',
 }) => {
   return (
     <group>
@@ -484,9 +505,12 @@ const IslandsComponent: React.FC<IslandsProps> = ({
           config={island}
           isVisited={visitedIslands.includes(island.id)}
           onSelect={onSelectIsland}
+          selectedIslandId={selectedIslandId}
+          transferIslandId={transferIslandId}
           orbitActive={orbitActive}
           sharedVehiclePos={sharedVehiclePos}
           isModalOpen={isModalOpen}
+          graphicsQuality={graphicsQuality}
         />
       ))}
     </group>

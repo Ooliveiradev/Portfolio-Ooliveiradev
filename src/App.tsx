@@ -41,6 +41,7 @@ import { createVehicleInput, isEditableTarget } from './utils/gameInput';
 import { useI18n } from './i18n/I18nProvider';
 import { getPortfolioContent } from './i18n/portfolio';
 import { hasCollectedAllCrystals } from './utils/achievements';
+import { trackProjectView, trackSessionStart, trackSpatialPosition } from './services/analyticsService';
 
 export default function App() {
   const { locale } = useI18n();
@@ -85,6 +86,10 @@ export default function App() {
 
   // Active modals
   const [selectedIslandId, setSelectedIslandId] = useState<IslandId | null>(null);
+
+  useEffect(() => {
+    trackSessionStart();
+  }, []);
 
   useEffect(() => {
     if (gameMode === 'landing' || gameMode === 'entering') return;
@@ -484,8 +489,8 @@ export default function App() {
   // Check island milestones and exploration achievements
   const checkMilestoneBadges = useCallback(
     (currentStats: UserStats) => {
-      // 1. Cosmo Navegador (todas as 5 ilhas)
-      if (currentStats.visitedIslands.length >= 5) {
+      // 1. Cosmo Navegador (todas as ilhas disponíveis)
+      if (currentStats.visitedIslands.length >= ISLANDS_CONFIG.length) {
         unlockBadge('badge-explorer');
       }
 
@@ -555,6 +560,7 @@ export default function App() {
   // Listener para exploração espacial: Drifter Solar e Espaço Profundo (garantido disparo único)
   const handleVehiclePosChange = useCallback((position: [number, number, number]) => {
     updateVehiclePosition(position);
+    trackSpatialPosition(position);
     if (gameMode !== 'driving') return;
     const distToCenter = Math.hypot(position[0], position[2]);
     if (distToCenter < 10.5 && !unlockedBadgesRef.current.has('badge-orbit-drifter')) {
@@ -718,6 +724,7 @@ export default function App() {
 
   // Inspect project detail inside island modal
   const handleInspectProject = (projectId: string) => {
+    trackProjectView(projectId);
     setStats((prev) => {
       if (!prev.viewedProjects.includes(projectId)) {
         addXp(50);
@@ -823,11 +830,23 @@ export default function App() {
         e.preventDefault();
         sounds.playClick();
         setShowDropWhisperModal(true);
+        return;
+      }
+
+      if ((e.key === 'e' || e.key === 'E') && gameMode === 'driving' && !isModalOpen && !raceSession.active) {
+        const analyticsIsland = islands.find((island) => island.id === 'analytics');
+        if (!analyticsIsland) return;
+        const [ix, , iz] = getIslandLivePosition(analyticsIsland);
+        const [vx, , vz] = getVehiclePosition();
+        if (Math.hypot(vx - ix, vz - iz) <= 25) {
+          e.preventDefault();
+          handleSelectIsland('analytics');
+        }
       }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [gameMode, isModalOpen]);
+  }, [gameMode, isModalOpen, islands, handleSelectIsland]);
 
   return (
     <div data-graphics-quality={graphicsQuality} className="game-shell relative w-full h-dvh overflow-hidden bg-[#070b14] text-white">
