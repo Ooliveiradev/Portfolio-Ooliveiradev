@@ -369,15 +369,12 @@ Explore it at: ${window.location.href}`;
                       </div>
                       <LanguageToggle />
                     </div>
-                    <section className="overflow-hidden rounded-2xl border border-sky-400/20 bg-gradient-to-br from-[#152535] via-[#101b2a] to-[#101620] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" aria-label={locale === 'pt' ? 'Configurações de áudio' : 'Audio settings'}>
-                      <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-white/[0.07]">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300 ring-1 ring-sky-400/20">
-                            <MaterialIcon name="graphic_eq" size={19} />
-                          </div>
+                    <section className="overflow-hidden rounded-xl border border-slate-800/60 bg-[#111622]/50" aria-label={locale === 'pt' ? 'Configurações de áudio' : 'Audio settings'}>
+                      <div className="settings-option flex items-center justify-between gap-3 p-3">
+                        <div className="min-w-0">
                           <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-slate-100">{locale === 'pt' ? 'Áudio' : 'Audio'}</h3>
-                            <p className="text-[11px] leading-tight text-slate-400">{locale === 'pt' ? 'Ajuste os sons da exploração' : 'Tune your exploration sound'}</p>
+                            <h3 className="text-sm font-mono font-medium text-slate-200">{locale === 'pt' ? 'Áudio' : 'Audio'}</h3>
+                            <p className="text-[11px] text-slate-400">{locale === 'pt' ? 'Ajuste os sons da exploração' : 'Tune your exploration sound'}</p>
                           </div>
                         </div>
                         <button
@@ -385,13 +382,13 @@ Explore it at: ${window.location.href}`;
                           aria-label={locale === 'pt' ? 'Ativar ou silenciar áudio' : 'Enable or mute audio'}
                           aria-pressed={!isMuted}
                           onClick={() => { sounds.playClick(); onToggleMute(); }}
-                          className={`flex h-9 min-w-24 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 ${!isMuted ? 'border-sky-400/35 bg-sky-400/15 text-sky-200' : 'border-slate-600/70 bg-slate-800/70 text-slate-300'}`}
+                          className={`flex min-h-9 w-28 shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-mono font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 ${!isMuted ? 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25' : 'border-slate-700 bg-slate-800/90 text-slate-400 hover:text-slate-200'}`}
                         >
                           <MaterialIcon name={isMuted ? 'volume_off' : 'volume_up'} size={16} />
                           {isMuted ? (locale === 'pt' ? 'Mudo' : 'Muted') : (locale === 'pt' ? 'Ligado' : 'On')}
                         </button>
                       </div>
-                      <div className={`grid gap-0 divide-y divide-white/[0.06] px-4 transition-opacity ${isMuted ? 'opacity-55' : 'opacity-100'}`}>
+                      <div className="mx-3 border-t border-slate-800/60 py-1">
                         {(['ambient', 'engine', 'effects'] as const).map((category) => {
                           const details = {
                             ambient: { icon: 'public', pt: 'Ambiente e ilhas', en: 'Ambience and islands' },
@@ -400,11 +397,10 @@ Explore it at: ${window.location.href}`;
                           }[category];
                           const label = locale === 'pt' ? details.pt : details.en;
                           const percent = Math.round(audioLevels[category] * 100);
-                          return <label key={category} className="block py-2.5 first:pt-3 last:pb-3">
-                            <span className="flex items-center gap-2.5 text-xs font-medium text-slate-200">
-                              <MaterialIcon name={details.icon} size={16} className="text-sky-300/80" />
-                              <span className="min-w-0 flex-1">{label}</span>
-                              <output className="rounded-md bg-slate-900/65 px-2 py-0.5 font-mono text-[11px] tabular-nums text-sky-200">{percent}%</output>
+                          return <label key={category} className="grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-x-3 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(80px,140px)_2.5rem]">
+                            <span className="flex items-center gap-2 text-xs text-slate-400">
+                              <MaterialIcon name={details.icon} size={14} className="shrink-0 text-slate-500" />
+                              <span className="min-w-0">{label}</span>
                             </span>
                             <input
                               type="range"
@@ -412,14 +408,16 @@ Explore it at: ${window.location.href}`;
                               max="100"
                               value={percent}
                               aria-label={label}
+                              aria-valuetext={`${percent}%`}
                               onChange={(event) => {
                                 const volume = Number(event.target.value) / 100;
                                 sounds.setVolume(category, volume);
                                 setAudioLevels((current) => ({ ...current, [category]: volume }));
                               }}
-                              className="audio-volume-slider mt-1.5 w-full cursor-pointer"
+                              className="audio-volume-slider col-span-2 row-start-2 w-full cursor-pointer sm:col-span-1 sm:col-start-2 sm:row-start-1"
                               style={{ '--audio-progress': `${percent}%` } as React.CSSProperties}
                             />
+                            <output className="col-start-2 row-start-1 text-right font-mono text-[10px] tabular-nums text-slate-400 sm:col-start-3">{percent}%</output>
                           </label>;
                         })}
                       </div>

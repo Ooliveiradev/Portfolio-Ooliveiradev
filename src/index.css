@@ -14,21 +14,20 @@ html, body, #root { min-height: 100%; overscroll-behavior: none; }
 
 .audio-volume-slider { appearance: none; -webkit-appearance: none; height: 28px; background: transparent; touch-action: none; }
 .audio-volume-slider::-webkit-slider-runnable-track {
-  height: 6px; border-radius: 999px;
-  background: linear-gradient(to right, #38bdf8 var(--audio-progress), #334155 var(--audio-progress));
+  height: 3px; border-radius: 999px;
+  background: linear-gradient(to right, #7dd3fc99 var(--audio-progress), #263244 var(--audio-progress));
 }
 .audio-volume-slider::-moz-range-track {
-  height: 6px; border-radius: 999px;
-  background: linear-gradient(to right, #38bdf8 var(--audio-progress), #334155 var(--audio-progress));
+  height: 3px; border-radius: 999px;
+  background: linear-gradient(to right, #7dd3fc99 var(--audio-progress), #263244 var(--audio-progress));
 }
 .audio-volume-slider::-webkit-slider-thumb {
-  appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px;
-  border: 3px solid #e0f2fe; border-radius: 50%; background: #0ea5e9;
-  box-shadow: 0 0 0 3px #0ea5e944, 0 2px 8px #02061780;
+  appearance: none; -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px;
+  border: 2px solid #0c1017; border-radius: 50%; background: #cbd5e1;
 }
 .audio-volume-slider::-moz-range-thumb {
-  width: 12px; height: 12px; border: 3px solid #e0f2fe; border-radius: 50%;
-  background: #0ea5e9; box-shadow: 0 0 0 3px #0ea5e944, 0 2px 8px #02061780;
+  width: 7px; height: 7px; border: 2px solid #0c1017; border-radius: 50%;
+  background: #cbd5e1;
 }
 .audio-volume-slider:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; border-radius: 999px; }
 
