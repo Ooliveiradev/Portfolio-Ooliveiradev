@@ -11,6 +11,7 @@ import {
 import { sounds } from '../../audio/soundManager';
 import { useI18n } from '../../i18n/I18nProvider';
 import { getPortfolioContent } from '../../i18n/portfolio';
+import { portraitUrl } from '../../assets/portrait';
 import { CinematicDialog } from './narrative/CinematicDialog';
 import { NarrativeHero } from './narrative/NarrativeHero';
 import { MediaGallery } from './narrative/MediaGallery';
@@ -205,7 +206,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
               (locale === 'pt' ? 'Interfaces, dados e inteligência artificial conectados na construção dos projetos deste portfólio.' : 'Interfaces, data and artificial intelligence connected across the projects in this portfolio.')}
             accent={island.color} lowPower={lowPower}
             facts={island.id === 'skills' ? SKILLS_DATA.map(category => category.title) : undefined}
-            portrait={island.id === 'about' ? { src: '/assets/danilo-ribeiro.jpg', alt: PERSONAL_INFO.name } : undefined}
+            portrait={island.id === 'about' ? { src: portraitUrl, alt: PERSONAL_INFO.name } : undefined}
           />
           {/* PROJECTS ISLAND CONTENT */}
           {island.id === 'projects' && (

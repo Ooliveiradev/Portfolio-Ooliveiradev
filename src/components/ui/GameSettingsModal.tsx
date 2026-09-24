@@ -10,6 +10,7 @@ import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetecto
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from '../../i18n/I18nProvider';
 import { getPortfolioContent } from '../../i18n/portfolio';
+import { portraitUrl } from '../../assets/portrait';
 
 export type SettingsTab = 'home' | 'options' | 'controls' | 'achievements' | 'ranking' | 'behind' | 'about';
 
@@ -313,7 +314,7 @@ Explore it at: ${window.location.href}`;
                   aria-label="Avatar de Danilo Ribeiro"
                 >
                   <img
-                    src="assets/danilo-ribeiro.jpg"
+                    src={portraitUrl}
                     alt="Danilo Ribeiro"
                     className="h-full w-full object-cover object-center transition-transform duration-300 hover:scale-105"
                   />
