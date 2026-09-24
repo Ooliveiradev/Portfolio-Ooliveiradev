@@ -2,7 +2,6 @@ import type {
   DayMetric,
   HeatmapSample,
   PortfolioAnalyticsData,
-  ProjectVisitMetric,
 } from '../types';
 
 export type AnalyticsTimeframe = '7d' | '30d';
@@ -13,16 +12,6 @@ type TelemetryEvent =
   | { kind: 'spatial'; at: number; coords: [number, number, number] }
   | { kind: 'heartbeat'; at: number; durationSeconds: number };
 
-interface MockAnalyticsState {
-  createdAt: number;
-  totalVisits: number;
-  uniqueVisitors: number;
-  totalDurationSeconds: number;
-  durationSamples: number;
-  projectViews: Record<string, number>;
-  spatialSamples: HeatmapSample[];
-}
-
 interface RealtimeChannel {
   callbacks: Set<(data: PortfolioAnalyticsData) => void>;
   intervalMs: number;
@@ -30,17 +19,9 @@ interface RealtimeChannel {
 }
 
 const SESSION_KEY = 'portfolio_analytics_session_v1';
-const MOCK_STATE_KEY = 'portfolio_analytics_mock_v1';
 const BATCH_INTERVAL_MS = 20_000;
 const SPATIAL_SAMPLE_INTERVAL_MS = 5_000;
-const MAX_LOCAL_HEATMAP_SAMPLES = 96;
 
-const projectCatalog = [
-  { id: 'quantia-mvp', name: 'QuantIA' },
-  { id: 'ecofinance', name: 'EcoFinance' },
-  { id: 'portfolio-3d', name: 'Portfolio 3D' },
-  { id: 'nutrilife', name: 'NutriLife' },
-] as const;
 
 const channels = new Map<AnalyticsTimeframe, RealtimeChannel>();
 const eventQueue: TelemetryEvent[] = [];
@@ -56,15 +37,6 @@ const hasWindow = (): boolean => typeof window !== 'undefined';
 
 const anonymousTimestamp = (timestamp = Date.now()): number =>
   Math.floor(timestamp / 60_000) * 60_000;
-
-const safeLocalStorage = (): Storage | null => {
-  if (!hasWindow()) return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-};
 
 const safeSessionStorage = (): Storage | null => {
   if (!hasWindow()) return null;
@@ -119,168 +91,37 @@ export function calculateAverageDurationSeconds(durations: readonly number[]): n
   return Math.round(safeDurations.reduce((sum, value) => sum + value, 0) / safeDurations.length);
 }
 
-const defaultMockState = (): MockAnalyticsState => ({
-  createdAt: Date.now(),
-  totalVisits: 1_284,
-  uniqueVisitors: 731,
-  totalDurationSeconds: 731 * 196,
-  durationSamples: 731,
-  projectViews: {
-    'quantia-mvp': 462,
-    ecofinance: 337,
-    'portfolio-3d': 296,
-    nutrilife: 189,
-  },
-  spatialSamples: [],
-});
-
 const isHeatmapSample = (value: unknown): value is HeatmapSample => {
   if (!value || typeof value !== 'object') return false;
   const sample = value as Record<string, unknown>;
-  return ['x', 'y', 'z', 'intensity'].every((key) => typeof sample[key] === 'number');
+  return ['x', 'y', 'z', 'intensity'].every((key) => typeof sample[key] === 'number' && Number.isFinite(sample[key]));
 };
 
-const readMockState = (): MockAnalyticsState => {
-  const storage = safeLocalStorage();
-  const raw = storage?.getItem(MOCK_STATE_KEY);
-  if (!raw) return defaultMockState();
-  try {
-    const parsed = JSON.parse(raw) as Partial<MockAnalyticsState>;
-    return {
-      createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
-      totalVisits: typeof parsed.totalVisits === 'number' ? parsed.totalVisits : 1_284,
-      uniqueVisitors: typeof parsed.uniqueVisitors === 'number' ? parsed.uniqueVisitors : 731,
-      totalDurationSeconds: typeof parsed.totalDurationSeconds === 'number' ? parsed.totalDurationSeconds : 731 * 196,
-      durationSamples: typeof parsed.durationSamples === 'number' ? parsed.durationSamples : 731,
-      projectViews: parsed.projectViews && typeof parsed.projectViews === 'object'
-        ? parsed.projectViews
-        : defaultMockState().projectViews,
-      spatialSamples: Array.isArray(parsed.spatialSamples)
-        ? parsed.spatialSamples.filter(isHeatmapSample).slice(-MAX_LOCAL_HEATMAP_SAMPLES)
-        : [],
-    };
-  } catch {
-    return defaultMockState();
-  }
-};
-
-const writeMockState = (state: MockAnalyticsState): void => {
-  try {
-    safeLocalStorage()?.setItem(MOCK_STATE_KEY, JSON.stringify(state));
-  } catch {
-    // Metrics remain available from the in-memory synthetic generator.
-  }
-};
-
-const mutateMockState = (mutator: (state: MockAnalyticsState) => void): void => {
-  const state = readMockState();
-  mutator(state);
-  writeMockState(state);
-};
-
-const seededNoise = (seed: number): number => {
-  const value = Math.sin(seed * 12.9898 + 78.233) * 43_758.5453;
-  return value - Math.floor(value);
-};
-
-const dateSeed = (date: Date): number =>
-  date.getUTCFullYear() * 10_000 + (date.getUTCMonth() + 1) * 100 + date.getUTCDate();
-
-const buildDailyVisits = (days: number, liveIncrement: number): DayMetric[] => {
-  const today = new Date();
-  return Array.from({ length: days }, (_, index) => {
-    const date = new Date(today);
-    date.setUTCDate(today.getUTCDate() - (days - index - 1));
-    const seed = dateSeed(date);
-    const weeklyWave = Math.sin(index * 0.72) * 7;
-    const visits = Math.max(8, Math.round(31 + weeklyWave + seededNoise(seed) * 22));
-    return {
-      date: date.toISOString().slice(0, 10),
-      visits: index === days - 1 ? visits + liveIncrement : visits,
-    };
-  });
-};
-
-const buildProjectRanking = (views: Record<string, number>, liveIncrement: number): ProjectVisitMetric[] => {
-  const entries = projectCatalog.map((project, index) => ({
-    projectId: project.id,
-    projectName: project.name,
-    visits: Math.max(1, (views[project.id] ?? 1) + (index === 0 ? liveIncrement : 0)),
-  }));
-  const total = entries.reduce((sum, entry) => sum + entry.visits, 0);
-  return entries
-    .map((entry) => ({ ...entry, percentage: Math.round((entry.visits / total) * 100) }))
-    .sort((a, b) => b.visits - a.visits);
-};
-
-const buildSyntheticHeatmap = (localSamples: readonly HeatmapSample[]): HeatmapSample[] => {
-  const synthetic = Array.from({ length: 36 }, (_, index) => {
-    const cluster = index % 3;
-    const centers = [
-      [38, 1, 6],
-      [-42, 1, 28],
-      [14, 1, -52],
-    ] as const;
-    const [cx, cy, cz] = centers[cluster];
-    const angle = seededNoise(index + 3) * Math.PI * 2;
-    const radius = 4 + seededNoise(index + 13) * 17;
-    return {
-      x: cx + Math.cos(angle) * radius,
-      y: cy + seededNoise(index + 29) * 2.5,
-      z: cz + Math.sin(angle) * radius,
-      intensity: 0.28 + seededNoise(index + 47) * 0.72,
-    };
-  });
-  return [...synthetic, ...localSamples].slice(-MAX_LOCAL_HEATMAP_SAMPLES);
-};
-
-const generateMockMetrics = (timeframe: AnalyticsTimeframe): PortfolioAnalyticsData => {
-  const state = readMockState();
-  const liveIncrement = Math.max(0, Math.floor((Date.now() - state.createdAt) / 4_000));
-  const days = timeframe === '30d' ? 30 : 7;
-  const avgDurationSeconds = state.durationSamples > 0
-    ? Math.round(state.totalDurationSeconds / state.durationSamples)
-    : 0;
-
-  return {
-    totalVisits: state.totalVisits + liveIncrement,
-    uniqueVisitors: state.uniqueVisitors + Math.floor(liveIncrement / 3),
-    avgDurationSeconds,
-    topProjects: buildProjectRanking(state.projectViews, Math.floor(liveIncrement / 2)),
-    dailyVisits: buildDailyVisits(days, liveIncrement),
-    spatialHeatmap: buildSyntheticHeatmap(state.spatialSamples),
-    lastUpdated: new Date().toISOString(),
-  };
-};
+const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 const isDayMetric = (value: unknown): value is DayMetric => {
   if (!value || typeof value !== 'object') return false;
   const metric = value as Record<string, unknown>;
-  return typeof metric.date === 'string' && typeof metric.visits === 'number';
+  return typeof metric.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(metric.date)
+    && Number.isFinite(Date.parse(metric.date)) && isCount(metric.visits);
 };
 
-const isProjectMetric = (value: unknown): value is ProjectVisitMetric => {
-  if (!value || typeof value !== 'object') return false;
-  const metric = value as Record<string, unknown>;
-  return typeof metric.projectId === 'string'
-    && typeof metric.projectName === 'string'
-    && typeof metric.visits === 'number'
-    && typeof metric.percentage === 'number';
-};
+type AnalyticsResponse = Omit<PortfolioAnalyticsData, 'topProjects' | 'spatialHeatmap'> & { spatialHeatmap?: HeatmapSample[] };
 
-const isAnalyticsData = (value: unknown): value is PortfolioAnalyticsData => {
+const isAnalyticsData = (value: unknown): value is AnalyticsResponse => {
   if (!value || typeof value !== 'object') return false;
   const data = value as Record<string, unknown>;
-  return typeof data.totalVisits === 'number'
-    && typeof data.uniqueVisitors === 'number'
-    && typeof data.avgDurationSeconds === 'number'
+  return data.status !== 'unavailable'
+    && isCount(data.totalVisits)
+    && isCount(data.uniqueVisitors)
+    && isCount(data.avgDurationSeconds)
     && typeof data.lastUpdated === 'string'
-    && Array.isArray(data.topProjects)
-    && data.topProjects.every(isProjectMetric)
+    && Number.isFinite(Date.parse(data.lastUpdated))
     && Array.isArray(data.dailyVisits)
     && data.dailyVisits.every(isDayMetric)
-    && Array.isArray(data.spatialHeatmap)
-    && data.spatialHeatmap.every(isHeatmapSample);
+    && (data.spatialHeatmap === undefined || (Array.isArray(data.spatialHeatmap)
+      && data.spatialHeatmap.every(isHeatmapSample)));
 };
 
 const apiUrl = (): string => {
@@ -303,13 +144,22 @@ export async function fetchRealtimeMetrics(
       });
       if (response.ok) {
         const payload: unknown = await response.json();
-        if (isAnalyticsData(payload)) return payload;
+        if (isAnalyticsData(payload)) return { ...payload, status: 'available', topProjects: [], spatialHeatmap: payload.spatialHeatmap ?? [] };
       }
     } catch {
-      // Offline/invalid API automatically falls through to the privacy-safe mock.
+      // Unavailable metrics must never be replaced with fabricated traffic.
     }
   }
-  return generateMockMetrics(timeframe);
+  return {
+    status: 'unavailable',
+    totalVisits: 0,
+    uniqueVisitors: 0,
+    avgDurationSeconds: 0,
+    topProjects: [],
+    dailyVisits: [],
+    spatialHeatmap: [],
+    lastUpdated: '',
+  };
 }
 
 const emitChannel = async (timeframe: AnalyticsTimeframe): Promise<void> => {
@@ -361,9 +211,6 @@ const flushTelemetry = async (): Promise<void> => {
   const durationSeconds = Math.max(0, Math.round((now - lastDurationCheckpointAt) / 1_000));
   lastDurationCheckpointAt = now;
   eventQueue.push({ kind: 'heartbeat', at: anonymousTimestamp(), durationSeconds });
-  mutateMockState((state) => {
-    state.totalDurationSeconds += durationSeconds;
-  });
 
   const batch = eventQueue.splice(0, eventQueue.length);
   const endpoint = apiUrl();
@@ -378,7 +225,7 @@ const flushTelemetry = async (): Promise<void> => {
       keepalive: true,
     });
   } catch {
-    // The local fallback already mirrors the event, so failed remote delivery is safe to drop.
+    // Best-effort telemetry: a delivery failure does not create local metrics.
   }
 };
 
@@ -397,32 +244,26 @@ const startBatching = (): void => {
 
 export function trackSessionStart(): string {
   const sessionId = getSessionId();
-  if (!telemetryStarted) {
+  if (apiUrl() && !telemetryStarted) {
     telemetryStarted = true;
     sessionStartedAt = Date.now();
     lastDurationCheckpointAt = sessionStartedAt;
     eventQueue.push({ kind: 'session_start', at: anonymousTimestamp() });
-    mutateMockState((state) => {
-      state.totalVisits += 1;
-      state.uniqueVisitors += 1;
-      state.durationSamples += 1;
-    });
     startBatching();
   }
   return sessionId;
 }
 
 export function trackProjectView(projectId: string): void {
+  if (!apiUrl()) return;
   trackSessionStart();
   const safeProjectId = projectId.trim().slice(0, 80);
   if (!safeProjectId) return;
   eventQueue.push({ kind: 'project_view', at: anonymousTimestamp(), projectId: safeProjectId });
-  mutateMockState((state) => {
-    state.projectViews[safeProjectId] = (state.projectViews[safeProjectId] ?? 0) + 1;
-  });
 }
 
 export function trackSpatialPosition(coords: [number, number, number]): void {
+  if (!apiUrl()) return;
   const now = Date.now();
   if (now - lastSpatialSampleAt < SPATIAL_SAMPLE_INTERVAL_MS) return;
   lastSpatialSampleAt = now;
@@ -432,13 +273,4 @@ export function trackSpatialPosition(coords: [number, number, number]): void {
     Math.round(value / 2) * 2,
   ) as [number, number, number];
   eventQueue.push({ kind: 'spatial', at: anonymousTimestamp(now), coords: quantized });
-  mutateMockState((state) => {
-    state.spatialSamples.push({
-      x: quantized[0],
-      y: quantized[1],
-      z: quantized[2],
-      intensity: 0.72,
-    });
-    state.spatialSamples = state.spatialSamples.slice(-MAX_LOCAL_HEATMAP_SAMPLES);
-  });
 }

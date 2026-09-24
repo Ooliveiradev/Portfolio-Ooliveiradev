@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import type { PortfolioAnalyticsData } from '../../types';
 import {
   fetchRealtimeMetrics,
@@ -10,6 +10,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { MaterialIcon } from './MaterialIcon';
 
 const EMPTY_ANALYTICS: PortfolioAnalyticsData = {
+  status: 'unavailable',
   totalVisits: 0,
   uniqueVisitors: 0,
   avgDurationSeconds: 0,
@@ -27,6 +28,7 @@ const formatDuration = (seconds: number): string => {
 
 export const AnalyticsDashboard: React.FC<{ lowPower?: boolean }> = ({ lowPower = false }) => {
   const { locale, t } = useI18n();
+  const reducedMotion = useReducedMotion();
   const [timeframe, setTimeframe] = useState<AnalyticsTimeframe>('7d');
   const [analytics, setAnalytics] = useState<PortfolioAnalyticsData>(EMPTY_ANALYTICS);
 
@@ -45,47 +47,41 @@ export const AnalyticsDashboard: React.FC<{ lowPower?: boolean }> = ({ lowPower 
   }, [timeframe]);
 
   const maxDaily = Math.max(1, ...analytics.dailyVisits.map((item) => item.visits));
-  const maxProject = Math.max(1, ...analytics.topProjects.map((item) => item.visits));
+  const available = analytics.status === 'available';
   const numberLocale = locale === 'pt' ? 'pt-BR' : 'en-US';
+  const formatDate = (date?: string) => date
+    ? new Date(`${date}T12:00:00`).toLocaleDateString(numberLocale, { day: '2-digit', month: 'short' })
+    : '—';
 
   return (
     <motion.section
-      className="relative space-y-5 overflow-hidden rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.025] p-1 sm:p-2"
+      className="space-y-7"
       aria-label={t('analyticsTitle')}
-      initial={lowPower ? false : { opacity: 0, y: 54, scale: 0.92, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      transition={lowPower ? { duration: 0 } : { type: 'spring', stiffness: 115, damping: 18, mass: 0.75, delay: 0.12 }}
+      initial={lowPower || reducedMotion ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: lowPower || reducedMotion ? 0 : 0.3 }}
     >
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-0 h-24 w-px -translate-x-1/2 bg-gradient-to-b from-cyan-200 via-cyan-400/70 to-transparent"
-        initial={lowPower ? false : { scaleY: 0, opacity: 0 }}
-        animate={{ scaleY: 1, opacity: 1 }}
-        transition={{ duration: lowPower ? 0 : 0.42, delay: 0.04 }}
-        style={{ transformOrigin: 'top' }}
-      />
-
-      <div className="rounded-xl border border-cyan-500/15 bg-[#08101b]/88 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-cyan-400">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300" />
-            </span>
-            {locale === 'pt' ? 'Uplink holográfico recebido' : 'Holographic uplink received'}
-          </div>
-          <h3 className="text-xl font-bold text-slate-100">{t('analyticsTitle')}</h3>
-          <p className="mt-1 text-xs text-slate-400">{t('analyticsPrivacy')}</p>
+      <div className="flex flex-wrap items-end justify-between gap-5">
+        <div className="max-w-md">
+          <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300/80">
+            {locale === 'pt' ? '06 / Observatório' : '06 / Observatory'}
+          </p>
+          <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">
+            {locale === 'pt' ? 'Cada visita, uma nova órbita.' : 'Every visit, a new orbit.'}
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-400">
+            {locale === 'pt' ? 'As visitas e o tempo de exploração deste portfólio, ao longo dos dias.' : 'Visits and time spent exploring this portfolio, day by day.'}
+          </p>
         </div>
-        <div className="flex rounded-xl border border-cyan-500/30 bg-slate-950/70 p-1">
+        <div className="flex shrink-0 gap-1 rounded-xl border border-slate-800 bg-slate-900/60 p-1" role="group" aria-label={locale === 'pt' ? 'Período de análise' : 'Analytics period'}>
           {(['7d', '30d'] as const).map((period) => (
             <button
               key={period}
               type="button"
               onClick={() => setTimeframe(period)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-mono transition ${
-                timeframe === period ? 'bg-cyan-400 text-slate-950' : 'text-cyan-200 hover:bg-cyan-500/10'
+              aria-pressed={timeframe === period}
+              className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-mono transition-colors cursor-pointer ${
+                timeframe === period ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
               {period === '7d' ? t('analytics7d') : t('analytics30d')}
@@ -94,68 +90,47 @@ export const AnalyticsDashboard: React.FC<{ lowPower?: boolean }> = ({ lowPower 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <dl className="grid grid-cols-1 divide-y divide-slate-800/80 border-y border-slate-800/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {[
-          [t('analyticsVisits'), analytics.totalVisits.toLocaleString(numberLocale), 'query_stats'],
-          [t('analyticsUnique'), analytics.uniqueVisitors.toLocaleString(numberLocale), 'groups'],
-          [t('analyticsAvgDuration'), formatDuration(analytics.avgDurationSeconds), 'schedule'],
+          [t('analyticsVisits'), available ? analytics.totalVisits.toLocaleString(numberLocale) : '—', 'query_stats'],
+          [t('analyticsUnique'), available ? analytics.uniqueVisitors.toLocaleString(numberLocale) : '—', 'groups'],
+          [t('analyticsAvgDuration'), available ? formatDuration(analytics.avgDurationSeconds) : '—', 'schedule'],
         ].map(([label, value, icon]) => (
-          <div key={label} className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.06] p-4">
-            <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-slate-400">
+          <div key={label} className="flex items-center justify-between gap-4 py-5 sm:block sm:px-5 sm:first:pl-0 sm:last:pr-0">
+            <dt className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-slate-400">
+              <MaterialIcon name={icon} size={15} className="text-slate-500" />
               <span>{label}</span>
-              <MaterialIcon name={icon} size={16} className="text-cyan-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold tabular-nums text-cyan-100">{value}</div>
+            </dt>
+            <dd className="text-2xl sm:mt-3 sm:text-3xl font-medium tracking-tight tabular-nums text-slate-100">{value}</dd>
           </div>
         ))}
-      </div>
+      </dl>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-800/80 bg-[#0a101a] p-4">
-          <h4 className="mb-4 text-xs font-mono font-bold uppercase tracking-wider text-fuchsia-300">{t('analyticsTopProjects')}</h4>
-          <div className="space-y-3">
-            {analytics.topProjects.slice(0, 5).map((project) => (
-              <div key={project.projectId}>
-                <div className="mb-1 flex justify-between text-[11px] font-mono text-slate-300">
-                  <span>{project.projectName}</span>
-                  <span>{project.visits} · {project.percentage}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-orange-400"
-                    style={{ width: `${Math.max(6, (project.visits / maxProject) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-800/80 bg-[#0a101a] p-4">
-          <h4 className="mb-4 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300">{t('analyticsTimeline')}</h4>
-          <div className="flex h-36 items-end gap-[3px] overflow-hidden rounded-lg border border-cyan-500/10 bg-slate-950/60 px-2 pb-2 pt-4">
+      <div>
+        <div className="min-w-0">
+          <h4 className="mb-5 text-xs font-mono font-medium uppercase tracking-wider text-slate-300">{t('analyticsTimeline')}</h4>
+          <div className="relative flex h-40 items-end gap-1 border-b border-slate-700/80 bg-[repeating-linear-gradient(to_top,transparent,transparent_calc(25%_-_1px),#1e293b80_calc(25%_-_1px),#1e293b80_25%)]" role="img" aria-label={available ? `${t('analyticsTimeline')}: ${analytics.dailyVisits.map(day => `${formatDate(day.date)}: ${day.visits}`).join('; ')}` : (locale === 'pt' ? 'Fluxo de visitas: dados indisponíveis' : 'Visit flow: data unavailable')}>
+            {analytics.dailyVisits.every(day => day.visits === 0) && <p className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">{available ? (locale === 'pt' ? 'Nenhuma visita neste período.' : 'No visits in this period.') : (locale === 'pt' ? 'Dados indisponíveis' : 'Data unavailable')}</p>}
             {analytics.dailyVisits.map((day) => (
               <div
                 key={day.date}
-                className="min-w-[3px] flex-1 rounded-t bg-gradient-to-t from-cyan-700 via-cyan-400 to-fuchsia-300 opacity-90"
-                style={{ height: `${Math.max(8, (day.visits / maxDaily) * 100)}%` }}
-                title={`${day.date}: ${day.visits}`}
+                className="min-w-0 flex-1 rounded-t-sm bg-cyan-300/50 transition-colors hover:bg-cyan-300/80"
+                style={{ height: `${(day.visits / maxDaily) * 90}%` }}
+                title={`${formatDate(day.date)}: ${day.visits}`}
               />
             ))}
           </div>
           <div className="mt-2 flex justify-between text-[9px] font-mono text-slate-500">
-            <span>{analytics.dailyVisits[0]?.date ?? '—'}</span>
-            <span>{analytics.dailyVisits.at(-1)?.date ?? '—'}</span>
+            <span>{formatDate(analytics.dailyVisits[0]?.date)}</span>
+            <span>{formatDate(analytics.dailyVisits.at(-1)?.date)}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-3 text-[10px] font-mono text-emerald-300">
-        <span className="flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />STREAM · 4s</span>
-        <span>{analytics.spatialHeatmap.length} spatial samples</span>
-        <span>{analytics.lastUpdated ? new Date(analytics.lastUpdated).toLocaleTimeString(numberLocale) : '—'}</span>
-      </div>
-      </div>
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800/80 pt-4 text-[10px] leading-relaxed text-slate-500">
+        <span className="flex items-center gap-2"><MaterialIcon name="shield" size={14} />{t('analyticsPrivacy')}</span>
+        <span className="flex items-center gap-2 font-mono"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300/70" />{available ? `${locale === 'pt' ? 'Atualizado' : 'Updated'} ${new Date(analytics.lastUpdated).toLocaleTimeString(numberLocale)}` : (locale === 'pt' ? 'Aguardando dados reais' : 'Waiting for real data')}</span>
+      </footer>
     </motion.section>
   );
 };

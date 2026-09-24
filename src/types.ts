@@ -172,6 +172,7 @@ export interface HeatmapSample {
 }
 
 export interface PortfolioAnalyticsData {
+  status?: 'available' | 'unavailable';
   totalVisits: number;
   uniqueVisitors: number;
   avgDurationSeconds: number;

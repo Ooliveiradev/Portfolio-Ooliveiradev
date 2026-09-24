@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { GraphicsQuality, PortfolioAnalyticsData, ProjectVisitMetric } from '../../../types';
+import type { GraphicsQuality, PortfolioAnalyticsData } from '../../../types';
 import {
   fetchRealtimeMetrics,
   subscribeToAnalytics,
@@ -16,6 +16,7 @@ interface AnalyticsIslandProps {
 }
 
 const EMPTY_ANALYTICS: PortfolioAnalyticsData = {
+  status: 'unavailable',
   totalVisits: 0,
   uniqueVisitors: 0,
   avgDurationSeconds: 0,
@@ -70,38 +71,6 @@ const HoloDataCounter: React.FC<{
     </Html>
   </group>
 );
-
-const HoloProjectBars: React.FC<{ projects: ProjectVisitMetric[] }> = ({ projects }) => {
-  const visible = projects.slice(0, 4);
-  const maxVisits = Math.max(1, ...visible.map((project) => project.visits));
-  return (
-    <group position={[0.3, 0.55, -1.45]}>
-      {visible.map((project, index) => {
-        const height = 0.45 + (project.visits / maxVisits) * 1.65;
-        const x = (index - (visible.length - 1) / 2) * 0.68;
-        return (
-          <group key={project.projectId} position={[x, height / 2, 0]}>
-            <mesh scale={[0.46, height, 0.46]}>
-              <boxGeometry args={[1, 1, 1]} />
-              <HolographicMaterial
-                baseColor={index % 2 === 0 ? '#22d3ee' : '#d946ef'}
-                fresnelColor="#fb923c"
-                opacity={0.5}
-                scanlineDensity={36}
-                additive
-              />
-            </mesh>
-            <Html center transform distanceFactor={6.1} position={[0, height / 2 + 0.22, 0]}>
-              <div style={{ ...holoPanelStyle, minWidth: 54, padding: '3px 5px', fontSize: 6 }}>
-                {project.projectName}
-              </div>
-            </Html>
-          </group>
-        );
-      })}
-    </group>
-  );
-};
 
 const HoloTimelineRibbon: React.FC<{ data: PortfolioAnalyticsData['dailyVisits'] }> = ({ data }) => {
   const line = useMemo(() => {
@@ -346,11 +315,10 @@ export const AnalyticsIsland: React.FC<AnalyticsIslandProps> = ({
           />
         </mesh>
 
-        <HoloDataCounter label="Visits" value={data.totalVisits.toLocaleString()} position={[-2.1, 2.2, 0.2]} />
-        <HoloDataCounter label="Unique" value={data.uniqueVisitors.toLocaleString()} position={[2.1, 2.2, 0.2]} />
-        <HoloDataCounter label="Avg time" value={formatDuration(data.avgDurationSeconds)} position={[0, 3.15, -0.5]} />
-        <HoloProjectBars projects={data.topProjects} />
-        <HoloTimelineRibbon data={data.dailyVisits} />
+        <HoloDataCounter label="Visits" value={data.status === 'available' ? data.totalVisits.toLocaleString() : '—'} position={[-2.1, 2.2, 0.2]} />
+        <HoloDataCounter label="Unique" value={data.status === 'available' ? data.uniqueVisitors.toLocaleString() : '—'} position={[2.1, 2.2, 0.2]} />
+        <HoloDataCounter label="Avg time" value={data.status === 'available' ? formatDuration(data.avgDurationSeconds) : '—'} position={[0, 3.15, -0.5]} />
+        {data.status === 'available' && <HoloTimelineRibbon data={data.dailyVisits} />}
         <SpatialHeatmapCloud data={data.spatialHeatmap} graphicsQuality={graphicsQuality} />
       </group>
     </group>
