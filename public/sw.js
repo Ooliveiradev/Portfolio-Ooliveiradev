@@ -1,5 +1,5 @@
 /**
- * Service Worker: Danilo Ribeiro — Portfólio Cósmico 3D
+ * Service Worker: Danilo Ribeiro — Desenvolvedor Full Stack
  * Cache de assets estáticos e suporte à experiência offline (PWA Tier 3 - #21).
  */
 
