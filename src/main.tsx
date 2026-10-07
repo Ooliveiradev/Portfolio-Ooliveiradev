@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import App from './App.tsx';
 import { I18nProvider } from './i18n/I18nProvider';
+import { ContentProvider } from './content/ContentProvider';
+import { AdminProvider } from './admin/AdminProvider';
 import './index.css';
 
 // Silencia avisos de depreciação de bibliotecas de terceiros no Three.js r185
@@ -50,7 +52,11 @@ console.warn = (...args: unknown[]) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <App />
+      <ContentProvider>
+        <AdminProvider>
+          <App />
+        </AdminProvider>
+      </ContentProvider>
     </I18nProvider>
   </StrictMode>,
 );

@@ -30,12 +30,9 @@ const upsertLink = (rel: string, href: string, hrefLang?: string) => {
   link.href = href;
 };
 
+// Title and descriptions are owned by ContentProvider so the owner can edit them.
 const syncSeo = (locale: Locale) => {
   document.documentElement.lang = localeTag(locale);
-  document.title = messages[locale].seoTitle;
-  const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-  if (description) description.content = messages[locale].seoDescription;
-
   const origin = window.location.origin;
   const ptUrl = new URL(pathnameForLocale(window.location.pathname, 'pt'), origin).href;
   const enUrl = new URL(pathnameForLocale(window.location.pathname, 'en'), origin).href;
@@ -46,8 +43,6 @@ const syncSeo = (locale: Locale) => {
   upsertLink('alternate', ptUrl, 'x-default');
 
   for (const [selector, value] of [
-    ['meta[property="og:title"]', messages[locale].seoTitle],
-    ['meta[property="og:description"]', messages[locale].seoDescription],
     ['meta[property="og:locale"]', locale === 'pt' ? 'pt_BR' : 'en_US'],
   ] as const) {
     let meta = document.head.querySelector<HTMLMetaElement>(selector);
@@ -66,7 +61,7 @@ const localizeDom = (root: Node, locale: Locale) => {
   let node: Node | null = root.nodeType === Node.TEXT_NODE ? root : walker.nextNode();
   while (node) {
     const parent = node.parentElement;
-    if (parent && !['SCRIPT', 'STYLE', 'CODE', 'PRE'].includes(parent.tagName)) {
+    if (parent && !['SCRIPT', 'STYLE', 'CODE', 'PRE'].includes(parent.tagName) && !parent.closest('[translate="no"]')) {
       const source = node.textContent ?? '';
       const translated = translateVisibleText(source, locale);
       if (translated !== source) node.textContent = translated;

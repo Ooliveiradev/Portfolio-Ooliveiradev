@@ -22,7 +22,7 @@ function LazyVideo({ item, failure }: { item: PortfolioMedia; failure: string })
     return () => { observer.disconnect(); video.pause(); document.removeEventListener('visibilitychange', pauseHidden); };
   }, []);
   if (failed) return <p role="status">{failure}</p>;
-  return <video ref={ref} src={loaded ? item.src : undefined} poster={item.thumbnail} controls playsInline preload="none" aria-label={item.alt} onError={() => setFailed(true)} />;
+  return <video ref={ref} src={loaded ? item.src : undefined} poster={item.thumbnail || undefined} controls playsInline preload="none" aria-label={item.alt} onError={() => setFailed(true)} />;
 }
 
 function MediaImage({ src, alt, failure, thumbnail = false }: { src: string; alt: string; failure: string; thumbnail?: boolean }) {
@@ -42,12 +42,12 @@ export function MediaGallery({ items = [], title, lowPower = false }: { items?: 
   if (!items.length) return null;
   return <section className="narrative-gallery" aria-labelledby={`${id}-gallery`}>
     <h3 id={`${id}-gallery`} className="text-sm font-semibold mb-3">{title}</h3>
-    {items.some(media => media.testOnly) && <p className="narrative-test-notice">{pt ? 'Arquivos de teste — substituir por capturas/documentos reais. Não comprovam projetos ou qualificações.' : 'Test files — replace with real captures/documents. They do not substantiate projects or qualifications.'}</p>}
     <div className="narrative-media-grid">
       {items.map((media, index) => <button type="button" key={media.id} onClick={() => setSelected(index)} aria-label={`${pt ? 'Ampliar' : 'Expand'}: ${media.alt}`}>
-        <MediaImage src={media.thumbnail} alt={media.alt} failure={failure} thumbnail />
-        <span>{media.kind === 'video' ? '▶ ' : ''}{media.caption}</span>
-        {media.testOnly && <strong>{pt ? 'TESTE' : 'TEST'}</strong>}
+        {media.kind === 'video' && !media.thumbnail
+          ? <span className="narrative-video-tile" aria-hidden="true">▶</span>
+          : <MediaImage src={media.thumbnail || media.src} alt={media.alt} failure={failure} thumbnail />}
+        {(media.caption || media.kind === 'video') && <span>{media.kind === 'video' ? '▶ ' : ''}{media.caption}</span>}
       </button>)}
     </div>
     <AnimatePresence>
@@ -59,7 +59,7 @@ export function MediaGallery({ items = [], title, lowPower = false }: { items?: 
           }
         }}>
         <div>
-          <header><h3 id={`${id}-lightbox`}>{item.caption}{item.testOnly ? (pt ? ' · TESTE' : ' · TEST') : ''}</h3>
+          <header><h3 id={`${id}-lightbox`}>{item.caption || item.alt}</h3>
             <button type="button" onClick={() => setSelected(null)} aria-label={pt ? 'Fechar mídia' : 'Close media'}>✕</button></header>
           <div className="narrative-media-stage" key={item.id}>
             {item.kind === 'video' ? <LazyVideo item={item} failure={failure} /> : <MediaImage src={item.src} alt={item.alt} failure={failure} />}

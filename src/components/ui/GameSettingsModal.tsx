@@ -1,6 +1,6 @@
 import { usesTouchLayout } from '../../utils/mobileExperience';
 import { RANKING_KEY } from '../../utils/raceSession';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { MaterialIcon } from './MaterialIcon';
@@ -9,7 +9,7 @@ import { UserStats, CrystalCollectible, LeaderboardEntry, RaceLeaderboardEntry, 
 import { detectWebGPUSupport, WebGPUCapability } from '../../utils/webgpuDetector';
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from '../../i18n/I18nProvider';
-import { getPortfolioContent } from '../../i18n/portfolio';
+import { useContent } from '../../content/ContentProvider';
 import { portraitUrl } from '../../assets/portrait';
 
 export type SettingsTab = 'home' | 'options' | 'controls' | 'achievements' | 'ranking' | 'behind' | 'about';
@@ -46,7 +46,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   onAvatarClick,
 }) => {
   const { locale, t } = useI18n();
-  const content = useMemo(() => getPortfolioContent(locale), [locale]);
+  const content = useContent();
   const PERSONAL_INFO = content.personalInfo;
   const BADGES_DATA = content.badges;
   const INITIAL_LEADERBOARD = content.leaderboard;
@@ -311,11 +311,11 @@ Explore it at: ${window.location.href}`;
                   type="button"
                   onClick={() => { sounds.playClick(); onAvatarClick?.(); }}
                   className="w-20 h-20 md:w-40 md:h-40 rounded-full border border-slate-700/80 bg-[#0b1018] overflow-hidden shrink-0 cursor-pointer hover:border-sky-400/60 transition-colors"
-                  aria-label="Avatar de Danilo Ribeiro"
+                  aria-label={`Avatar de ${PERSONAL_INFO.name}`}
                 >
                   <img
-                    src={portraitUrl}
-                    alt="Danilo Ribeiro"
+                    src={PERSONAL_INFO.photo || portraitUrl}
+                    alt={PERSONAL_INFO.name}
                     className="h-full w-full object-cover object-center transition-transform duration-300 hover:scale-105"
                   />
                 </button>
@@ -338,10 +338,10 @@ Explore it at: ${window.location.href}`;
                   </h2>
                   <div className="space-y-4 text-sm text-slate-300 leading-relaxed font-sans">
                     <p className="text-base text-slate-200">
-                      Olá e seja muito bem-vindo! 👋
+                      {content.text('settings.welcome')}
                     </p>
                     <p>
-                      Meu nome é <strong className="text-slate-100 font-semibold">{PERSONAL_INFO.name}</strong>, sou desenvolvedor focado em engenharia de software full-stack e experiências 3D WebGL imersivas.
+                      {content.text('settings.intro')}
                     </p>
                     <p>
                       Este portfólio foi concebido como um universo diorama explorável em tempo real: pilote o foguete pelo sistema solar com <kbd className="px-1.5 py-0.5 bg-slate-800/90 border border-slate-700/80 rounded text-xs font-mono text-sky-300">W</kbd> <kbd className="px-1.5 py-0.5 bg-slate-800/90 border border-slate-700/80 rounded text-xs font-mono text-sky-300">A</kbd> <kbd className="px-1.5 py-0.5 bg-slate-800/90 border border-slate-700/80 rounded text-xs font-mono text-sky-300">S</kbd> <kbd className="px-1.5 py-0.5 bg-slate-800/90 border border-slate-700/80 rounded text-xs font-mono text-sky-300">D</kbd>, colete cristais de energia, desbloqueie badges e inspecione cada planeta para descobrir meus projetos, competências e trajetória profissional.
@@ -1041,34 +1041,40 @@ Explore it at: ${window.location.href}`;
                     <p className="text-sm font-semibold text-slate-100">
                       {PERSONAL_INFO.name} — {PERSONAL_INFO.title}
                     </p>
-                    <p className="text-slate-400">
+                    <p className="text-slate-400 whitespace-pre-line">
                       {PERSONAL_INFO.bio}
                     </p>
                     <div className="pt-2 flex flex-wrap gap-2.5">
-                      <a
-                        href={PERSONAL_INFO.github}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-slate-200 rounded-xl font-mono text-xs flex items-center gap-1.5 transition"
-                      >
-                        <span>GitHub</span>
-                        <MaterialIcon name="open_in_new" className="text-slate-400" size={14} />
-                      </a>
-                      <a
-                        href={PERSONAL_INFO.linkedin}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3.5 py-2 bg-sky-600/80 hover:bg-sky-500 text-white rounded-xl font-mono text-xs flex items-center gap-1.5 transition shadow-sm"
-                      >
-                        <span>LinkedIn</span>
-                        <MaterialIcon name="open_in_new" className="text-white/80" size={14} />
-                      </a>
-                      <a
-                        href={`mailto:${PERSONAL_INFO.email}`}
-                        className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-slate-200 rounded-xl font-mono text-xs flex items-center gap-1.5 transition"
-                      >
-                        <span>Enviar Email</span>
-                      </a>
+                      {PERSONAL_INFO.github && (
+                        <a
+                          href={PERSONAL_INFO.github}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-slate-200 rounded-xl font-mono text-xs flex items-center gap-1.5 transition"
+                        >
+                          <span>GitHub</span>
+                          <MaterialIcon name="open_in_new" className="text-slate-400" size={14} />
+                        </a>
+                      )}
+                      {PERSONAL_INFO.linkedin && (
+                        <a
+                          href={PERSONAL_INFO.linkedin}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-2 bg-sky-600/80 hover:bg-sky-500 text-white rounded-xl font-mono text-xs flex items-center gap-1.5 transition shadow-sm"
+                        >
+                          <span>LinkedIn</span>
+                          <MaterialIcon name="open_in_new" className="text-white/80" size={14} />
+                        </a>
+                      )}
+                      {PERSONAL_INFO.email && (
+                        <a
+                          href={`mailto:${PERSONAL_INFO.email}`}
+                          className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-slate-200 rounded-xl font-mono text-xs flex items-center gap-1.5 transition"
+                        >
+                          <span>Enviar Email</span>
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -32,6 +32,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, accentC
         const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
         if (match) {
           const [, linkText, linkUrl] = match;
+          // README text is editable: never let a link run script (javascript:, data:, ...).
+          if (!/^(https?:\/\/|mailto:|#|\/|\.\/)/i.test(linkUrl.trim())) return <span key={idx}>{linkText}</span>;
           return (
             <a
               key={idx}

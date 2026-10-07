@@ -7,7 +7,7 @@ import { sounds } from '../../audio/soundManager';
 import { CinematicDialog } from './narrative/CinematicDialog';
 import { useNarrativeMotion } from './narrative/useNarrativeMotion';
 import { useI18n } from '../../i18n/I18nProvider';
-import { getPortfolioContent } from '../../i18n/portfolio';
+import { useContent } from '../../content/ContentProvider';
 
 interface ChallengeModalProps {
   islandId: IslandId;
@@ -24,7 +24,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({
 }) => {
   const { locale } = useI18n();
   const { simple } = useNarrativeMotion(lowPower);
-  const milestones = getPortfolioContent(locale).experience.slice(0, 3).map((item, index) => ({ id: index + 1, title: item.company, desc: item.role }));
+  const milestones = useContent().experience.slice(0, 3).map((item, index) => ({ id: index + 1, title: item.company, desc: item.role }));
   const [completed, setCompleted] = useState(false);
 
   // Challenge 1: Terminal Deploy Pipeline

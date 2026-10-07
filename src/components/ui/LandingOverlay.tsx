@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
 import { IslandConfig, IslandId } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { useI18n } from '../../i18n/I18nProvider';
-import { getPortfolioContent } from '../../i18n/portfolio';
+import { useContent } from '../../content/ContentProvider';
 import { LanguageToggle } from './LanguageToggle';
 
 interface LandingOverlayProps {
@@ -23,7 +23,8 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
   onOpenSettings,
 }) => {
   const { locale } = useI18n();
-  const PERSONAL_INFO = useMemo(() => getPortfolioContent(locale).personalInfo, [locale]);
+  const { personalInfo: PERSONAL_INFO, text } = useContent();
+  const firstName = PERSONAL_INFO.name.split(/\s+/)[0] ?? PERSONAL_INFO.name;
   const handleStart = () => {
     sounds.playBoost();
     onStartGame();
@@ -73,14 +74,14 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
             onClick={handleStart}
             className="group flex items-center gap-3 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-slate-100 font-mono text-xs tracking-wider uppercase px-7 py-3.5 rounded-xl border border-sky-400/30 hover:border-sky-400/60 backdrop-blur-xl transition-all cursor-pointer shadow-xl"
           >
-            <span>Iniciar Exploração com Nave</span>
+            <span>{text('landing.start')}</span>
             <MaterialIcon name="arrow_forward" className="text-sky-400 transition-transform group-hover:translate-x-1" size={18} />
           </button>
 
           {/* Direct Island Access Chips */}
           <div className="mt-7 flex flex-col items-center gap-2">
             <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 tracking-wider uppercase">
-              Ou explore clicando direto na ilha:
+              {text('landing.islandsHint')}
             </span>
             <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 max-w-lg">
               {islands.map((island) => {
@@ -114,36 +115,53 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
             </div>
           </div>
 
-          {/* Quick External Profiles (GitHub, LinkedIn, Email) */}
-          <div className="mt-5 flex items-center gap-3">
-            <a
-              href={PERSONAL_INFO.github}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0c1017]/80 hover:bg-slate-800/90 text-slate-300 hover:text-white border border-slate-800/80 hover:border-slate-600 text-xs font-mono transition shadow-sm"
-              title="Acessar GitHub de Danilo"
-            >
-              <GithubIcon className="w-3.5 h-3.5" />
-              <span>GitHub</span>
-            </a>
-            <a
-              href={PERSONAL_INFO.linkedin}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-400 text-xs font-mono transition shadow-sm"
-              title="Acessar LinkedIn de Danilo"
-            >
-              <LinkedinIcon className="w-3.5 h-3.5" />
-              <span>LinkedIn</span>
-            </a>
-            <a
-              href={`mailto:${PERSONAL_INFO.email}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 hover:text-white border border-amber-500/30 hover:border-amber-400 text-xs font-mono transition shadow-sm"
-              title={`Enviar email para ${PERSONAL_INFO.email}`}
-            >
-              <MaterialIcon name="mail" className="text-amber-400" size={16} />
-              <span>Email</span>
-            </a>
+          {/* Quick external profiles: each one only appears when the owner filled it in */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            {PERSONAL_INFO.github && (
+              <a
+                href={PERSONAL_INFO.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0c1017]/80 hover:bg-slate-800/90 text-slate-300 hover:text-white border border-slate-800/80 hover:border-slate-600 text-xs font-mono transition shadow-sm"
+                title={locale === 'pt' ? `Acessar GitHub de ${firstName}` : `Open ${firstName}’s GitHub`}
+              >
+                <GithubIcon className="w-3.5 h-3.5" />
+                <span>GitHub</span>
+              </a>
+            )}
+            {PERSONAL_INFO.linkedin && (
+              <a
+                href={PERSONAL_INFO.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-400 text-xs font-mono transition shadow-sm"
+                title={locale === 'pt' ? `Acessar LinkedIn de ${firstName}` : `Open ${firstName}’s LinkedIn`}
+              >
+                <LinkedinIcon className="w-3.5 h-3.5" />
+                <span>LinkedIn</span>
+              </a>
+            )}
+            {PERSONAL_INFO.email && (
+              <a
+                href={`mailto:${PERSONAL_INFO.email}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 hover:text-white border border-amber-500/30 hover:border-amber-400 text-xs font-mono transition shadow-sm"
+                title={locale === 'pt' ? `Enviar email para ${PERSONAL_INFO.email}` : `Send an email to ${PERSONAL_INFO.email}`}
+              >
+                <MaterialIcon name="mail" className="text-amber-400" size={16} />
+                <span>Email</span>
+              </a>
+            )}
+            {PERSONAL_INFO.resumeUrl && (
+              <a
+                href={PERSONAL_INFO.resumeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400 text-xs font-mono transition shadow-sm"
+              >
+                <MaterialIcon name="description" className="text-emerald-400" size={16} />
+                <span>{PERSONAL_INFO.resumeLabel || 'CV'}</span>
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -155,9 +173,8 @@ export const LandingOverlay: React.FC<LandingOverlayProps> = ({
         transition={{ duration: 0.8, delay: 0.3 }}
         className="w-full text-center text-[10px] font-mono tracking-widest text-slate-500 uppercase pointer-events-none"
       >
-        Clique em qualquer ilha 3D em órbita ou pilote com W, A, S, D
+        {text('landing.footnote')}
       </motion.div>
     </div>
   );
 };
-

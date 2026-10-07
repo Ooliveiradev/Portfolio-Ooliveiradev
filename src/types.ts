@@ -25,15 +25,40 @@ export interface IslandConfig {
   challengeXp: number;
 }
 
-/** Keep media local or on an explicitly approved host; test assets stay visibly labelled. */
+/** Media comes from this site's own assets or from the portfolio's Firebase Storage bucket. */
 export interface PortfolioMedia {
   id: string;
   kind: 'image' | 'video';
   src: string;
-  thumbnail: string;
+  /** Optional preview. Videos without one show a neutral tile. */
+  thumbnail?: string;
   alt: string;
   caption: string;
-  testOnly?: boolean;
+}
+
+export interface ExtraLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
+export interface PersonalInfo {
+  name: string;
+  fullName: string;
+  title: string;
+  subtitle: string;
+  bio: string;
+  email: string;
+  phone: string;
+  location: string;
+  github: string;
+  linkedin: string;
+  availability: string;
+  links: ExtraLink[];
+  /** Empty means the portrait bundled with the site. */
+  photo: string;
+  resumeUrl: string;
+  resumeLabel: string;
 }
 
 export interface ProjectItem {

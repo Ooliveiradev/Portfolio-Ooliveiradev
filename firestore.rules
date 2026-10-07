@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Visitors can read the published portfolio. Only accounts listed in /admins can change it.
+// /admins documents are created by hand in the Firebase console and can never be written from a client.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function validContent() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['json', 'revision', 'updatedAt', 'updatedBy'])
+        && data.json is string
+        && data.json.size() > 2
+        && data.json.size() < 950000
+        && data.revision is int
+        && data.updatedAt == request.time
+        && data.updatedBy == request.auth.uid;
+    }
+
+    match /portfolio/main {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isAdmin() && validContent() && request.resource.data.revision == 1;
+      allow update: if isAdmin() && validContent()
+        && request.resource.data.revision == resource.data.revision + 1;
+      allow delete: if false;
+    }
+
+    // Lets a signed-in user learn whether they are an administrator, and nothing else.
+    match /admins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

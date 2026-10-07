@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { MaterialIcon, GithubIcon, LinkedinIcon } from './MaterialIcon';
 import { ProjectDetailModal } from './ProjectDetailModal';
@@ -10,7 +10,7 @@ import {
 } from '../../types';
 import { sounds } from '../../audio/soundManager';
 import { useI18n } from '../../i18n/I18nProvider';
-import { getPortfolioContent } from '../../i18n/portfolio';
+import { useContent } from '../../content/ContentProvider';
 import { portraitUrl } from '../../assets/portrait';
 import { CinematicDialog } from './narrative/CinematicDialog';
 import { NarrativeHero } from './narrative/NarrativeHero';
@@ -29,6 +29,23 @@ interface IslandModalProps {
   lowPower?: boolean;
 }
 
+const EmptyIsland = ({ locale }: { locale: string }) => (
+  <p className="rounded-xl border border-dashed border-slate-700/80 p-8 text-center text-xs font-mono text-slate-400">
+    {locale === 'pt' ? 'Novidades em breve.' : 'More coming soon.'}
+  </p>
+);
+
+/** Short, readable form of a profile link, e.g. https://github.com/user -> @user. */
+const handleOf = (url: string): string => {
+  try {
+    const { hostname, pathname } = new URL(url);
+    const last = pathname.split('/').filter(Boolean).pop();
+    return last ? `@${last}` : hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
 export const IslandModal: React.FC<IslandModalProps> = ({
   island,
   stats,
@@ -38,7 +55,8 @@ export const IslandModal: React.FC<IslandModalProps> = ({
   lowPower = false,
 }) => {
   const { locale } = useI18n();
-  const content = useMemo(() => getPortfolioContent(locale), [locale]);
+  const content = useContent();
+  const { text } = content;
   const PERSONAL_INFO = content.personalInfo;
   const PROJECTS_DATA = content.projects;
   const EXPERIENCE_DATA = content.experience;
@@ -93,9 +111,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
     sounds.playBadgeUnlocked();
 
     // Dispara abertura no cliente de email para o endereço de Danilo
-    const mailtoUrl = `mailto:${PERSONAL_INFO.email}?subject=${encodeURIComponent(
-      locale === 'pt' ? 'Contato via Portfólio 3D - Danilo Ribeiro' : 'Contact from 3D Portfolio - Danilo Ribeiro'
-    )}&body=${encodeURIComponent(contactMessage)}`;
+    const mailtoUrl = `mailto:${PERSONAL_INFO.email}?subject=${encodeURIComponent(text('about.mailSubject'))}&body=${encodeURIComponent(contactMessage)}`;
     window.location.href = mailtoUrl;
 
     setTimeout(() => {
@@ -201,20 +217,17 @@ export const IslandModal: React.FC<IslandModalProps> = ({
             <NarrativeHero
               eyebrow={`${String(['projects', 'experience', 'skills', 'education', 'about', 'analytics'].indexOf(island.id) + 1).padStart(2, '0')} / ${island.name}`}
               title={island.id === 'about' ? PERSONAL_INFO.name : island.tagline}
-              description={island.id === 'about' ? PERSONAL_INFO.subtitle :
-                island.id === 'projects' ? (locale === 'pt' ? 'Da proposta à arquitetura: explore as decisões, o código e os resultados de cada aplicação.' : 'From concept to architecture: explore the decisions, code and results behind each application.') :
-                island.id === 'experience' ? (locale === 'pt' ? 'Da atuação operacional ao desenvolvimento de interfaces: uma trajetória em ordem cronológica, da experiência mais recente às primeiras atividades.' : 'From operations to interface development: a journey from the most recent experience to the earliest roles.') :
-                island.id === 'education' ? (locale === 'pt' ? 'Formação acadêmica e cursos que sustentam a prática em desenvolvimento de software.' : 'Academic education and courses supporting hands-on software development.') :
-                (locale === 'pt' ? 'Interfaces, dados e inteligência artificial conectados na construção dos projetos deste portfólio.' : 'Interfaces, data and artificial intelligence connected across the projects in this portfolio.')}
+              description={island.id === 'about' ? PERSONAL_INFO.subtitle : (content.islandIntro[island.id] ?? '')}
               accent={island.color} lowPower={lowPower}
-              facts={island.id === 'skills' ? SKILLS_DATA.map(category => category.title) : undefined}
-              portrait={island.id === 'about' ? { src: portraitUrl, alt: PERSONAL_INFO.name } : undefined}
+              facts={island.id === 'skills' ? SKILLS_DATA.map(category => category.title).filter(Boolean) : undefined}
+              portrait={island.id === 'about' ? { src: PERSONAL_INFO.photo || portraitUrl, alt: PERSONAL_INFO.name } : undefined}
             />
           )}
 
           {island.id === 'analytics' && <AnalyticsDashboard lowPower={lowPower} />}
           {/* PROJECTS ISLAND CONTENT */}
-          {island.id === 'projects' && (
+          {island.id === 'projects' && PROJECTS_DATA.length === 0 && <EmptyIsland locale={locale} />}
+          {island.id === 'projects' && PROJECTS_DATA.length > 0 && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {PROJECTS_DATA.map((project) => {
@@ -239,7 +252,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                           </span>
                           {project.featured && (
                             <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-mono font-semibold">
-                              ★ DESTAQUE
+                              {text('islands.featuredBadge')}
                             </span>
                           )}
                         </div>
@@ -257,7 +270,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                           </div>
                         )}
 
-                        <div className="flex flex-wrap gap-1.5 mt-3.5">
+                        {project.tags.length > 0 && <div className="flex flex-wrap gap-1.5 mt-3.5">
                           {project.tags.map((tag, idx) => (
                             <span
                               key={idx}
@@ -266,7 +279,7 @@ export const IslandModal: React.FC<IslandModalProps> = ({
                               {tag}
                             </span>
                           ))}
-                        </div>
+                        </div>}
                       </div>
 
                       <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-800/80">
@@ -315,17 +328,18 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           )}
 
           {/* EXPERIENCE ISLAND CONTENT */}
-          {island.id === 'experience' && (
-            <NarrativeTimeline label={locale === 'pt' ? 'Trajetória profissional, da mais recente à mais antiga' : 'Career history, newest first'} lowPower={lowPower}
+          {island.id === 'experience' && EXPERIENCE_DATA.length === 0 && <EmptyIsland locale={locale} />}
+          {island.id === 'experience' && EXPERIENCE_DATA.length > 0 && (
+            <NarrativeTimeline label={text('islands.experienceLabel')} lowPower={lowPower}
               items={EXPERIENCE_DATA.map(item => ({
-                id: item.id, date: item.period, title: item.role, subtitle: item.company + ' · ' + item.location,
+                id: item.id, date: item.period, title: item.role, subtitle: [item.company, item.location].filter(Boolean).join(' · '),
                 content: <>
-                  <ul className="space-y-2 text-xs text-slate-300 mb-4 list-disc list-inside">
+                  {item.highlights.length > 0 && <ul className="space-y-2 text-xs text-slate-300 mb-4 list-disc list-inside">
                     {item.highlights.map(point => <li key={point} className="leading-relaxed">{point}</li>)}
-                  </ul>
-                  <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-800/80">
+                  </ul>}
+                  {item.techStack.length > 0 && <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-800/80">
                     {item.techStack.map(tech => <span key={tech} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-amber-300/80 border border-amber-500/20">{tech}</span>)}
-                  </div>
+                  </div>}
                 </>,
               }))}
             />
@@ -334,11 +348,12 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           {/* SKILLS ISLAND CONTENT */}
           {island.id === 'skills' && (
             <div className="space-y-6">
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold">{locale === 'pt' ? 'Código deste portfólio: tempo de simulação pausável' : 'Code from this portfolio: pausable simulation time'}</h3>
+              {content.appearance.showCodeStory && <section className="space-y-3">
+                <h3 className="text-sm font-semibold">{text('islands.codeStoryTitle')}</h3>
                 <p className="text-xs text-slate-400">src/utils/pausableClock.ts</p>
                 <CodeStory code={clockSource.trim()} language="typescript" lineInterval={140} />
-              </section>
+              </section>}
+              {SKILLS_DATA.length === 0 && <EmptyIsland locale={locale} />}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {SKILLS_DATA.map((cat, idx) => (
                   <div
@@ -377,7 +392,8 @@ export const IslandModal: React.FC<IslandModalProps> = ({
           {/* EDUCATION ISLAND CONTENT */}
           {island.id === 'education' && (
             <div className="space-y-4">
-              <MediaGallery items={EDUCATION_DATA.flatMap(edu => edu.certificates ?? [])} lowPower={lowPower} title={locale === 'pt' ? 'Certificados e diplomas' : 'Certificates and diplomas'} />
+              <MediaGallery items={EDUCATION_DATA.flatMap(edu => edu.certificates ?? [])} lowPower={lowPower} title={text('islands.certificatesTitle')} />
+              {EDUCATION_DATA.length === 0 && <EmptyIsland locale={locale} />}
               <div className="grid grid-cols-1 gap-4">
                 {EDUCATION_DATA.map((edu) => (
                   <div
@@ -428,125 +444,195 @@ export const IslandModal: React.FC<IslandModalProps> = ({
             <div className="space-y-5">
               <div className="bg-[#111622]/60 border border-slate-800/60 rounded-xl p-6">
                 <h3 className="text-base sm:text-lg font-sans font-bold text-slate-100 mb-2">
-                  Olá! Eu sou o {PERSONAL_INFO.name} 👋
+                  {text('about.greeting')}
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4 font-sans">
-                  {PERSONAL_INFO.bio}
-                </p>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{PERSONAL_INFO.availability}</span>
-                </div>
+                {PERSONAL_INFO.bio && (
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4 font-sans whitespace-pre-line">
+                    {PERSONAL_INFO.bio}
+                  </p>
+                )}
+                {PERSONAL_INFO.availability && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{PERSONAL_INFO.availability}</span>
+                  </div>
+                )}
+                {PERSONAL_INFO.location && (
+                  <p className="mt-3 text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+                    <MaterialIcon name="location_on" size={14} className="text-slate-500" />
+                    <span>{PERSONAL_INFO.location}</span>
+                  </p>
+                )}
               </div>
 
-              {/* Social Channels & Contact Action Grid */}
+              {/* Social Channels & Contact Action Grid: only what the owner filled in */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                {/* GitHub */}
-                <a
-                  href={PERSONAL_INFO.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-600/80 text-left transition-all group hover:bg-[#151c2c]/70"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center text-slate-200">
-                      <GithubIcon className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-medium text-slate-100 block">GitHub</span>
-                      <span className="text-[11px] text-slate-400 font-mono">@Ooliveiradev</span>
-                    </div>
-                  </div>
-                  <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-slate-300" size={16} />
-                </a>
-
-                {/* LinkedIn */}
-                <a
-                  href={PERSONAL_INFO.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-sky-500/60 text-left transition-all group hover:bg-[#151c2c]/70"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-sky-950/60 border border-sky-500/20 flex items-center justify-center text-sky-400">
-                      <LinkedinIcon className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-medium text-slate-100 block">LinkedIn</span>
-                      <span className="text-[11px] text-slate-400">danilo-oliveira</span>
-                    </div>
-                  </div>
-                  <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-sky-300" size={16} />
-                </a>
-
-                {/* Email (Abre mailto com botão de copiar ao lado) */}
-                <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-amber-500/50 text-left transition-all group hover:bg-[#151c2c]/70">
+                {PERSONAL_INFO.github && (
                   <a
-                    href={`mailto:${PERSONAL_INFO.email}`}
-                    className="flex items-center gap-2.5 flex-1 min-w-0"
-                    title={`Enviar email para ${PERSONAL_INFO.email}`}
+                    href={PERSONAL_INFO.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-600/80 text-left transition-all group hover:bg-[#151c2c]/70"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-amber-950/60 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                      <MaterialIcon name="mail" size={18} />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center text-slate-200 shrink-0">
+                        <GithubIcon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-medium text-slate-100 block">GitHub</span>
+                        <span className="text-[11px] text-slate-400 font-mono truncate block">{handleOf(PERSONAL_INFO.github)}</span>
+                      </div>
+                    </div>
+                    <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-slate-300 shrink-0" size={16} />
+                  </a>
+                )}
+
+                {PERSONAL_INFO.linkedin && (
+                  <a
+                    href={PERSONAL_INFO.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-sky-500/60 text-left transition-all group hover:bg-[#151c2c]/70"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-sky-950/60 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+                        <LinkedinIcon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-medium text-slate-100 block">LinkedIn</span>
+                        <span className="text-[11px] text-slate-400 truncate block">{handleOf(PERSONAL_INFO.linkedin)}</span>
+                      </div>
+                    </div>
+                    <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-sky-300 shrink-0" size={16} />
+                  </a>
+                )}
+
+                {/* Email (opens mailto, with a copy button beside it) */}
+                {PERSONAL_INFO.email && (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-amber-500/50 text-left transition-all group hover:bg-[#151c2c]/70">
+                    <a
+                      href={`mailto:${PERSONAL_INFO.email}`}
+                      className="flex items-center gap-2.5 flex-1 min-w-0"
+                      title={`Enviar email para ${PERSONAL_INFO.email}`}
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-amber-950/60 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                        <MaterialIcon name="mail" size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-medium text-slate-100 block">{text('about.emailLabel')}</span>
+                        <span className="text-[11px] text-slate-400 font-mono truncate block">
+                          {PERSONAL_INFO.email}
+                        </span>
+                      </div>
+                    </a>
+                    <button
+                      onClick={handleCopyEmail}
+                      className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer shrink-0 ml-1"
+                      title="Copiar endereço de email"
+                    >
+                      {copiedEmail ? (
+                        <MaterialIcon name="check" className="text-emerald-400" size={16} />
+                      ) : (
+                        <MaterialIcon name="content_copy" className="group-hover:text-slate-200" size={16} />
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {PERSONAL_INFO.phone && (
+                  <a
+                    href={`tel:${PERSONAL_INFO.phone.replace(/[^+\d]/g, '')}`}
+                    className="flex items-center gap-2.5 p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-emerald-500/50 transition-all hover:bg-[#151c2c]/70"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-950/60 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                      <MaterialIcon name="call" size={18} />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-xs font-medium text-slate-100 block">Email Direto</span>
-                      <span className="text-[11px] text-slate-400 font-mono truncate block">
-                        {PERSONAL_INFO.email}
-                      </span>
+                      <span className="text-xs font-medium text-slate-100 block">{locale === 'pt' ? 'Telefone' : 'Phone'}</span>
+                      <span className="text-[11px] text-slate-400 font-mono truncate block">{PERSONAL_INFO.phone}</span>
                     </div>
                   </a>
-                  <button
-                    onClick={handleCopyEmail}
-                    className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer shrink-0 ml-1"
-                    title="Copiar endereço de email"
+                )}
+
+                {PERSONAL_INFO.links.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[#111622]/60 border border-slate-800/60 hover:border-slate-600/80 text-left transition-all group hover:bg-[#151c2c]/70"
                   >
-                    {copiedEmail ? (
-                      <MaterialIcon name="check" className="text-emerald-400" size={16} />
-                    ) : (
-                      <MaterialIcon name="content_copy" className="group-hover:text-slate-200" size={16} />
-                    )}
-                  </button>
-                </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center text-slate-200 shrink-0">
+                        <MaterialIcon name="link" size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-medium text-slate-100 block truncate">{link.label}</span>
+                        <span className="text-[11px] text-slate-400 font-mono truncate block">{handleOf(link.url)}</span>
+                      </div>
+                    </div>
+                    <MaterialIcon name="open_in_new" className="text-slate-500 group-hover:text-slate-300 shrink-0" size={16} />
+                  </a>
+                ))}
+
+                {PERSONAL_INFO.resumeUrl && (
+                  <a
+                    href={PERSONAL_INFO.resumeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 hover:border-emerald-400/70 text-left transition-all group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-950/60 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <MaterialIcon name="description" size={18} />
+                      </div>
+                      <span className="text-xs font-medium text-slate-100 truncate">{PERSONAL_INFO.resumeLabel || 'CV'}</span>
+                    </div>
+                    <MaterialIcon name="download" className="text-emerald-400 shrink-0" size={16} />
+                  </a>
+                )}
               </div>
 
               {/* Direct Message Transmitter */}
-              <form onSubmit={handleSendMessage} className="bg-[#111622]/60 border border-slate-800/60 p-5 rounded-xl space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h4 className="text-xs font-mono font-medium text-slate-200 uppercase flex items-center gap-1.5">
-                    <MaterialIcon name="send" className="text-sky-400" size={14} />
-                    <span>Terminal de Mensagem Rápida</span>
-                  </h4>
-                  <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                    <span>Destino de envio:</span>
-                    <span className="text-sky-300 underline underline-offset-2">{PERSONAL_INFO.email}</span>
-                  </span>
-                </div>
+              {PERSONAL_INFO.email && (
+                <form onSubmit={handleSendMessage} className="bg-[#111622]/60 border border-slate-800/60 p-5 rounded-xl space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-mono font-medium text-slate-200 uppercase flex items-center gap-1.5">
+                      <MaterialIcon name="send" className="text-sky-400" size={14} />
+                      <span>{text('about.formTitle')}</span>
+                    </h4>
+                    <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                      <span>{text('about.formDestination')}</span>
+                      <span className="text-sky-300 underline underline-offset-2">{PERSONAL_INFO.email}</span>
+                    </span>
+                  </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={contactMessage}
-                    onChange={(e) => setContactMessage(e.target.value)}
-                    placeholder="Escreva uma mensagem para Danilo..."
-                    className="flex-1 bg-[#07090e] border border-slate-700/80 text-xs text-slate-100 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-sky-400"
-                  />
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold font-mono transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                    title="Abrir no cliente de email para envio imediato"
-                  >
-                    <span>Enviar Email</span>
-                    <MaterialIcon name="send" size={14} />
-                  </button>
-                </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={contactMessage}
+                      onChange={(e) => setContactMessage(e.target.value)}
+                      placeholder={text('about.formPlaceholder')}
+                      aria-label={text('about.formPlaceholder')}
+                      className="flex-1 bg-[#07090e] border border-slate-700/80 text-xs text-slate-100 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-sky-400"
+                    />
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold font-mono transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      title="Abrir no cliente de email para envio imediato"
+                    >
+                      <span>{text('about.formButton')}</span>
+                      <MaterialIcon name="send" size={14} />
+                    </button>
+                  </div>
 
-                {messageSent && (
-                  <p className="text-xs text-emerald-400 font-mono flex items-center gap-1">
-                    ✓ Sinal cósmico transmitido! O cliente de email foi acionado para {PERSONAL_INFO.email}.
-                  </p>
-                )}
-              </form>
+                  {messageSent && (
+                    <p className="text-xs text-emerald-400 font-mono flex items-center gap-1">
+                      {text('about.formSuccess')}
+                    </p>
+                  )}
+                </form>
+              )}
             </div>
           )}
         </div>

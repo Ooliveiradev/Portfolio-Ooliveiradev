@@ -6,7 +6,7 @@ import { sounds } from '../../audio/soundManager';
 import { CinematicDialog } from './narrative/CinematicDialog';
 import { MediaGallery } from './narrative/MediaGallery';
 import { CodeStory } from './narrative/CodeStory';
-import { useI18n } from '../../i18n/I18nProvider';
+import { useContent } from '../../content/ContentProvider';
 
 interface ProjectDetailModalProps {
   project: ProjectItem;
@@ -26,7 +26,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   lowPower = false,
 }) => {
   const [activeTab, setActiveTab] = useState<ProjectTab>('readme');
-  const { locale } = useI18n();
+  const { text } = useContent();
   const [copiedRaw, setCopiedRaw] = useState(false);
   const [copiedGit, setCopiedGit] = useState(false);
 
@@ -52,9 +52,21 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     setTimeout(() => setCopiedRaw(false), 2200);
   };
 
+  const cloneCommand = project.quickStart?.cloneCmd || (project.githubUrl ? `git clone ${project.githubUrl}.git` : '');
+  const quickStartCommands = [project.quickStart?.cloneCmd, project.quickStart?.installCmd, project.quickStart?.runCmd].filter((command): command is string => Boolean(command));
+
+  // Only sections the owner filled in get a tab, so nothing empty ever shows.
+  const tabs: { id: ProjectTab; icon: string; label: string; badge?: string }[] = [
+    ...(project.readme.trim() ? [{ id: 'readme' as const, icon: 'description', label: 'README.md', badge: text('projects.tabReadme') }] : []),
+    { id: 'overview' as const, icon: 'insights', label: text('projects.tabOverview') },
+    ...(project.architecture ? [{ id: 'architecture' as const, icon: 'schema', label: text('projects.tabArchitecture') }] : []),
+    ...(project.quickStart ? [{ id: 'quickstart' as const, icon: 'terminal', label: text('projects.tabQuickstart') }] : []),
+  ];
+  const currentTab: ProjectTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0].id;
+
   const handleCopyGitClone = () => {
-    const cmd = project.quickStart?.cloneCmd || `git clone ${project.githubUrl}.git`;
-    navigator.clipboard.writeText(cmd);
+    if (!cloneCommand) return;
+    navigator.clipboard.writeText(cloneCommand);
     sounds.playClick();
     setCopiedGit(true);
     setTimeout(() => setCopiedGit(false), 2200);
@@ -172,96 +184,60 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
         {/* ================= TABS BAR ================= */}
         <div className="px-5 border-b border-slate-800/80 bg-[#0c1017] flex items-center justify-between gap-2 overflow-x-auto shrink-0">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('readme');
-              }}
-              className={`px-4 py-2.5 text-xs font-mono font-medium flex items-center gap-2 border-b-2 transition cursor-pointer whitespace-nowrap ${
-                activeTab === 'readme'
-                  ? 'border-sky-400 text-sky-400 bg-sky-500/5 font-bold'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
-              }`}
-            >
-              <MaterialIcon name="description" size={16} />
-              <span>README.md</span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] bg-sky-500/20 text-sky-300">
-                Principal
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('overview');
-              }}
-              className={`px-4 py-2.5 text-xs font-mono font-medium flex items-center gap-2 border-b-2 transition cursor-pointer whitespace-nowrap ${
-                activeTab === 'overview'
-                  ? 'border-sky-400 text-sky-400 bg-sky-500/5 font-bold'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
-              }`}
-            >
-              <MaterialIcon name="insights" size={16} />
-              <span>Visão Geral & Destaques</span>
-            </button>
-
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('architecture');
-              }}
-              className={`px-4 py-2.5 text-xs font-mono font-medium flex items-center gap-2 border-b-2 transition cursor-pointer whitespace-nowrap ${
-                activeTab === 'architecture'
-                  ? 'border-sky-400 text-sky-400 bg-sky-500/5 font-bold'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
-              }`}
-            >
-              <MaterialIcon name="schema" size={16} />
-              <span>Arquitetura & Fluxo</span>
-            </button>
-
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveTab('quickstart');
-              }}
-              className={`px-4 py-2.5 text-xs font-mono font-medium flex items-center gap-2 border-b-2 transition cursor-pointer whitespace-nowrap ${
-                activeTab === 'quickstart'
-                  ? 'border-sky-400 text-sky-400 bg-sky-500/5 font-bold'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
-              }`}
-            >
-              <MaterialIcon name="terminal" size={16} />
-              <span>Terminal & Quickstart</span>
-            </button>
+          <div className="flex items-center gap-1" role="tablist">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={currentTab === tab.id}
+                onClick={() => {
+                  sounds.playClick();
+                  setActiveTab(tab.id);
+                }}
+                className={`px-4 py-2.5 text-xs font-mono font-medium flex items-center gap-2 border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  currentTab === tab.id
+                    ? 'border-sky-400 text-sky-400 bg-sky-500/5 font-bold'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+                }`}
+              >
+                <MaterialIcon name={tab.icon} size={16} />
+                <span>{tab.label}</span>
+                {tab.badge && (
+                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-sky-500/20 text-sky-300">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
           {/* Quick copy clone button in tabs bar */}
-          <button
-            onClick={handleCopyGitClone}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white text-[11px] font-mono transition cursor-pointer"
-            title="Copiar comando de clone git"
-          >
-            {copiedGit ? (
-              <>
-                <MaterialIcon name="check" size={13} className="text-emerald-400" />
-                <span className="text-emerald-400">git clone copiado!</span>
-              </>
-            ) : (
-              <>
-                <MaterialIcon name="content_copy" size={13} />
-                <span>Copiar git clone</span>
-              </>
-            )}
-          </button>
+          {cloneCommand && (
+            <button
+              onClick={handleCopyGitClone}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white text-[11px] font-mono transition cursor-pointer"
+              title="Copiar comando de clone git"
+            >
+              {copiedGit ? (
+                <>
+                  <MaterialIcon name="check" size={13} className="text-emerald-400" />
+                  <span className="text-emerald-400">git clone copiado!</span>
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="content_copy" size={13} />
+                  <span>Copiar git clone</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* ================= MODAL BODY / SCROLL AREA ================= */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {activeTab === 'readme' && <MediaGallery key={project.id} items={project.media} lowPower={lowPower} title={locale === 'pt' ? 'Projeto em ação' : 'Project in action'} />}
+          {currentTab === tabs[0].id && <MediaGallery key={project.id} items={project.media} lowPower={lowPower} title={text('projects.gallery')} />}
           {/* TAB 1: README.MD (The star requested feature) */}
-          {activeTab === 'readme' && (
+          {currentTab === 'readme' && (
             <div className="max-w-4xl mx-auto space-y-4">
               {/* STYLIZED README CONTAINER (A "div bonitinha e estilizada") */}
               <div className="rounded-2xl border border-slate-700/80 bg-[#090d16] shadow-xl overflow-hidden">
@@ -330,25 +306,25 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
           )}
 
           {/* TAB 2: OVERVIEW & HIGHLIGHTS */}
-          {activeTab === 'overview' && (
+          {currentTab === 'overview' && (
             <div className="max-w-4xl mx-auto space-y-6">
               {/* Short summary banner */}
-              <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
+              {project.description && <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
                 <h3 className="text-sm font-mono font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
                   <MaterialIcon name="lightbulb" size={16} />
-                  <span>Proposta & Solução</span>
+                  <span>{text('projects.solution')}</span>
                 </h3>
-                <p className="text-sm text-slate-200 leading-relaxed font-sans">
+                <p className="text-sm text-slate-200 leading-relaxed font-sans whitespace-pre-line">
                   {project.description}
                 </p>
-              </div>
+              </div>}
 
               {/* Stats & Key Performance Metrics Bento */}
               {project.stats && project.stats.length > 0 && (
                 <div>
                   <h4 className="text-xs font-mono uppercase text-slate-400 mb-3 flex items-center gap-1.5">
                     <MaterialIcon name="speed" size={14} className="text-emerald-400" />
-                    <span>Métricas & Indicadores Técnicos</span>
+                    <span>{text('projects.metrics')}</span>
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {project.stats.map((stat, sIdx) => (
@@ -374,7 +350,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                 <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
                   <h4 className="text-xs font-mono uppercase text-slate-400 flex items-center gap-1.5">
                     <MaterialIcon name="star" size={14} className="text-amber-400" />
-                    <span>Destaques de Engenharia</span>
+                    <span>{text('projects.highlights')}</span>
                   </h4>
                   <div className="space-y-2.5">
                     {project.highlights.map((highlight, hIdx) => (
@@ -390,10 +366,10 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
               )}
 
               {/* Tech Stack Pills */}
-              <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
+              {project.tags.length > 0 && <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
                 <h4 className="text-xs font-mono uppercase text-slate-400 flex items-center gap-1.5">
                   <MaterialIcon name="layers" size={14} className="text-sky-400" />
-                  <span>Stack de Tecnologias Utilizada</span>
+                  <span>{text('projects.stack')}</span>
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {project.tags.map((t, idx) => (
@@ -406,19 +382,19 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                     </span>
                   ))}
                 </div>
-              </div>
+              </div>}
             </div>
           )}
 
           {/* TAB 3: ARCHITECTURE & DATA FLOW */}
-          {activeTab === 'architecture' && (
+          {currentTab === 'architecture' && project.architecture && (
             <div className="max-w-4xl mx-auto space-y-6">
-              {project.architecture ? (
+              {project.architecture && (
                 <>
                   <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
                     <h3 className="text-sm font-mono font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
                       <MaterialIcon name="architecture" size={16} />
-                      <span>Visão Arquitetural do Sistema</span>
+                      <span>{text('projects.architecture')}</span>
                     </h3>
                     <p className="text-sm text-slate-200 leading-relaxed font-sans">
                       {project.architecture.overview}
@@ -429,7 +405,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-4">
                     <h4 className="text-xs font-mono uppercase text-slate-400 flex items-center gap-1.5">
                       <MaterialIcon name="route" size={14} className="text-emerald-400" />
-                      <span>Fluxo Operacional de Dados</span>
+                      <span>{text('projects.flow')}</span>
                     </h4>
                     <div className="space-y-3">
                       {project.architecture.flow.map((step, sIdx) => (
@@ -452,7 +428,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                       <div className="p-4 rounded-xl bg-[#111724]/70 border border-slate-800/80 space-y-2">
                         <span className="text-xs font-mono text-sky-400 font-bold flex items-center gap-1.5">
                           <MaterialIcon name="database" size={14} />
-                          <span>Camada de Banco & Persistência</span>
+                          <span>{text('projects.database')}</span>
                         </span>
                         <p className="text-xs text-slate-300 leading-relaxed font-sans">
                           {project.architecture.database}
@@ -464,7 +440,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                       <div className="p-4 rounded-xl bg-[#111724]/70 border border-slate-800/80 space-y-2">
                         <span className="text-xs font-mono text-emerald-400 font-bold flex items-center gap-1.5">
                           <MaterialIcon name="security" size={14} />
-                          <span>Segurança & Resiliência</span>
+                          <span>{text('projects.security')}</span>
                         </span>
                         <ul className="space-y-1 text-xs text-slate-300 font-sans">
                           {project.architecture.security.map((sec, i) => (
@@ -478,110 +454,72 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                     )}
                   </div>
                 </>
-              ) : (
-                <div className="p-8 text-center text-slate-400 font-mono text-xs">
-                  Detalhes adicionais de arquitetura documentados no README.md.
-                </div>
               )}
             </div>
           )}
 
           {/* TAB 4: QUICKSTART & TERMINAL */}
-          {activeTab === 'quickstart' && (
+          {currentTab === 'quickstart' && project.quickStart && (
             <div className="max-w-4xl mx-auto space-y-6">
-              {project.quickStart ? (
-                <>
-                  <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
-                    <h3 className="text-sm font-mono font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
-                      <MaterialIcon name="terminal" size={16} />
-                      <span>Instruções de Inicialização Rápida</span>
-                    </h3>
-                    <p className="text-xs text-slate-300 font-sans leading-relaxed">
-                      Siga o passo a passo no terminal para clonar, instalar dependências e inicializar a aplicação localmente.
-                    </p>
+              <div className="p-5 rounded-2xl bg-[#111724]/70 border border-slate-800/80 space-y-3">
+                <h3 className="text-sm font-mono font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
+                  <MaterialIcon name="terminal" size={16} />
+                  <span>{text('projects.quickstartTitle')}</span>
+                </h3>
+                {text('projects.quickstartIntro') && (
+                  <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                    {text('projects.quickstartIntro')}
+                  </p>
+                )}
+              </div>
+
+              {/* Terminal Box */}
+              <CodeStory language="bash" code={quickStartCommands.join('\n')} lineInterval={350} />
+              <div className="rounded-2xl border border-slate-700/80 bg-[#090d16] overflow-hidden shadow-xl">
+                <div className="px-4 py-2.5 bg-[#111724] border-b border-slate-700/80 flex items-center justify-between text-xs font-mono text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                    <span className="text-slate-300 ml-1">bash terminal</span>
                   </div>
-
-                  {/* Terminal Box */}
-                  <CodeStory language="bash" code={[project.quickStart.cloneCmd, project.quickStart.installCmd, project.quickStart.runCmd].join('\n')} lineInterval={350} />
-                  <div className="rounded-2xl border border-slate-700/80 bg-[#090d16] overflow-hidden shadow-xl">
-                    <div className="px-4 py-2.5 bg-[#111724] border-b border-slate-700/80 flex items-center justify-between text-xs font-mono text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
-                        <span className="text-slate-300 ml-1">bash terminal</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500">Node.js 20+</span>
-                    </div>
-
-                    <div className="p-5 font-mono text-xs space-y-4 text-slate-200">
-                      <div>
-                        <span className="text-slate-500"># 1. Clonar repositório</span>
-                        <div className="mt-1 flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-sky-300">
-                          <code>{project.quickStart.cloneCmd}</code>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(project.quickStart!.cloneCmd);
-                              sounds.playClick();
-                            }}
-                            className="text-slate-400 hover:text-white ml-2 p-1"
-                            title="Copiar comando"
-                          >
-                            <MaterialIcon name="content_copy" size={14} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="text-slate-500"># 2. Instalar dependências</span>
-                        <div className="mt-1 flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-sky-300">
-                          <code>{project.quickStart.installCmd}</code>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(project.quickStart!.installCmd);
-                              sounds.playClick();
-                            }}
-                            className="text-slate-400 hover:text-white ml-2 p-1"
-                            title="Copiar comando"
-                          >
-                            <MaterialIcon name="content_copy" size={14} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="text-slate-500"># 3. Rodar servidor em desenvolvimento</span>
-                        <div className="mt-1 flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-emerald-300">
-                          <code>{project.quickStart.runCmd}</code>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(project.quickStart!.runCmd);
-                              sounds.playClick();
-                            }}
-                            className="text-slate-400 hover:text-white ml-2 p-1"
-                            title="Copiar comando"
-                          >
-                            <MaterialIcon name="content_copy" size={14} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {project.quickStart.envExample && (
-                        <div>
-                          <span className="text-slate-500"># 4. Configurar variáveis de ambiente (.env)</span>
-                          <pre className="mt-1 p-3 rounded-xl bg-slate-950 border border-slate-800 text-amber-300/90 overflow-x-auto text-[11px]">
-                            {project.quickStart.envExample}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="p-8 text-center text-slate-400 font-mono text-xs">
-                  Instruções de instalação detalhadas no README.md.
                 </div>
-              )}
+
+                <div className="p-5 font-mono text-xs space-y-4 text-slate-200">
+                  {[
+                    { label: '# 1. Clonar repositório', command: project.quickStart.cloneCmd, tone: 'text-sky-300' },
+                    { label: '# 2. Instalar dependências', command: project.quickStart.installCmd, tone: 'text-sky-300' },
+                    { label: '# 3. Rodar servidor em desenvolvimento', command: project.quickStart.runCmd, tone: 'text-emerald-300' },
+                  ].filter((step) => step.command).map((step) => (
+                    <div key={step.label}>
+                      <span className="text-slate-500">{step.label}</span>
+                      <div className={`mt-1 flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 ${step.tone}`}>
+                        <code className="break-all">{step.command}</code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(step.command);
+                            sounds.playClick();
+                          }}
+                          className="text-slate-400 hover:text-white ml-2 p-1 shrink-0"
+                          title="Copiar comando"
+                          aria-label="Copiar comando"
+                        >
+                          <MaterialIcon name="content_copy" size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {project.quickStart.envExample && (
+                    <div>
+                      <span className="text-slate-500"># 4. Configurar variáveis de ambiente (.env)</span>
+                      <pre className="mt-1 p-3 rounded-xl bg-slate-950 border border-slate-800 text-amber-300/90 overflow-x-auto text-[11px]">
+                        {project.quickStart.envExample}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
