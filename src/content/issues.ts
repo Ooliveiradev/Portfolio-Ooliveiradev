@@ -11,6 +11,8 @@ export interface ContentIssue {
   message: string;
 }
 
+export const MEDIA_URL_HELP = 'Endereço de mídia não aceito. Use um arquivo enviado pelo painel, um caminho do próprio site (./assets/…) ou um link de anexo do GitHub.';
+
 const blank = (value: LocalizedText) => !value.pt.trim() && !value.en.trim();
 
 /**
@@ -26,8 +28,8 @@ export function findIssues(doc: PortfolioDocument): ContentIssue[] {
   const mediaList = (section: SectionId, where: string, items: MediaDoc[]) => {
     items.forEach((item, index) => {
       const place = `${where} › Mídia ${index + 1}`;
-      if (!isSafeMediaUrl(item.src)) add(section, place, 'Envie o arquivo pelo painel; o endereço atual não é aceito.');
-      if (item.thumbnail && !isSafeMediaUrl(item.thumbnail)) add(section, place, 'A miniatura não é aceita; envie a imagem novamente.');
+      if (!isSafeMediaUrl(item.src)) add(section, place, MEDIA_URL_HELP);
+      if (item.thumbnail && !isSafeMediaUrl(item.thumbnail)) add(section, place, `Miniatura: ${MEDIA_URL_HELP}`);
       if (item.kind === 'image' && blank(item.alt)) add(section, place, 'Descreva a imagem no texto alternativo (acessibilidade).');
     });
   };
@@ -41,7 +43,7 @@ export function findIssues(doc: PortfolioDocument): ContentIssue[] {
   url('profile', 'Perfil › GitHub', profile.github, 'GitHub');
   url('profile', 'Perfil › LinkedIn', profile.linkedin, 'LinkedIn');
   url('profile', 'Perfil › Currículo', profile.resumeUrl, 'Currículo');
-  if (profile.photo && !isSafeMediaUrl(profile.photo)) add('profile', 'Perfil › Foto', 'Envie a foto pelo painel; o endereço atual não é aceito.');
+  if (profile.photo && !isSafeMediaUrl(profile.photo)) add('profile', 'Perfil › Foto', MEDIA_URL_HELP);
   profile.links.forEach((item, index) => {
     const where = `Perfil › Link ${index + 1}`;
     if (!item.label.trim()) add('profile', where, 'Dê um nome ao link.');

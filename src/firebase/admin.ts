@@ -8,14 +8,14 @@
 import type { PortfolioDocument } from '../content/model';
 import { normalizeDocument } from '../content/sanitize';
 import { MAX_DOCUMENT_BYTES, utf8Size } from '../content/validation';
-import { CONTENT_COLLECTION, CONTENT_DOC_ID, MEDIA_FOLDER, emulatorHost, firebaseConfig, isFirebaseConfigured } from './config';
+import { CONTENT_COLLECTION, CONTENT_DOC_ID, MEDIA_FOLDER, emulatorHost, firebaseConfig, isFirebaseConfigured, isStorageEnabled } from './config';
 import { storageName } from './mediaRules';
 
 export interface AdminSession { uid: string; email: string }
 
 export type AdminErrorCode =
   | 'not-configured' | 'invalid-credentials' | 'too-many-requests' | 'network' | 'not-admin'
-  | 'session-expired' | 'forbidden' | 'conflict' | 'too-large' | 'upload-failed' | 'unknown';
+  | 'session-expired' | 'forbidden' | 'conflict' | 'too-large' | 'upload-failed' | 'storage-disabled' | 'unknown';
 
 export class AdminError extends Error {
   constructor(public code: AdminErrorCode, message: string) {
@@ -48,6 +48,7 @@ const messages: Record<AdminErrorCode, string> = {
   conflict: 'Outra versão foi publicada enquanto você editava. Recarregue a versão publicada antes de continuar.',
   'too-large': 'O conteúdo é grande demais para ser publicado.',
   'upload-failed': 'Não foi possível enviar o arquivo.',
+  'storage-disabled': 'O envio de arquivos não está ativado neste site. Adicione a mídia por link (veja docs/ADMIN.md).',
   unknown: 'Algo deu errado. Tente novamente.',
 };
 
@@ -68,6 +69,16 @@ export function toAdminError(error: unknown): AdminError {
   return fail('unknown');
 }
 
+const ADMIN_CHECK_TIMEOUT_MS = 10_000;
+const PUBLISH_TIMEOUT_MS = 30_000;
+
+/** Never leave the owner staring at a spinner: a stuck connection becomes a clear "no connection" error. */
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer = 0;
+  const timeout = new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(fail('network')), ms); });
+  return Promise.race([work, timeout]).finally(() => window.clearTimeout(timer));
+}
+
 let apiPromise: Promise<AdminApi> | null = null;
 
 export function loadAdminApi(): Promise<AdminApi> {
@@ -77,35 +88,50 @@ export function loadAdminApi(): Promise<AdminApi> {
 }
 
 async function createApi(): Promise<AdminApi> {
-  const [{ initializeApp }, auth, firestore, storage] = await Promise.all([
-    import('firebase/app'), import('firebase/auth'), import('firebase/firestore'), import('firebase/storage'),
+  const [{ initializeApp }, auth, firestore] = await Promise.all([
+    import('firebase/app'), import('firebase/auth'), import('firebase/firestore'),
   ]);
+  // Storage is optional (paid plan): its code is only downloaded when a bucket is configured.
+  const storage = isStorageEnabled ? await import('firebase/storage') : null;
   const app = initializeApp(firebaseConfig);
   const authService = auth.getAuth(app);
-  const db = firestore.getFirestore(app);
-  const bucket = storage.getStorage(app);
+  // Some networks, proxies and browsers break Firestore's streaming channel; fall back to long polling instead of hanging.
+  const db = firestore.initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+  const bucket = storage?.getStorage(app) ?? null;
   if (emulatorHost) {
     auth.connectAuthEmulator(authService, `http://${emulatorHost}:9099`, { disableWarnings: true });
     firestore.connectFirestoreEmulator(db, emulatorHost, 8080);
-    storage.connectStorageEmulator(bucket, emulatorHost, 9199);
+    if (storage && bucket) storage.connectStorageEmulator(bucket, emulatorHost, 9199);
   }
   // The session lasts only as long as the browser tab/window profile keeps it; no passwords are stored by us.
   await auth.setPersistence(authService, auth.browserLocalPersistence);
 
-  const isAdmin = async (uid: string): Promise<boolean> => {
+  // Asks the server whether this account has an /admins/{uid} document. A plain REST call with the user's own
+  // ID token (the rules decide) is quicker and sturdier than opening a streaming connection just for this.
+  const isAdmin = async (user: import('firebase/auth').User): Promise<boolean> => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), ADMIN_CHECK_TIMEOUT_MS);
     try {
-      return (await firestore.getDoc(firestore.doc(db, 'admins', uid))).exists();
-    } catch {
-      return false;
+      const origin = emulatorHost ? `http://${emulatorHost}:8080` : 'https://firestore.googleapis.com';
+      const response = await fetch(`${origin}/v1/projects/${encodeURIComponent(firebaseConfig.projectId)}/databases/(default)/documents/admins/${encodeURIComponent(user.uid)}`, {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` }, signal: controller.signal, cache: 'no-store',
+      });
+      if (response.ok) return true;
+      if (response.status === 404 || response.status === 403 || response.status === 401) return false;
+      throw fail('network');
+    } catch (error) {
+      throw error instanceof AdminError ? error : fail('network');
+    } finally {
+      window.clearTimeout(timer);
     }
   };
   const toSession = async (user: import('firebase/auth').User | null): Promise<AdminSession | null> =>
-    user && user.email && await isAdmin(user.uid) ? { uid: user.uid, email: user.email } : null;
+    user && user.email && await isAdmin(user) ? { uid: user.uid, email: user.email } : null;
   const contentRef = firestore.doc(db, CONTENT_COLLECTION, CONTENT_DOC_ID);
 
   return {
     watchSession(callback) {
-      return auth.onAuthStateChanged(authService, user => { void toSession(user).then(callback); });
+      return auth.onAuthStateChanged(authService, user => { void toSession(user).then(callback, () => callback(null)); });
     },
 
     async signIn(email, password) {
@@ -144,20 +170,21 @@ async function createApi(): Promise<AdminApi> {
       const json = JSON.stringify(normalizeDocument(document));
       if (utf8Size(json) > MAX_DOCUMENT_BYTES) throw fail('too-large');
       try {
-        return await firestore.runTransaction(db, async transaction => {
+        return await withTimeout(firestore.runTransaction(db, async transaction => {
           const snapshot = await transaction.get(contentRef);
           const current = snapshot.exists() ? Number(snapshot.data().revision) || 0 : 0;
           if (current !== (expectedRevision ?? 0)) throw fail('conflict');
           const next = current + 1;
           transaction.set(contentRef, { json, revision: next, updatedAt: firestore.serverTimestamp(), updatedBy: user.uid });
           return next;
-        });
+        }), PUBLISH_TIMEOUT_MS);
       } catch (error) {
         throw toAdminError(error);
       }
     },
 
     async uploadMedia(file, originalName, contentType, onProgress) {
+      if (!storage || !bucket) throw fail('storage-disabled');
       if (!authService.currentUser) throw fail('session-expired');
       const path = `${MEDIA_FOLDER}/${storageName(originalName, contentType)}`;
       const reference = storage.ref(bucket, path);
@@ -178,6 +205,7 @@ async function createApi(): Promise<AdminApi> {
     },
 
     async listMedia() {
+      if (!storage || !bucket) return [];
       try {
         const { items } = await storage.list(storage.ref(bucket, MEDIA_FOLDER), { maxResults: 200 });
         const files = await Promise.all(items.map(async item => {
@@ -191,6 +219,7 @@ async function createApi(): Promise<AdminApi> {
     },
 
     async deleteMedia(path) {
+      if (!storage || !bucket) throw fail('storage-disabled');
       if (!path.startsWith(`${MEDIA_FOLDER}/`)) throw fail('forbidden');
       try {
         await storage.deleteObject(storage.ref(bucket, path));

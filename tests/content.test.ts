@@ -81,10 +81,12 @@ test('links that can run code or leave the allowed set are rejected', () => {
 });
 
 test('media may only come from this site or the portfolio bucket', () => {
-  for (const good of ['https://firebasestorage.googleapis.com/v0/b/x/o/portfolio-media%2Fa.jpg?alt=media&token=1', 'https://x.firebasestorage.app/a.png', '/assets/a.png', './assets/a.png']) {
+  for (const good of ['https://firebasestorage.googleapis.com/v0/b/x/o/portfolio-media%2Fa.jpg?alt=media&token=1', 'https://x.firebasestorage.app/a.png', '/assets/a.png', './assets/a.png',
+    'https://github.com/user-attachments/assets/1b2c3d4e-0000-1111-2222-333344445555', 'https://raw.githubusercontent.com/Ooliveiradev/Portfolio-Ooliveiradev/main/public/a.png']) {
     assert.equal(isSafeMediaUrl(good), true, good);
   }
-  for (const bad of ['', 'https://evil.com/a.png', 'http://firebasestorage.googleapis.com/a.png', 'data:image/png;base64,AAAA', 'javascript:1', '//evil.com/a.png', '/../secret', '/a/../b.png', 'https://firebasestorage.googleapis.com.evil.com/a.png']) {
+  for (const bad of ['', 'https://evil.com/a.png', 'http://firebasestorage.googleapis.com/a.png', 'data:image/png;base64,AAAA', 'javascript:1', '//evil.com/a.png', '/../secret', '/a/../b.png', 'https://firebasestorage.googleapis.com.evil.com/a.png',
+    'https://github.com/Ooliveiradev/Portfolio-Ooliveiradev', 'https://github.com/user-attachments/../login', 'https://evilgithubusercontent.com/a.png']) {
     assert.equal(isSafeMediaUrl(bad), false, bad);
   }
 });

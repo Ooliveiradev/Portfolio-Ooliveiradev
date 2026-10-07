@@ -2,7 +2,10 @@ import { emulatorHost } from '../firebase/config';
 
 /** Shared rules for what the portfolio is allowed to link to or display. */
 
-const MEDIA_HOSTS = [/^firebasestorage\.googleapis\.com$/, /^storage\.googleapis\.com$/, /\.firebasestorage\.app$/];
+const MEDIA_HOSTS = [
+  /^firebasestorage\.googleapis\.com$/, /^storage\.googleapis\.com$/, /\.firebasestorage\.app$/,
+  /^raw\.githubusercontent\.com$/, /^user-images\.githubusercontent\.com$/, /^objects\.githubusercontent\.com$/,
+];
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const EMAIL = /^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/;
 
@@ -32,7 +35,10 @@ export const isSafeMediaUrl = (value: string): boolean => {
   if (!url) return false;
   // Local development only: files uploaded to the Storage emulator.
   if (emulatorHost && url.protocol === 'http:' && url.hostname === emulatorHost && url.port === '9199') return true;
-  return url.protocol === 'https:' && MEDIA_HOSTS.some(pattern => pattern.test(url.hostname));
+  if (url.protocol !== 'https:') return false;
+  // Free hosting without Cloud Storage: files attached on GitHub (drag a file into any issue comment and copy its link).
+  if (url.hostname === 'github.com') return /^\/user-attachments\/(assets|files)\/[\w./-]+$/.test(url.pathname);
+  return MEDIA_HOSTS.some(pattern => pattern.test(url.hostname));
 };
 
 export const utf8Size = (value: string): number => new TextEncoder().encode(value).length;
