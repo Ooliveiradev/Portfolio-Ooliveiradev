@@ -2,6 +2,7 @@ import React, { useCallback, useContext, useEffect, useMemo, useState } from 're
 import { MaterialIcon } from '../../components/ui/MaterialIcon';
 import { AdminError, type StoredMedia } from '../../firebase/admin';
 import { formatBytes } from '../../firebase/mediaRules';
+import { isStorageEnabled } from '../../firebase/config';
 import { AdminApiContext, UploadButton } from '../MediaEditors';
 import { Button, SectionHeader } from '../ui';
 
@@ -40,6 +41,21 @@ export const MediaLibrary: React.FC<{ draftJson: string; publishedJson: string }
   };
 
   const unused = files?.filter(file => !inUse(file)).length ?? 0;
+  if (!isStorageEnabled) {
+    return (
+      <>
+        <SectionHeader title="Biblioteca de mídias" description="O envio de arquivos está desligado porque o Cloud Storage exige um plano pago do Firebase." />
+        <div className="rounded-xl border border-slate-700/80 bg-[#0c1219] p-5 space-y-3 text-xs text-slate-300 leading-relaxed">
+          <p>Enquanto isso, adicione fotos e vídeos <strong>por link</strong> nos campos de mídia de cada projeto, formação e no perfil:</p>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>Coloque o arquivo na pasta <code className="font-mono text-emerald-300">public/assets/portfolio/</code> do repositório (pode ser pelo site do GitHub, arrastando o arquivo) e use <code className="font-mono text-emerald-300">./assets/portfolio/nome.png</code>. Depois do deploy o arquivo fica no ar.</li>
+            <li>Ou arraste o arquivo para um comentário de issue do GitHub, sem enviar, e copie o link <code className="font-mono text-emerald-300">github.com/user-attachments/…</code> gerado.</li>
+          </ul>
+          <p className="text-slate-400">Para ativar o envio direto pelo painel, ative o plano Blaze, crie o bucket do Storage e preencha <code className="font-mono">VITE_FIREBASE_STORAGE_BUCKET</code> (veja docs/ADMIN.md).</p>
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <SectionHeader title="Biblioteca de mídias" description="Arquivos enviados ao portfólio. Fotos e vídeos são enviados dentro dos projetos, certificados e perfil; aqui você confere o que existe e limpa o que sobrou."

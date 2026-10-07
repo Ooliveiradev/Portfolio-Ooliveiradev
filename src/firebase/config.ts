@@ -13,9 +13,13 @@ export const firebaseConfig = {
   appId: env.VITE_FIREBASE_APP_ID ?? '',
 };
 
-export const isFirebaseConfigured = Boolean(
-  firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId && firebaseConfig.storageBucket,
-);
+export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
+
+/**
+ * Cloud Storage needs the paid Blaze plan. Without a bucket the panel still edits everything; media is
+ * added by link (files kept in the repository's public/ folder or on an allowed host) instead of uploaded.
+ */
+export const isStorageEnabled = Boolean(firebaseConfig.storageBucket);
 
 /** Local development against the Firebase emulators (npm run emulators). Never enabled in production builds. */
 export const emulatorHost: string | null = env.DEV && env.VITE_FIREBASE_EMULATORS === 'true' ? '127.0.0.1' : null;

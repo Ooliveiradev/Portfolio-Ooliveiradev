@@ -35,7 +35,16 @@ Tudo que tem texto existe em **português e inglês**: use o seletor `PT | EN` n
 - **Rascunho**: suas alterações ficam guardadas neste navegador (inclusive se a aba fechar ou a sessão expirar) até você publicar ou descartar.
 - **Dois dispositivos editando**: cada publicação tem um número de versão. Se outra pessoa/aparelho publicou antes de você, o painel avisa e não sobrescreve.
 
-### Limites das mídias
+### Fotos e vídeos: com ou sem Cloud Storage
+
+O Cloud Storage do Firebase exige o plano pago (Blaze). **O painel funciona 100% no plano gratuito (Spark)**: sem Storage, fotos, vídeos, foto de perfil e currículo são adicionados **por link**:
+
+- coloque o arquivo em `public/assets/portfolio/` do repositório (pode ser arrastando-o no site do GitHub) e use `./assets/portfolio/nome.png`; depois do deploy ele fica no ar; ou
+- arraste o arquivo para um comentário de issue do GitHub (sem enviar o comentário) e cole o link `github.com/user-attachments/…` gerado.
+
+Se um dia ativar o Blaze, basta preencher `VITE_FIREBASE_STORAGE_BUCKET` e publicar as regras do Storage: os botões de envio direto aparecem sozinhos.
+
+#### Limites do envio direto (com Storage)
 
 | Tipo | Formatos | Tamanho máximo |
 | --- | --- | --- |
@@ -77,7 +86,7 @@ Administrador ──► Authentication (e-mail e senha)                         
 ### 3. Banco e arquivos
 
 1. **Build → Firestore Database → Criar banco** (modo **produção**; escolha uma região próxima, por exemplo `southamerica-east1`).
-2. **Build → Storage → Começar**. Desde 3 de fevereiro de 2026 o Cloud Storage exige o **plano Blaze** (cartão vinculado) ([FAQ oficial](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024)). Dentro da cota gratuita do Google Cloud (5 GB armazenados e 100 GB de saída por mês) a fatura é zero; configure um **alerta de orçamento** no Google Cloud para ficar tranquilo. Sem Storage, o painel continua editando todos os textos; só o envio de fotos, vídeos, foto de perfil e PDF fica indisponível.
+2. **Storage (opcional, pago)**: desde 3 de fevereiro de 2026 o Cloud Storage exige o **plano Blaze** (cartão vinculado) ([FAQ oficial](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024)). **Pule este passo para ficar no plano gratuito**: mídias são adicionadas por link (veja acima). Se ativar, dentro da cota gratuita do Google Cloud (5 GB e 100 GB de saída por mês) a fatura é zero; configure um alerta de orçamento.
 
 ### 4. Publicar as regras de segurança
 
@@ -85,10 +94,11 @@ As regras estão no repositório ([`firestore.rules`](../firestore.rules) e [`st
 
 ```bash
 npx firebase-tools login
-npx firebase-tools deploy --only firestore:rules,storage --project SEU_PROJECT_ID
+npx firebase-tools deploy --only firestore:rules --project SEU_PROJECT_ID        # plano gratuito
+npx firebase-tools deploy --only firestore:rules,storage --project SEU_PROJECT_ID  # se ativou o Storage
 ```
 
-(Ou copie o conteúdo de cada arquivo para **Firestore → Regras** e **Storage → Regras** no console e clique em Publicar.)
+(Ou copie o conteúdo de `firestore.rules` para **Firestore → Regras** no console e clique em Publicar. O `.firebaserc` do repositório já aponta para o projeto do portfólio.)
 
 ### 5. Cadastrar a conta administradora
 
@@ -109,7 +119,7 @@ No GitHub: **Settings → Secrets and variables → Actions → aba Variables �
 | `VITE_FIREBASE_API_KEY` | `apiKey` |
 | `VITE_FIREBASE_AUTH_DOMAIN` | `authDomain` |
 | `VITE_FIREBASE_PROJECT_ID` | `projectId` |
-| `VITE_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | `storageBucket` — **só se ativou o Storage**; sem ele, deixe a variável sem criar |
 | `VITE_FIREBASE_APP_ID` | `appId` |
 
 Depois, **Actions → Deploy to GitHub Pages → Run workflow**. Para rodar localmente, copie as mesmas chaves para um arquivo `.env.local` (veja `.env.example`; ele não vai para o Git).

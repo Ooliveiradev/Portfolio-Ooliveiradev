@@ -3,9 +3,11 @@ import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { newId, type LocalizedText, type MediaDoc } from '../content/model';
 import { isSafeLink, isSafeMediaUrl } from '../content/validation';
 import { AdminError, type AdminApi } from '../firebase/admin';
+import { isStorageEnabled } from '../firebase/config';
+import { MEDIA_URL_HELP } from '../content/issues';
 import { MEDIA_ACCEPT, type MediaCategory } from '../firebase/mediaRules';
 import { uploadFile, type UploadResult } from './uploads';
-import { Button, Field, IconButton, LocalizedField, arrayMove, inputClass, type Lang } from './ui';
+import { Button, Field, IconButton, LocalizedField, SelectField, TextField, arrayMove, inputClass, type Lang } from './ui';
 
 export const AdminApiContext = createContext<AdminApi | null>(null);
 const useApi = (): AdminApi => {
@@ -68,6 +70,36 @@ export const UploadButton: React.FC<{
   );
 };
 
+/** Without Cloud Storage (paid plan) media is added by link: a file in the repo's public/ folder or a GitHub attachment. */
+export const MediaLinkAdder: React.FC<{ allowVideo: boolean; onAdd: (media: MediaDoc) => void }> = ({ allowVideo, onAdd }) => {
+  const [url, setUrl] = useState('');
+  const [kind, setKind] = useState<'auto' | 'image' | 'video'>('auto');
+  const [error, setError] = useState<string | null>(null);
+  const add = () => {
+    const address = url.trim();
+    if (!isSafeMediaUrl(address)) { setError(MEDIA_URL_HELP); return; }
+    const detected = /\.(mp4|webm|m4v)(\?|#|$)/i.test(address) ? 'video' : 'image';
+    onAdd({
+      id: newId('media'), kind: kind === 'auto' ? (allowVideo ? detected : 'image') : kind, src: address, thumbnail: '',
+      alt: { pt: '', en: '' }, caption: { pt: '', en: '' },
+    });
+    setUrl(''); setKind('auto'); setError(null);
+  };
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-700/80 bg-[#0c1219] p-3">
+      <p className="text-[11px] text-slate-400 leading-relaxed">
+        O envio de arquivos está desligado (exige plano pago). Adicione por link: coloque o arquivo em <code className="font-mono text-slate-300">public/assets/portfolio/</code> do
+        repositório e use <code className="font-mono text-slate-300">./assets/portfolio/arquivo.png</code>, ou arraste o arquivo para um comentário de issue do GitHub e cole o link gerado.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+        <div className="flex-1 min-w-0"><TextField label="Endereço da mídia" value={url} onChange={value => { setUrl(value); setError(null); }} mono maxLength={2048} placeholder="./assets/portfolio/captura.png" error={error ?? undefined} /></div>
+        {allowVideo && <div className="sm:w-40"><SelectField label="Tipo" value={kind} onChange={value => setKind(value as typeof kind)} options={[{ value: 'auto', label: 'Detectar' }, { value: 'image', label: 'Imagem' }, { value: 'video', label: 'Vídeo' }]} /></div>}
+        <Button onClick={add} disabled={!url.trim()}>＋ Adicionar</Button>
+      </div>
+    </div>
+  );
+};
+
 /** Images and videos for a project or certificate. Nothing is shown to visitors when this list is empty. */
 export const MediaListEditor: React.FC<{
   title: string; items: MediaDoc[]; onChange: (items: MediaDoc[]) => void; lang: Lang; allowVideo?: boolean; hint?: string;
@@ -77,7 +109,7 @@ export const MediaListEditor: React.FC<{
     <div className="space-y-3">
       <div>
         <h5 className="text-[11px] font-mono uppercase tracking-wide text-slate-400">{title}</h5>
-        <p className="text-[11px] text-slate-500 mt-1">{hint ?? (allowVideo ? 'Imagens (JPG, PNG, WebP, GIF, AVIF até 5 MB) e vídeos (MP4, WebM até 50 MB). Se não adicionar nada, nenhuma galeria aparece.' : 'Imagens (JPG, PNG, WebP, GIF, AVIF até 5 MB). Se não adicionar nada, nenhuma galeria aparece.')}</p>
+        <p className="text-[11px] text-slate-500 mt-1">{hint ?? (!isStorageEnabled ? 'Imagens e vídeos adicionados por link. Se não adicionar nada, nenhuma galeria aparece.' : allowVideo ? 'Imagens (JPG, PNG, WebP, GIF, AVIF até 5 MB) e vídeos (MP4, WebM até 50 MB). Se não adicionar nada, nenhuma galeria aparece.' : 'Imagens (JPG, PNG, WebP, GIF, AVIF até 5 MB). Se não adicionar nada, nenhuma galeria aparece.')}</p>
       </div>
       {items.length === 0 && <p className="rounded-lg border border-dashed border-slate-700 p-4 text-center text-[11px] text-slate-500">Nenhuma mídia. A galeria fica oculta no site.</p>}
       <ul className="space-y-3">
@@ -104,11 +136,13 @@ export const MediaListEditor: React.FC<{
           </li>
         ))}
       </ul>
-      <UploadButton label={allowVideo ? 'Enviar imagens ou vídeos' : 'Enviar imagens'} categories={allowVideo ? ['image', 'video'] : ['image']} multiple
-        onUploaded={results => onChange([...items, ...results.map((result): MediaDoc => ({
-          id: newId('media'), kind: result.kind === 'video' ? 'video' : 'image', src: result.url, thumbnail: result.thumbnail,
-          alt: { pt: '', en: '' } as LocalizedText, caption: { pt: '', en: '' } as LocalizedText,
-        }))].slice(0, 60))} />
+      {isStorageEnabled
+        ? <UploadButton label={allowVideo ? 'Enviar imagens ou vídeos' : 'Enviar imagens'} categories={allowVideo ? ['image', 'video'] : ['image']} multiple
+            onUploaded={results => onChange([...items, ...results.map((result): MediaDoc => ({
+              id: newId('media'), kind: result.kind === 'video' ? 'video' : 'image', src: result.url, thumbnail: result.thumbnail,
+              alt: { pt: '', en: '' } as LocalizedText, caption: { pt: '', en: '' } as LocalizedText,
+            }))].slice(0, 60))} />
+        : <MediaLinkAdder allowVideo={allowVideo} onAdd={media => onChange([...items, media].slice(0, 60))} />}
     </div>
   );
 };
@@ -121,14 +155,14 @@ export const FileField: React.FC<{
   const valid = !value || (allowExternal ? isSafeLink(value) || isSafeMediaUrl(value) : isSafeMediaUrl(value));
   return (
     <div className="space-y-2">
-      <Field label={label} hint={hint} error={valid ? undefined : 'Endereço não aceito. Envie o arquivo pelo painel.'}>
+      <Field label={label} hint={isStorageEnabled ? hint : `${hint ?? ''} Cole o endereço do arquivo (./assets/… do site ou link de anexo do GitHub).`.trim()} error={valid ? undefined : MEDIA_URL_HELP}>
         {value && preview === 'image' && <img src={value} alt="" className="w-24 h-24 rounded-full object-cover border border-slate-700 mb-2" />}
-        {allowExternal
-          ? <input aria-label={label} value={value} onChange={event => onChange(event.target.value.trim())} placeholder="https://… ou envie um arquivo" className={`${inputClass} font-mono`} spellCheck={false} />
+        {allowExternal || !isStorageEnabled
+          ? <input aria-label={label} value={value} onChange={event => onChange(event.target.value.trim())} placeholder={isStorageEnabled ? 'https://… ou envie um arquivo' : category === 'document' ? 'https://… ou ./assets/curriculo.pdf' : './assets/portfolio/foto.jpg'} className={`${inputClass} font-mono`} spellCheck={false} />
           : <p className="text-[11px] font-mono text-slate-400 break-all">{value ? decodeURIComponent(value.split('/').pop()?.split('?')[0] ?? value) : emptyLabel}</p>}
       </Field>
       <div className="flex flex-wrap gap-2 items-start">
-        <UploadButton label={value ? 'Substituir arquivo' : 'Enviar arquivo'} categories={[category]} onUploaded={([result]) => onChange(result.url)} />
+        {isStorageEnabled && <UploadButton label={value ? 'Substituir arquivo' : 'Enviar arquivo'} categories={[category]} onUploaded={([result]) => onChange(result.url)} />}
         {value && <Button tone="danger" onClick={() => onChange('')}>Remover</Button>}
       </div>
     </div>

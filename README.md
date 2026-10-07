@@ -302,6 +302,8 @@ Esse arquivo (junto de `src/i18n/portfolio.ts`, com as traduções) é o **conte
 
 Depois de configurar o Firebase, o dono do portfólio edita **tudo** pelo próprio site: perfil, foto, currículo, projetos (descrição, README, tecnologias, fotos e vídeos), experiência, formação, habilidades, conquistas, cor de destaque, textos da interface, ordem e visibilidade das seções, em português e em inglês. O acesso fica escondido no segredo do desenvolvedor (clique 5 vezes no avatar do menu → `./login --admin`). Descobrir o segredo não dá acesso: só a conta cadastrada como administradora consegue entrar e gravar, e isso é imposto pelas regras do servidor (`firestore.rules` e `storage.rules`).
 
+Funciona no plano gratuito (Spark) do Firebase. O envio direto de arquivos usa o Cloud Storage (plano pago) e é opcional: sem ele, mídias entram por link.
+
 👉 Passo a passo de configuração, segurança e uso: **[`docs/ADMIN.md`](./docs/ADMIN.md)**.
 
 ---
