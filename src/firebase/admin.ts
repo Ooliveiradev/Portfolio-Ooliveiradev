@@ -71,6 +71,7 @@ export function toAdminError(error: unknown): AdminError {
 
 const ADMIN_CHECK_TIMEOUT_MS = 10_000;
 const PUBLISH_TIMEOUT_MS = 30_000;
+const API_START_TIMEOUT_MS = 12_000;
 
 /** Never leave the owner staring at a spinner: a stuck connection becomes a clear "no connection" error. */
 function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
@@ -83,7 +84,7 @@ let apiPromise: Promise<AdminApi> | null = null;
 
 export function loadAdminApi(): Promise<AdminApi> {
   if (!isFirebaseConfigured) return Promise.reject(fail('not-configured'));
-  apiPromise ??= createApi().catch(error => { apiPromise = null; throw toAdminError(error); });
+  apiPromise ??= withTimeout(createApi(), API_START_TIMEOUT_MS).catch(error => { apiPromise = null; throw toAdminError(error); });
   return apiPromise;
 }
 
