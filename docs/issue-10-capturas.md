@@ -52,6 +52,4 @@ Envie uma pasta/ZIP ou os arquivos aqui, acompanhados de uma lista simples:
 
 ## Integração
 
-Os vínculos ficam nos campos opcionais `ProjectItem.media` e `EducationItem.certificates` de `src/data/portfolioData.ts`. Cada item tem `id`, `kind`, `src`, `thumbnail`, `alt` e `caption`. Os testes estão centralizados em `src/data/mediaTestAssets.ts` e `public/assets/test-media/`.
-
-Ao receber o material, substituir os vínculos por mídias reais, escrever alternativas textuais específicas, remover `testOnly` apenas dos arquivos reais e retirar os fixtures que não forem mais usados. Até essa substituição, o critério original “zero placeholder” permanece intencionalmente pendente.
+Os arquivos de teste foram removidos: o portfólio não traz mais mídia de exemplo, e nenhuma galeria aparece enquanto não houver mídia real. Fotos, vídeos e certificados reais são enviados pelo painel administrativo (`docs/ADMIN.md`), nos campos de mídia de cada projeto e de cada formação, com texto alternativo obrigatório.

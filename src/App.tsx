@@ -1,5 +1,5 @@
 import { initialGraphicsQuality } from './utils/mobileExperience';
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GalaxyScene } from './components/GalaxyScene';
 import { LandingOverlay } from './components/ui/LandingOverlay';
@@ -27,7 +27,6 @@ const DropWhisperModal = lazy(() => import('./components/ui/DropWhisperModal').t
 const WhispersListModal = lazy(() => import('./components/ui/WhispersListModal').then(m => ({ default: m.WhispersListModal })));
 import {
   CRYSTALS_DATA,
-  ISLANDS_CONFIG,
   formatRaceTime,
 } from './data/portfolioData';
 import { IslandId, UserStats, CrystalCollectible, GraphicsQuality, RaceLeaderboardEntry, GameMode, Badge, CosmicWhisper } from './types';
@@ -39,13 +38,16 @@ import confetti from 'canvas-confetti';
 import { INITIAL_VEHICLE_POSITION, getVehiclePosition, getVehicleRotation, updateVehiclePosition, updateVehicleRotation } from './utils/vehicleTelemetry';
 import { createVehicleInput, isEditableTarget } from './utils/gameInput';
 import { useI18n } from './i18n/I18nProvider';
-import { getPortfolioContent } from './i18n/portfolio';
+import { useContent, usePortfolioDocument } from './content/ContentProvider';
+import { useAdmin } from './admin/AdminProvider';
 import { hasCollectedAllCrystals } from './utils/achievements';
 import { trackProjectView, trackSessionStart, trackSpatialPosition } from './services/analyticsService';
 
 export default function App() {
   const { locale } = useI18n();
-  const localizedContent = useMemo(() => getPortfolioContent(locale), [locale]);
+  const localizedContent = useContent();
+  const { ready: contentReady } = usePortfolioDocument();
+  const admin = useAdmin();
   const islands = localizedContent.islands;
   const badges = localizedContent.badges;
   // Preloading & System Certification: certifica Rapier WASM, shaders GPU e fontes antes de liberar jogabilidade
@@ -104,7 +106,7 @@ export default function App() {
       previousTime = time;
       const heading = getVehicleRotation();
       const orbitalTime = getCelestialTime();
-      const spatialSources: Array<{ id: string; position: [number, number, number]; focused: boolean }> = ISLANDS_CONFIG.map((island) => ({
+      const spatialSources: Array<{ id: string; position: [number, number, number]; focused: boolean }> = islands.map((island) => ({
         id: island.id,
         position: getIslandLivePosition(island, orbitalTime),
         focused: island.id === selectedIslandId && gameMode === 'inspecting',
@@ -113,7 +115,7 @@ export default function App() {
       sounds.updateSpatialSoundscape(position, heading, spatialSources, speed);
     }, 150);
     return () => window.clearInterval(timer);
-  }, [gameMode, selectedIslandId]);
+  }, [gameMode, selectedIslandId, islands]);
 
   const [activeChallengeIsland, setActiveChallengeIsland] = useState<IslandId | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
@@ -201,11 +203,11 @@ export default function App() {
   const [secretModalType, setSecretModalType] = useState<SecretType | null>(null);
   const [isMatrixGlitchActive, setIsMatrixGlitchActive] = useState<boolean>(false);
   const avatarClickCountRef = useRef<number>(0);
-  useEffect(() => {
-    if (!isMatrixGlitchActive) return;
-    const timer = window.setTimeout(() => setIsMatrixGlitchActive(false), 6500);
-    return () => window.clearTimeout(timer);
-  }, [isMatrixGlitchActive]);
+  const handleOpenAdminLogin = useCallback(() => {
+    setIsMatrixGlitchActive(false);
+    admin.open();
+  }, [admin]);
+  const handleCloseMatrix = useCallback(() => setIsMatrixGlitchActive(false), []);
 
   // Cosmic Whispers & Social Presence State
   const [whispers, setWhispers] = useState<CosmicWhisper[]>([]);
@@ -490,7 +492,7 @@ export default function App() {
   const checkMilestoneBadges = useCallback(
     (currentStats: UserStats) => {
       // 1. Cosmo Navegador (todas as ilhas disponíveis)
-      if (currentStats.visitedIslands.length >= ISLANDS_CONFIG.length) {
+      if (islands.length > 0 && islands.every((island) => currentStats.visitedIslands.includes(island.id))) {
         unlockBadge('badge-explorer');
       }
 
@@ -534,7 +536,7 @@ export default function App() {
         unlockBadge('badge-perfectionist');
       }
     },
-    [unlockBadge]
+    [unlockBadge, islands]
   );
 
   // Monitor de marcos galácticos: reage imediatamente e de forma limpa a qualquer atualização de estatísticas
@@ -674,6 +676,16 @@ export default function App() {
     });
   }, [gameMode, addXp, islands]);
 
+  // Admin preview: "see this island" in the panel opens it here, with the unpublished draft applied.
+  useEffect(() => {
+    const onPreviewIsland = (event: Event) => {
+      const id = (event as CustomEvent<IslandId>).detail;
+      if (islands.some((island) => island.id === id)) handleSelectIsland(id);
+    };
+    window.addEventListener('admin:preview-island', onPreviewIsland);
+    return () => window.removeEventListener('admin:preview-island', onPreviewIsland);
+  }, [handleSelectIsland, islands]);
+
   // Handle cinematic animation completions
   const handleCinematicComplete = useCallback((finishedMode: GameMode) => {
     if (finishedMode === 'entering') {
@@ -802,6 +814,7 @@ export default function App() {
 
   const isModalOpen =
     isPreloading ||
+    admin.isOpen ||
     gameMode === 'inspecting' ||
     Boolean(activeChallengeIsland) ||
     showSettingsModal ||
@@ -891,7 +904,7 @@ export default function App() {
       <AnimatePresence>
         {isPreloading && (
           <Preloader
-            isSceneReady={isSceneReady}
+            isSceneReady={isSceneReady && contentReady}
             onComplete={handlePreloadComplete}
           />
         )}
@@ -1072,7 +1085,7 @@ export default function App() {
 
       {/* Easter Egg 5: Matrix Glitch Cyber Rain Overlay */}
       <AnimatePresence>
-        {isMatrixGlitchActive && <MatrixEasterEgg />}
+        {isMatrixGlitchActive && <MatrixEasterEgg onClose={handleCloseMatrix} onLogin={handleOpenAdminLogin} />}
       </AnimatePresence>
     </div>
   );

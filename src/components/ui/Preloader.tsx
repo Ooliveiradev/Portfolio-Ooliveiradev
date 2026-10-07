@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { sounds } from '../../audio/soundManager';
 import './Preloader.css';
-import { useI18n } from '../../i18n/I18nProvider';
-import { getPortfolioContent } from '../../i18n/portfolio';
+import { useContent } from '../../content/ContentProvider';
 
 interface PreloaderProps {
   isSceneReady: boolean;
@@ -11,8 +10,9 @@ interface PreloaderProps {
 }
 
 export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }) => {
-  const { locale } = useI18n();
-  const PERSONAL_INFO = useMemo(() => getPortfolioContent(locale).personalInfo, [locale]);
+  const { personalInfo: PERSONAL_INFO, text } = useContent();
+  const initials = PERSONAL_INFO.name.split(/\s+/).filter(Boolean).map(word => word[0]).filter((_, i, all) => i === 0 || i === all.length - 1).join('').toUpperCase() || 'DR';
+  const lines = (value: string) => value.split('\n').map((line, index) => <React.Fragment key={index}>{index > 0 && <br />}{line}</React.Fragment>);
   const [fontsReady, setFontsReady] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -52,15 +52,15 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
       aria-busy={!isSceneReady}
     >
       <header className="launch-header">
-        <span className="launch-brand"><span className="launch-monogram">DR<span>.</span></span> PORTFÓLIO INTERATIVO</span>
-        <span className="launch-edition">DESENVOLVIMENTO · CRIATIVIDADE · EXPLORAÇÃO</span>
+        <span className="launch-brand"><span className="launch-monogram">{initials}<span>.</span></span> {text('preloader.brand')}</span>
+        <span className="launch-edition">{text('preloader.edition')}</span>
       </header>
 
       <main className="launch-content">
         <div className="launch-copy">
-          <p className="launch-eyebrow"><span /> PREPARANDO SUA EXPLORAÇÃO</p>
-          <h1>{PERSONAL_INFO.name}<span>Um universo<br />para descobrir.</span></h1>
-          <p className="launch-description">Ideias, projetos e experiências conectados.<br />Seu próximo destino está quase pronto.</p>
+          <p className="launch-eyebrow"><span /> {text('preloader.eyebrow')}</p>
+          <h1>{PERSONAL_INFO.name}<span>{lines(text('preloader.headline'))}</span></h1>
+          <p className="launch-description">{lines(text('preloader.description'))}</p>
 
           <div className="launch-status" role="status" aria-live="polite">
             <div className="launch-status-heading">
@@ -103,11 +103,11 @@ export const Preloader: React.FC<PreloaderProps> = ({ isSceneReady, onComplete }
             <path d="M35 65V35H65M415 35H445V65M445 415V445H415M65 445H35V415" stroke="#385367" />
             <circle cx="82" cy="146" r="1.5" fill="#e2e8f0" /><circle cx="380" cy="375" r="1.5" fill="#e2e8f0" />
           </svg>
-          <span className="launch-chart-label">CADA ÓRBITA, UMA NOVA HISTÓRIA</span>
+          <span className="launch-chart-label">{text('preloader.orbitLabel')}</span>
         </div>
       </main>
 
-      <footer className="launch-footer"><span>{PERSONAL_INFO.title}</span><span>FEITO PARA EXPLORAR <span aria-hidden="true">↗</span></span></footer>
+      <footer className="launch-footer"><span>{PERSONAL_INFO.title}</span><span>{text('preloader.footer')} <span aria-hidden="true">↗</span></span></footer>
     </motion.div>
   );
 };

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import { useContent } from '../../content/ContentProvider';
 import './MatrixEasterEgg.css';
 
 const GLYPHS = '01{}[]<>/;:=+*#$_ABCDEFGHIJKLMNOPQRSTUVWXYZアイウエオカキクケコ';
@@ -77,25 +78,75 @@ function CodeRain() {
   return <canvas ref={canvasRef} className="matrix-rain" aria-hidden="true" />;
 }
 
-export function MatrixEasterEgg() {
+/** How long the secret stays on screen when nobody touches it, as before. */
+const IDLE_DISMISS_MS = 6500;
+
+const Lines = ({ value }: { value: string }) => (
+  <>
+    {value.split('\n').map((line, index) => (
+      <React.Fragment key={index}>{index > 0 && <br />}{line}</React.Fragment>
+    ))}
+  </>
+);
+
+interface MatrixEasterEggProps {
+  onClose: () => void;
+  /** Reveals the administrator login. Discovering the secret grants no access by itself. */
+  onLogin: () => void;
+}
+
+export function MatrixEasterEgg({ onClose, onLogin }: MatrixEasterEggProps) {
+  const { personalInfo, text } = useContent();
+  const [engaged, setEngaged] = useState(false);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  // Visitors who just watch keep the original 6.5 s moment; touching the terminal keeps it open.
+  useEffect(() => {
+    if (engaged) return;
+    const timer = window.setTimeout(() => closeRef.current(), IDLE_DISMISS_MS);
+    return () => window.clearTimeout(timer);
+  }, [engaged]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopImmediatePropagation();
+      closeRef.current();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
+  const engage = () => setEngaged(true);
+  const handle = personalInfo.name.split(/\s+/)[0]?.toLowerCase() || 'dev';
+
   return (
     <motion.div className="matrix-easter-egg" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
       <CodeRain />
       <div className="matrix-vignette" aria-hidden="true" />
-      <section className="matrix-terminal" role="status" aria-live="polite">
-        <div className="matrix-terminal-bar" aria-hidden="true">
-          <span className="matrix-terminal-lights"><i /><i /><i /></span>
-          <span>danilo@universe:~</span><span>SECURE SESSION</span>
+      <section className="matrix-terminal" aria-label={text('egg.footer')}
+        onPointerEnter={engage} onFocus={engage} onTouchStart={engage}>
+        <div className="matrix-terminal-bar">
+          <span className="matrix-terminal-lights" aria-hidden="true"><i /><i /><i /></span>
+          <span aria-hidden="true">{handle}@universe:~</span>
+          <button type="button" className="matrix-close" onClick={onClose} aria-label="Fechar">esc ✕</button>
         </div>
         <div className="matrix-terminal-body">
-          <p className="matrix-command" aria-hidden="true"><span>❯</span> ./unlock --developer</p>
-          <p className="matrix-access">ACESSO CONCEDIDO</p>
-          <h2>Você encontrou<br />o outro lado<span className="matrix-cursor" aria-hidden="true">_</span></h2>
-          <p className="matrix-description">Nem todo segredo está no código.<br />Alguns estão em quem o escreve.</p>
-          <div className="matrix-terminal-footer"><span>SEGREDO DO DESENVOLVEDOR</span><strong>+100 XP</strong></div>
+          <div role="status" aria-live="polite">
+            <p className="matrix-command" aria-hidden="true"><span>❯</span> ./unlock --developer</p>
+            <p className="matrix-access">{text('egg.access')}</p>
+            <h2><Lines value={text('egg.title')} /><span className="matrix-cursor" aria-hidden="true">_</span></h2>
+            <p className="matrix-description"><Lines value={text('egg.description')} /></p>
+          </div>
+          <button type="button" className="matrix-login" onClick={onLogin}>
+            <span><span aria-hidden="true">❯</span> ./login --admin</span>
+            <small>{text('egg.login')}</small>
+          </button>
+          <div className="matrix-terminal-footer"><span>{text('egg.footer')}</span><strong>+100 XP</strong></div>
         </div>
-        <div className="matrix-session-progress" aria-hidden="true" />
+        <div className={`matrix-session-progress ${engaged ? 'is-paused' : ''}`} aria-hidden="true" />
       </section>
     </motion.div>
   );

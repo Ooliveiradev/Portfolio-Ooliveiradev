@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Portfolio media is public to read. Only administrators (documents in Firestore /admins) can add or
+// remove files, and only the formats and sizes the admin panel itself allows. Files are never overwritten.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
+    }
+
+    function validUpload() {
+      let type = request.resource.contentType;
+      let size = request.resource.size;
+      return size > 0 && (
+        (type.matches('image/(jpeg|png|webp|gif|avif)') && size <= 5 * 1024 * 1024)
+        || (type.matches('video/(mp4|webm)') && size <= 50 * 1024 * 1024)
+        || (type == 'application/pdf' && size <= 10 * 1024 * 1024)
+      );
+    }
+
+    match /portfolio-media/{fileName} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin() && resource == null && validUpload() && fileName.matches('[a-z0-9][a-z0-9._-]{0,120}');
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

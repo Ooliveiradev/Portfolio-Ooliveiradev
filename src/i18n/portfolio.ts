@@ -124,7 +124,7 @@ export const getPortfolioContent = (locale: Locale) => {
   }));
 
   return {
-    personalInfo: { ...PERSONAL_INFO, subtitle: 'Specialist in modern TypeScript, React, Next.js, Python, Kotlin and applied AI solutions.', bio: 'Systems Analysis and Development student and developer focused on combining high-impact interfaces with intelligent AI workflows. My background spans modern React and Next.js front ends, backends and PostgreSQL/PostGIS, turning complex business needs into functional, scalable products.', location: 'Betim, MG, Brazil', availability: 'Available for internships and technology roles (weekdays until 6 PM)' },
+    personalInfo: { ...PERSONAL_INFO, subtitle: 'Specialist in modern TypeScript, React, Next.js, Python, Kotlin and applied AI solutions.', bio: 'Systems Analysis and Development student and developer focused on combining high-impact interfaces with intelligent AI workflows. My background spans modern React and Next.js front ends, backends and PostgreSQL/PostGIS, turning complex business needs into functional, scalable products.', location: 'Betim, MG, Brazil', availability: 'Available for internships and technology roles (weekdays until 6 PM)', resumeLabel: 'Download résumé' },
     islands: ISLANDS_CONFIG.map((island) => ({ ...island, ...englishIslands[island.id] })),
     projects: PROJECTS_DATA.map((project) => ({ ...project, ...projectTranslations[project.id] })),
     experience: EXPERIENCE_DATA.map((item) => ({ ...item, ...englishExperience[item.id] })),

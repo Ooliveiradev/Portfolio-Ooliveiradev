@@ -296,7 +296,13 @@ export const PERSONAL_INFO = {
 };
 ```
 
-Basta editar esse arquivo para que o portfólio inteiro, os modais 3D e as telas de perfil reflitam automaticamente as suas próprias informações.
+Esse arquivo (junto de `src/i18n/portfolio.ts`, com as traduções) é o **conteúdo de partida**: o que o site mostra enquanto nada foi publicado pelo painel.
+
+### Painel administrativo (sem editar código)
+
+Depois de configurar o Firebase, o dono do portfólio edita **tudo** pelo próprio site: perfil, foto, currículo, projetos (descrição, README, tecnologias, fotos e vídeos), experiência, formação, habilidades, conquistas, cor de destaque, textos da interface, ordem e visibilidade das seções, em português e em inglês. O acesso fica escondido no segredo do desenvolvedor (clique 5 vezes no avatar do menu → `./login --admin`). Descobrir o segredo não dá acesso: só a conta cadastrada como administradora consegue entrar e gravar, e isso é imposto pelas regras do servidor (`firestore.rules` e `storage.rules`).
+
+👉 Passo a passo de configuração, segurança e uso: **[`docs/ADMIN.md`](./docs/ADMIN.md)**.
 
 ---
 
