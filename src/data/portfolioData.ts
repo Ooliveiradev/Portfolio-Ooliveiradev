@@ -112,18 +112,25 @@ export const ISLANDS_CONFIG: IslandConfig[] = [
 export const PROJECTS_DATA: ProjectItem[] = [
   {
     id: 'quantia-mvp',
-    title: 'QuantIA (MVP)',
+    title: 'QuantIA (Protótipo)',
     category: 'IA Aplicada & Engenharia Civil',
     role: 'Full Stack & AI Integrations Developer',
-    statusBadge: 'MVP Operacional · Em Testes',
+    statusBadge: 'Protótipo · Descontinuado',
     shortDesc: 'Automação inteligente de levantamento quantitativo de materiais a partir de plantas baixas em PDF com Google Gemini.',
-    description: 'Plataforma web inovadora que automatiza a extração de ambientes, áreas e tipos de acabamento diretamente de plantas baixas em PDF através do Google Gemini. Inclui motor de cálculo determinístico com memória de cálculo completa para piso, argamassa e rejunte, além de um Agente Auditor autônomo para detecção de inconsistências antes da exibição dos resultados. Cobertura robusta de testes unitários com Vitest e testes ponta a ponta com Playwright.',
+    description: 'Protótipo descontinuado, mantido aqui apenas como peça de portfólio: o desenvolvimento foi encerrado e o projeto não receberá novas versões. Plataforma web que automatiza a extração de ambientes, áreas e tipos de acabamento diretamente de plantas baixas em PDF através do Google Gemini. Inclui motor de cálculo determinístico com memória de cálculo completa para piso, argamassa e rejunte, além de um Agente Auditor autônomo para detecção de inconsistências antes da exibição dos resultados. Cobertura robusta de testes unitários com Vitest e testes ponta a ponta com Playwright.',
     tags: ['Next.js 16', 'React 19', 'TypeScript', 'Gemini AI', 'Supabase', 'Zod', 'Tailwind v4', 'Vitest', 'Playwright'],
     metrics: 'Redução drástica de horas para segundos na extração de áreas e quantitativos de obras',
     liveUrl: '#',
     githubUrl: 'https://github.com/Ooliveiradev/QuantIA-MVP',
     featured: true,
     accentColor: '#38bdf8',
+    media: [
+      { id: 'quantia-demo', kind: 'video', src: './assets/portfolio/quantia-demo.mp4', thumbnail: './assets/portfolio/quantia-poster.webp', alt: 'Gravação do QuantIA: login, abertura da residência de demonstração e memória de cálculo do porcelanato.', caption: 'Protótipo em funcionamento com uma planta fictícia: do resultado à memória de cálculo.' },
+      { id: 'quantia-entrada', kind: 'image', src: './assets/portfolio/quantia-01-entrada.webp', alt: 'Tela inicial do QuantIA para iniciar um novo levantamento.', caption: 'Entrada: novo levantamento e projeto de demonstração.' },
+      { id: 'quantia-resultados', kind: 'image', src: './assets/portfolio/quantia-02-resultados.webp', alt: 'Resumo do levantamento da residência de 120 m² com 11 ambientes, 12 materiais e 2 pontos de atenção.', caption: 'Resumo com ambientes, materiais e pontos de atenção do auditor (dados fictícios).' },
+      { id: 'quantia-memoria', kind: 'image', src: './assets/portfolio/quantia-03-memoria-calculo.webp', alt: 'Quantitativo de materiais com a memória de cálculo do porcelanato 90x90 expandida.', caption: 'Quantitativo de materiais com memória de cálculo auditável.' },
+      { id: 'quantia-mobile', kind: 'image', src: './assets/portfolio/quantia-04-mobile.webp', alt: 'Resumo de revisão do levantamento fictício no celular.', caption: 'Revisão do levantamento em tela pequena.' },
+    ],
     stats: [
       { label: 'Economia de Tempo', value: '94% mais rápido', icon: 'timer' },
       { label: 'Motor Matemático', value: '100% determinístico', icon: 'calculate' },
@@ -161,7 +168,9 @@ export const PROJECTS_DATA: ProjectItem[] = [
       runCmd: 'pnpm dev',
       envExample: 'GEMINI_API_KEY="AIzaSy..."\nNEXT_PUBLIC_SUPABASE_URL="https://xyz.supabase.co"\nNEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGci..."',
     },
-    readme: `# QuantIA (MVP) — Levantamento Quantitativo Inteligente com IA
+    readme: `# QuantIA (Protótipo) — Levantamento Quantitativo Inteligente com IA
+
+> **Status: protótipo descontinuado.** Mantido apenas como projeto de portfólio; não receberá novas versões.
 
 > Automação preditiva de orçamentos e quantitativos de obras na construção civil utilizando Google Gemini Multimodal e cálculos determinísticos.
 
@@ -241,111 +250,79 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
     title: 'EcoFinance',
     category: 'Fintech & Gestão Pessoal',
     role: 'Full Stack & Mobile Developer',
-    statusBadge: 'Open Finance Ativo · Web & Mobile',
-    shortDesc: 'Ecossistema completo de finanças pessoais (Web + Mobile) com IA generativa, Open Finance e geolocalização.',
-    description: 'Solução financeira multiplataforma com inteligência artificial (Gemini 2.0 Flash) para categorização preditiva de gastos e consultoria financeira em chat interativo. Conexão bancária direta em tempo real com cartões e bancos via Open Finance (Pluggy) e visualização de despesas no mapa com PostGIS e PostgreSQL.',
-    tags: ['TypeScript', 'Kotlin', 'Android', 'PostgreSQL', 'PostGIS', 'Supabase', 'Node.js', 'Gemini AI', 'Pluggy API'],
-    metrics: 'Open Finance automatizado e mapeamento georreferenciado de gastos com PostGIS',
-    liveUrl: '#',
+    statusBadge: 'Web no ar · App mobile em validação',
+    shortDesc: 'Gerenciador financeiro pessoal para planejar o mês: quanto já gastei, quanto está comprometido e quanto sobra.',
+    description: 'Aplicação web responsiva em Next.js com Cloud Firestore, publicada na Vercel. Reúne contas, cartões e faturas, planejamento mensal com recorrências e orçamento por categoria, relatórios e importação com revisão de extratos (OFX, CSV, XLSX, PDF e fotos com OCR local). Funciona sem Open Finance pago e sem IA externa obrigatória. O app Expo (Android/iOS) existe e compila na CI, mas ainda está em validação.',
+    tags: ['TypeScript', 'Next.js', 'Cloud Firestore', 'Expo', 'React Native', 'Vitest', 'Playwright', 'Vercel'],
+    metrics: 'Web em produção, coberta por testes de domínio, integração e E2E; app Expo em validação',
+    liveUrl: 'https://ecofinance-ooliveiradev.vercel.app',
     githubUrl: 'https://github.com/Ooliveiradev/EcoFinance',
     featured: true,
     accentColor: '#10b981',
+    media: [
+      { id: 'eco-demo', kind: 'video', src: './assets/portfolio/ecofinance-demo.mp4', thumbnail: './assets/portfolio/ecofinance-poster.webp', alt: 'Gravação do EcoFinance: login, novo lançamento, painel atualizado, planejamento, cartões e relatórios.', caption: 'Fluxo completo com dados fictícios: registrar um gasto e ver o painel do mês atualizar.' },
+      { id: 'eco-mes', kind: 'image', src: './assets/portfolio/ecofinance-01-meu-mes.webp', alt: 'Tela Meu mês do EcoFinance com próximas contas, saldo total e receitas e despesas do mês.', caption: 'Meu mês: saldo, próximas contas e disponibilidade projetada (dados fictícios).' },
+      { id: 'eco-lancamentos', kind: 'image', src: './assets/portfolio/ecofinance-02-lancamentos.webp', alt: 'Lista de lançamentos do EcoFinance com filtros por conta, categoria, tipo e status.', caption: 'Lançamentos com filtros por conta, categoria, tipo, status e competência.' },
+      { id: 'eco-planejamento', kind: 'image', src: './assets/portfolio/ecofinance-03-planejamento.webp', alt: 'Tela de planejamento mensal do EcoFinance com orçamento por categoria.', caption: 'Planejamento: realizado, previsto e orçamento por categoria.' },
+      { id: 'eco-relatorios', kind: 'image', src: './assets/portfolio/ecofinance-04-relatorios.webp', alt: 'Relatórios do EcoFinance com evolução mensal de receitas e despesas.', caption: 'Relatórios por competência, com exportação CSV.' },
+      { id: 'eco-mobile', kind: 'image', src: './assets/portfolio/ecofinance-05-meu-mes-mobile.webp', alt: 'Tela Meu mês do EcoFinance em um celular.', caption: 'A mesma tela na web responsiva, em um celular.' },
+    ],
     stats: [
-      { label: 'Ecossistema', value: 'Web + Android Nativo', icon: 'devices' },
-      { label: 'Banco Geoespacial', value: 'PostgreSQL + PostGIS', icon: 'database' },
-      { label: 'Open Banking', value: 'Pluggy API Brasil', icon: 'account_balance' },
-      { label: 'IA Preditiva', value: 'Gemini 2.0 Flash', icon: 'psychology' },
+      { label: 'Plataformas', value: 'Web no ar · Expo em validação', icon: 'devices' },
+      { label: 'Banco de Dados', value: 'Cloud Firestore', icon: 'database' },
+      { label: 'Importação', value: 'OFX, CSV, XLSX, PDF e OCR', icon: 'upload_file' },
+      { label: 'Testes', value: 'Vitest + Playwright', icon: 'verified' },
     ],
     highlights: [
-      'Conexão bancária direta via Open Finance (Pluggy API) com atualização de transações em tempo real.',
-      'Classificação semântica inteligente de lançamentos financeiros via Google Gemini com taxa de acerto de 98%.',
-      'Consultas geoespaciais com PostGIS para mapear despesas por localização e raio geográfico (ST_DWithin).',
-      'Aplicativo mobile Android nativo desenvolvido em Kotlin com arquitetura moderna e Jetpack Compose.',
-      'Dashboard analítico web responsivo com visualização de mapas de calor e fluxo de caixa.',
+      'Meu mês: disponibilidade projetada com a fórmula exibida na tela, separando competência e caixa.',
+      'Cartões, faturas e parcelas: o pagamento da fatura não conta como gasto de novo.',
+      'Importação com revisão: nada muda nos saldos até a confirmação, e o desfazer é protegido.',
+      'PDF digital/escaneado e fotos com OCR local, sem enviar documentos a serviços externos.',
+      'Login por e-mail e senha com sessões revogáveis e isolamento de dados por usuário.',
     ],
     architecture: {
-      overview: 'Arquitetura híbrida web/mobile com backend centralizado em Node.js/TypeScript, banco de dados PostgreSQL com extensão PostGIS para recursos geoespaciais e webhooks de Open Finance.',
+      overview: 'Monorepo com web em Next.js, pacote de domínio e acesso a dados compartilhado e app Expo. A web roda na Vercel (região São Paulo) e acessa o Firestore sem chave estática, por federação de identidade OIDC.',
       flow: [
-        'Usuário conecta sua instituição financeira via widget seguro da Pluggy API',
-        'Webhooks recebem novas transações e efetuam sanitização prévia dos dados',
-        'Gemini 2.0 Flash analisa o nome do estabelecimento e categoriza de forma preditiva',
-        'Geocodificação reversa obtém as coordenadas geográficas do local de consumo',
-        'Armazenamento espacial no PostGIS utilizando o tipo geométrico POINT(longitude, latitude)',
-        'Sincronização em tempo real via WebSockets/Supabase com o app Android e a interface Web',
+        'O usuário entra com e-mail e senha (sem cadastro público: o operador cria os acessos)',
+        'Lançamentos, contas, cartões e recorrências são gravados com valores em centavos exatos',
+        'O planejamento gera previsões sem duplicar contas já geradas',
+        'Extratos importados ficam em revisão até o usuário confirmar',
+        'Os mesmos cálculos alimentam painel, tabelas, API e exportação CSV',
       ],
-      database: 'PostgreSQL 16 com PostGIS habilitado para cálculos de distância euclidiana e mapas de concentração de gastos.',
+      database: 'Cloud Firestore, com regras de segurança por usuário e testes de integração em emulador.',
       security: [
-        'Nenhum dado de senha ou credencial bancária é retido pela aplicação (padrão Open Finance)',
-        'Tokens bancários criptografados com AES-256 no banco de dados',
-        'Autenticação biométrica e JWT seguro no aplicativo Android',
+        'Isolamento por usuário e sessões revogáveis',
+        'Sem chave de serviço: credencial temporária via OIDC da Vercel',
+        'Verificações automáticas de segredos no código e no bundle',
       ],
     },
     quickStart: {
       cloneCmd: 'git clone https://github.com/Ooliveiradev/EcoFinance.git',
-      installCmd: 'cd EcoFinance && npm install',
-      runCmd: 'npm run dev',
-      envExample: 'PLUGGY_CLIENT_ID="sua_client_id"\nPLUGGY_CLIENT_SECRET="seu_secret"\nDATABASE_URL="postgres://user:pass@localhost:5432/ecofinance"\nGEMINI_API_KEY="sua_chave_gemini"',
+      installCmd: 'cd EcoFinance && pnpm install --frozen-lockfile',
+      runCmd: 'pnpm --filter @ecofinance/next build && pnpm --filter @ecofinance/next start',
+      envExample: 'AUTH_URL="http://127.0.0.1:3000"\nAUTH_SECRET="<32+ caracteres aleatórios>"\nFIREBASE_PROJECT_ID="demo-ecofinance"\nFIRESTORE_EMULATOR_HOST="127.0.0.1:8080"',
     },
-    readme: `# EcoFinance — Finanças Pessoais com Open Finance & PostGIS
+    readme: `# EcoFinance — Planejamento financeiro pessoal
 
-> Ecossistema completo multiplataforma (Web + Android) para controle financeiro inteligente, integrando IA generativa, sincronização bancária automática e inteligência geoespacial.
+> Quanto já gastei, quanto ainda está comprometido e quanto sobra no mês.
 
-## 📌 Visão Geral
+## Status
 
-O **EcoFinance** une automação financeira e análise espacial. Ao invés de lançar compras manualmente, o usuário conecta seus bancos pelo Open Finance e conta com o **Google Gemini** para classificar automaticamente gastos e detectar padrões de consumo. Com a extensão **PostGIS**, as transações são mapeadas no espaço geográfico, revelando em quais bairros e estabelecimentos ocorrem os maiores desembolsos.
+- **Web:** no ar, coberta por testes de domínio, integração com Firestore e E2E.
+- **App Expo (Android/iOS):** telas nativas e cache; compila na CI, com jornadas em aparelho ainda pendentes.
+- **Removido:** Open Finance (Pluggy), captura com GPS, mapa e chat com IA.
 
-## ⚡ Principais Recursos
+## Recursos
 
-- [x] **Conexão Bancária Direta (Open Finance via Pluggy)**: Suporte aos principais bancos brasileiros (Nubank, Itaú, Bradesco, Inter, Santander).
-- [x] **Categorização Preditiva com Gemini**: Inteligência que compreende descrições crípticas de faturas e define categorias assertivas.
-- [x] **Inteligência Geoespacial com PostGIS**:
-  - Armazenamento em colunas \`GEOMETRY(Point, 4326)\`.
-  - Consultas de densidade de gastos por raio de proximidade (\`ST_DWithin\`).
-  - Identificação de locais frequentes e hábitos regionais.
-- [x] **App Mobile Nativo (Kotlin + Jetpack Compose)**: Interface fluida e moderna desenvolvida com componentes Material 3.
-- [x] **Dashboard Web com Mapas**: Visualização interativa de gráficos de despesas e mapas de calor de compras.
+- Meu mês, lançamentos, contas, cartões, faturas e parcelas
+- Planejamento com recorrências e orçamento por categoria
+- Importação de OFX/CSV/XLSX/PDF com revisão e OCR local
+- Relatórios, gráficos e exportação CSV
+- Backup, restauração com prévia e exclusão de dados
 
-## 🛠️ Stack Tecnológica
+## Stack
 
-| Camada | Tecnologias |
-| --- | --- |
-| **Mobile** | Kotlin, Android SDK, Jetpack Compose, Coroutines, Flow |
-| **Front-end Web** | React, TypeScript, Tailwind CSS, Vite, Leaflet |
-| **Back-end** | Node.js, Express, TypeScript, Zod |
-| **Banco de Dados** | PostgreSQL 16 + Extensão PostGIS, Supabase |
-| **Inteligência Artificial** | Google Gemini 2.0 Flash |
-| **Open Banking** | Pluggy API |
-
-## 🗄️ Exemplo de Consulta Espacial (PostGIS)
-
-\`\`\`sql
--- Busca gastos ocorridos em um raio de 2km de determinado ponto
-SELECT id, description, amount, category, 
-       ST_AsGeoJSON(location) AS geojson
-FROM transactions
-WHERE user_id = $1
-  AND ST_DWithin(
-    location,
-    ST_SetSRID(ST_MakePoint(-44.1985, -19.9678), 4326)::geography,
-    2000 -- 2000 metros
-  )
-ORDER BY transaction_date DESC;
-\`\`\`
-
-## 🚀 Como Executar Localmente
-
-\`\`\`bash
-# 1. Clone o repositório
-git clone https://github.com/Ooliveiradev/EcoFinance.git
-cd EcoFinance
-
-# 2. Inicie o PostgreSQL com PostGIS via Docker
-docker compose up -d
-
-# 3. Instale as dependências e inicie o backend
-npm install
-npm run dev
-\`\`\`
+TypeScript, Next.js, Cloud Firestore, Expo, Vitest, Playwright e Vercel.
 
 ---
 Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveiradev)).`,
@@ -450,81 +427,63 @@ Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveir
     title: 'NutriLife',
     category: 'Saúde & Nutrição',
     role: 'Front-end & UX Developer',
-    statusBadge: 'Concluído · Deploy Web',
-    shortDesc: 'Aplicação web responsiva para acompanhamento nutricional, rotinas alimentares e rastreamento de hábitos saudáveis.',
-    description: 'Interface web moderna e intuitiva focada em planejamento de refeições, monitoramento de metas nutricionais diárias e métricas de consistência de hábitos saudáveis, com design system limpo e responsivo.',
-    tags: ['React', 'TypeScript', 'Tailwind CSS', 'Vite'],
-    metrics: 'Experiência de usuário fluida e acessível focada em adesão de hábitos',
+    statusBadge: 'Em desenvolvimento · IMC disponível',
+    shortDesc: 'Site de nutrição com calculadora de IMC, blog e, em construção, calculadora de calorias, banco de receitas e diário alimentar.',
+    description: 'Plataforma web feita com HTML, CSS e JavaScript puros, com Firebase para autenticação e conteúdo. A calculadora de IMC está funcional, com validação, classificação e recomendações. Calculadora de calorias, banco de receitas e diário alimentar ainda estão em desenvolvimento.',
+    tags: ['HTML5', 'CSS3', 'JavaScript', 'Firebase'],
+    metrics: 'Calculadora de IMC funcional; demais ferramentas em construção',
     liveUrl: '#',
     githubUrl: 'https://github.com/Ooliveiradev/NutriLife',
     featured: false,
     accentColor: '#f59e0b',
+    media: [
+      { id: 'nutri-demo', kind: 'video', src: './assets/portfolio/nutrilife-demo.mp4', thumbnail: './assets/portfolio/nutrilife-poster.webp', alt: 'Gravação do NutriLife: página inicial e cálculo do IMC com peso e altura.', caption: 'Página inicial e cálculo de IMC (72,5 kg e 175 cm).' },
+      { id: 'nutri-home', kind: 'image', src: './assets/portfolio/nutrilife-01-visao-geral.webp', alt: 'Página inicial do NutriLife com menu e texto de boas-vindas.', caption: 'Página inicial.' },
+      { id: 'nutri-imc', kind: 'image', src: './assets/portfolio/nutrilife-03-imc-formulario.webp', alt: 'Formulário da calculadora de IMC do NutriLife.', caption: 'Calculadora de IMC: formulário de peso e altura.' },
+      { id: 'nutri-resultado', kind: 'image', src: './assets/portfolio/nutrilife-04-imc-resultado.webp', alt: 'Resultado do IMC 23,7 classificado como peso normal.', caption: 'Resultado, classificação e recomendação.' },
+      { id: 'nutri-mobile', kind: 'image', src: './assets/portfolio/nutrilife-05-mobile.webp', alt: 'Calculadora de IMC do NutriLife em um celular.', caption: 'Layout responsivo em tela pequena.' },
+    ],
     stats: [
-      { label: 'Responsividade', value: 'Mobile-First 100%', icon: 'smartphone' },
-      { label: 'Cálculo Nutricional', value: 'TMB & Macronutrientes', icon: 'restaurant' },
-      { label: 'Armazenamento', value: 'Offline First Local', icon: 'offline_pin' },
-      { label: 'Acessibilidade', value: 'WCAG AA Compliance', icon: 'accessibility' },
+      { label: 'Stack', value: 'HTML + CSS + JS', icon: 'code' },
+      { label: 'Backend', value: 'Firebase', icon: 'cloud' },
+      { label: 'Disponível', value: 'Calculadora de IMC', icon: 'calculate' },
+      { label: 'Em construção', value: 'Calorias, receitas, diário', icon: 'construction' },
     ],
     highlights: [
-      'Cálculo automatizado de Taxa Metabólica Basal (TMB) e distribuição ideal de macros.',
-      'Controle visual diário de ingestão hídrica com feedback háptico e metas progressivas.',
-      'Organizador semanal de cardápios com contagem automática de calorias por refeição.',
-      'Design limpo com paleta harmônica pensada para evitar sobrecarga cognitiva.',
+      'Calculadora de IMC com validação de entrada, classificação e recomendações.',
+      'Página inicial com blog filtrável por categoria, busca e ordenação.',
+      'Layout responsivo, com navegação entre as ferramentas.',
+      'Autenticação e conteúdo com Firebase (Authentication e Firestore).',
     ],
     architecture: {
-      overview: 'Aplicação SPA moderna em React e TypeScript, orientada a componentes modulares com arquitetura limpa e armazenamento persistente no cliente.',
+      overview: 'Site multipágina em HTML, CSS e JavaScript (ES6+) sem framework, com Firebase para autenticação e dados do blog.',
       flow: [
-        'Usuário informa dados biométricos (peso, altura, idade, nível de atividade física)',
-        'Algoritmo calcula gasto calórico basal e distribuição de macronutrientes recomendada',
-        'Interface atualiza metas diárias de calorias, proteínas, carboidratos e gorduras',
-        'Usuário registra ingestão alimentar e consumo de água ao longo do dia',
-        'Gráficos de progresso exibem balanço nutricional e consistência semanal',
+        'O visitante escolhe a ferramenta no menu',
+        'O formulário valida peso e altura antes de calcular',
+        'O IMC é calculado e classificado na hora',
+        'A interface mostra o resultado e orientações',
       ],
-      database: 'Armazenamento local (LocalStorage) garantindo privacidade total dos dados de saúde.',
-      security: ['Nenhum dado sensível de saúde é transmitido a servidores externos'],
+      database: 'Cloud Firestore para conteúdo do blog, com regras de segurança no repositório.',
+      security: ['Regras do Firestore versionadas', 'Cálculo do IMC executado no navegador, sem enviar dados de saúde'],
     },
     quickStart: {
       cloneCmd: 'git clone https://github.com/Ooliveiradev/NutriLife.git',
-      installCmd: 'cd NutriLife && npm install',
-      runCmd: 'npm run dev',
-      envExample: '# Sem variáveis de ambiente necessárias para inicialização local\nNODE_ENV="development"',
+      installCmd: 'cd NutriLife',
+      runCmd: 'python -m http.server 4173',
+      envExample: '# Site estático: abra http://localhost:4173\n# O Firebase é configurado em js/firebase-config.js',
     },
-    readme: `# NutriLife — Gestão Nutricional & Adesão de Hábitos
+    readme: `# NutriLife — Sua jornada para uma vida saudável
 
-> Aplicação web focada em planejamento alimentar, cálculo de macronutrientes e acompanhamento de rotinas saudáveis.
+> Site com ferramentas de nutrição: IMC, blog e, em construção, calorias, receitas e diário alimentar.
 
-## 📌 Visão Geral
+## Status
 
-O **NutriLife** foi desenvolvido para simplificar o controle alimentar diário. Através de uma interface limpa e amigável, o usuário calcula suas necessidades energéticas com base em parâmetros biométricos individuais e acompanha em tempo real o equilíbrio entre proteínas, carboidratos e gorduras.
+- **Disponível:** página inicial com blog e calculadora de IMC.
+- **Em desenvolvimento:** calculadora de calorias, banco de receitas e diário alimentar.
 
-## ⚡ Recursos Principais
+## Stack
 
-- [x] **Calculadora de Taxa Metabólica Basal (TMB)**: Algoritmo baseado nas equações de Harris-Benedict revisadas.
-- [x] **Distribuição Personalizada de Macros**: Ajuste dinâmico para objetivos de ganho de massa, manutenção ou déficit calórico.
-- [x] **Rastreador de Hidratação**: Barra de progresso visual com metas de água em ml.
-- [x] **Histórico de Hábitos**: Registro de refeições e consistência ao longo da semana.
-- [x] **Modo Offline**: Funcionamento completo sem necessidade de conexão ativa com a internet.
-
-## 🛠️ Stack Tecnológica
-
-| Camada | Tecnologia |
-| --- | --- |
-| **Framework** | React 19 com TypeScript |
-| **Build Tool** | Vite |
-| **Estilização** | Tailwind CSS |
-| **Ícones** | Google Material Symbols |
-
-## 🚀 Como Executar Localmente
-
-\`\`\`bash
-# 1. Clone o projeto
-git clone https://github.com/Ooliveiradev/NutriLife.git
-cd NutriLife
-
-# 2. Instale e inicie
-npm install
-npm run dev
-\`\`\`
+HTML5, CSS3, JavaScript (ES6+) e Firebase.
 
 ---
 Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveiradev)).`,
