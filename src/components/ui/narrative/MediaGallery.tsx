@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react';
 import { PortfolioMedia } from '../../../types';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { CinematicDialog } from './CinematicDialog';
+import { resolveMediaUrl } from '../../../utils/mediaUrl';
 
 function LazyVideo({ item, failure }: { item: PortfolioMedia; failure: string }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -22,13 +23,13 @@ function LazyVideo({ item, failure }: { item: PortfolioMedia; failure: string })
     return () => { observer.disconnect(); video.pause(); document.removeEventListener('visibilitychange', pauseHidden); };
   }, []);
   if (failed) return <p role="status">{failure}</p>;
-  return <video ref={ref} src={loaded ? item.src : undefined} poster={item.thumbnail || undefined} controls playsInline preload="none" aria-label={item.alt} onError={() => setFailed(true)} />;
+  return <video ref={ref} src={loaded ? resolveMediaUrl(item.src) : undefined} poster={item.thumbnail ? resolveMediaUrl(item.thumbnail) : undefined} controls playsInline preload="none" aria-label={item.alt} onError={() => setFailed(true)} />;
 }
 
 function MediaImage({ src, alt, failure, thumbnail = false }: { src: string; alt: string; failure: string; thumbnail?: boolean }) {
   const [failed, setFailed] = useState(false);
   return failed ? <span role="status" className="narrative-media-error">{failure}</span> :
-    <img src={src} alt={alt} loading={thumbnail ? 'lazy' : 'eager'} decoding="async" onError={() => setFailed(true)} />;
+    <img src={resolveMediaUrl(src)} alt={alt} loading={thumbnail ? 'lazy' : 'eager'} decoding="async" onError={() => setFailed(true)} />;
 }
 
 export function MediaGallery({ items = [], title, lowPower = false }: { items?: PortfolioMedia[]; title: string; lowPower?: boolean }) {
