@@ -33,9 +33,10 @@ test('the built-in portfolio resolves to exactly the content shipped in code, in
   }
 });
 
-test('no media means nothing to render: the default portfolio has no galleries', () => {
+test('no media means nothing to render: only projects with real media get a gallery', () => {
   const resolved = resolveContent(fresh(), 'pt');
-  assert.ok(resolved.projects.every(project => project.media === undefined));
+  assert.ok(resolved.projects.every(project => project.media === undefined || project.media.length > 0));
+  assert.ok(resolved.projects.some(project => project.media === undefined), 'projects without media render no gallery');
   assert.ok(resolved.education.every(item => item.certificates === undefined));
 });
 
@@ -47,6 +48,7 @@ test('empty optional blocks are omitted rather than rendered blank', () => {
   project.stats = [];
   project.highlights = { pt: [], en: [] };
   project.metrics = { pt: '', en: '' };
+  project.media = [];
   const resolved = resolveContent(doc, 'pt').projects[0];
   for (const key of ['architecture', 'quickStart', 'stats', 'highlights', 'metrics', 'media'] as const) assert.equal(resolved[key], undefined, key);
 });

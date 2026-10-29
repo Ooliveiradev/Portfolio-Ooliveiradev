@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
 import { tokenizeCode } from '../src/components/ui/narrative/codeTokens';
 import { getPortfolioContent } from '../src/i18n/portfolio';
@@ -13,10 +15,23 @@ test('highlighting preserves exact source, including markup, quoted comments and
   assert.deepEqual(tokenizeCode('const value = "#keep"; // comment').filter(token => token.kind !== 'plain').map(token => token.kind), ['keyword', 'string', 'comment']);
 });
 
-test('the built-in portfolio ships without placeholder media, so no gallery renders until media is added', () => {
+test('built-in project media points at real files shipped with the site and is fully described', () => {
   for (const locale of ['pt', 'en'] as const) {
     const content = getPortfolioContent(locale);
-    assert.ok(content.projects.every(project => !project.media?.length), 'projects must not carry fixture media');
+    for (const item of content.projects.flatMap(project => project.media ?? [])) {
+      assert.ok(item.alt.trim() && item.caption.trim(), `${item.id} needs alt text and a caption`);
+      assert.ok(item.src.startsWith('./assets/portfolio/'), `${item.id} must live in public/assets/portfolio`);
+      assert.ok(existsSync(join('public', item.src)), `${item.src} is missing`);
+      if (item.thumbnail) assert.ok(existsSync(join('public', item.thumbnail)), `${item.thumbnail} is missing`);
+    }
     assert.ok(content.education.every(item => !item.certificates?.length), 'education must not carry fixture certificates');
+  }
+});
+
+test('QuantIA is presented as a discontinued prototype in both languages', () => {
+  for (const locale of ['pt', 'en'] as const) {
+    const quantia = getPortfolioContent(locale).projects.find(project => project.id === 'quantia-mvp');
+    assert.match(quantia?.statusBadge ?? '', /Prot[oó]tipo|Prototype/);
+    assert.doesNotMatch(quantia?.title ?? '', /MVP/);
   }
 });
