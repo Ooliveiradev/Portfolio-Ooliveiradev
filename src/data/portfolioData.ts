@@ -246,6 +246,164 @@ pnpm test:e2e
 Desenvolvido por **Danilo Ribeiro** ([@Ooliveiradev](https://github.com/Ooliveiradev)).`,
   },
   {
+    id: 'portal-servidor-betim',
+    title: 'Portal do Servidor Municipal',
+    category: 'GovTech & Setor Público',
+    role: 'Desenvolvedor Front-end',
+    statusBadge: 'Em Produção · Beta',
+    shortDesc: 'Portal de serviços digitais e central de comunicação para os servidores públicos municipais de Betim, com foco em usabilidade e acessibilidade plena.',
+    description: 'Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta. Plataforma web moderna criada para centralizar a comunicação institucional, consultas funcionais, manuais e processos administrativos dos servidores e estagiários do município. Construída sobre Next.js com App Router e React 19, a interface oferece alta performance com renderização edge serverless, leitor interativo de cartilhas e formulários em PDF (page-flip), além de conformidade estrita com padrões de acessibilidade WCAG 2.1 AA.',
+    tags: ['Next.js 16', 'React 19', 'TypeScript', 'Tailwind CSS', 'Cloudflare Workers', 'Acessibilidade (WCAG AA)', 'GovTech', 'PDF.js'],
+    metrics: 'Interface centralizada com acessibilidade WCAG 2.1 AA e alta performance em Edge Serverless',
+    featured: true,
+    accentColor: '#0284c7',
+    media: [
+      {
+        id: 'servidor-home',
+        kind: 'image',
+        src: './assets/portfolio/servidor-01-home.png',
+        alt: 'Homepage institucional do Portal do Servidor com carrossel de notícias, avisos e acesso rápido aos serviços.',
+        caption: 'Página inicial com destaques, comunicados e atalhos rápidos de navegação.'
+      },
+      {
+        id: 'servidor-servicos',
+        kind: 'image',
+        src: './assets/portfolio/servidor-02-servicos.png',
+        alt: 'Painel central de serviços para o servidor público municipal com categorias de benefícios, saúde e previdência.',
+        caption: 'Área do Servidor: benefícios funcionais, previdência, carreira e legislação.'
+      },
+      {
+        id: 'servidor-estagiarios',
+        kind: 'image',
+        src: './assets/portfolio/servidor-03-estagiarios.png',
+        alt: 'Área do estagiário municipal com orientações de contratação, avaliações e documentação.',
+        caption: 'Área de Estagiários: processos de admissão, acompanhamento e cartilhas informativas.'
+      },
+      {
+        id: 'servidor-parceiros',
+        kind: 'image',
+        src: './assets/portfolio/servidor-04-parceiros.png',
+        alt: 'Página do programa Selo Amigo do Servidor e credenciamento de convênios.',
+        caption: 'Programa Selo Amigo do Servidor: credenciamento e rede de benefícios parceiros.'
+      },
+      {
+        id: 'servidor-mobile',
+        kind: 'image',
+        src: './assets/portfolio/servidor-05-mobile.png',
+        alt: 'Visualização responsiva do Portal do Servidor no smartphone.',
+        caption: 'Experiência fluida e totalmente responsiva em dispositivos móveis.'
+      }
+    ],
+    stats: [
+      { label: 'Plataforma', value: 'Web Responsiva & Edge', icon: 'devices' },
+      { label: 'Acessibilidade', value: 'WCAG 2.1 Nível AA', icon: 'accessibility' },
+      { label: 'Renderização', value: 'Serverless / OpenNext', icon: 'bolt' },
+      { label: 'Documentos', value: 'Leitor PDF Integrado', icon: 'menu_book' }
+    ],
+    highlights: [
+      'Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta.',
+      'Centralização intuitiva de serviços, notícias, orientações de carreira, benefícios e programas municipais.',
+      'Visualização integrada e folheador interativo de manuais e cartilhas oficiais em PDF diretamente no navegador.',
+      'Estrutura modular orientada a componentes com tipagem estática ponta a ponta em TypeScript.',
+      'Otimização de performance com carregamento sob demanda e cache distribuído na borda via Cloudflare Workers.'
+    ],
+    architecture: {
+      overview: 'Monorepo modular em Next.js 16 (App Router) e React 19 empacotado com OpenNext para execução serverless em Edge Runtime (Cloudflare Workers), consumindo pacotes institucionais compartilhados de UI e tema.',
+      flow: [
+        'Entrada do usuário via requisição segura com cache distribuído na CDN de borda',
+        'Renderização dinâmica e estática híbrida com componentes acessíveis',
+        'Leitura e carregamento sob demanda de cartilhas e normas em PDF sem download obrigatório',
+        'Navegação estruturada por seções especializadas: servidores, estagiários, oportunidades e parceiros',
+        'Garantia de integridade visual com sistema de design unificado da administração pública'
+      ],
+      security: [
+        'Headers HTTP estritos (Content Security Policy, HSTS, X-Content-Type-Options)',
+        'Sanitização e proteção contra extração de dados confidenciais',
+        'Isolamento e controle seguro de assets públicos e rotas operacionais'
+      ]
+    },
+    readme: `# Portal do Servidor Municipal de Betim\n\n> Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta.\n\n> Plataforma institucional moderna para centralização de serviços, benefícios e comunicação com os servidores públicos municipais.\n\n## 📌 Visão Geral & Propósito\n\nO **Portal do Servidor** é a solução oficial idealizada para modernizar o atendimento e a consulta de serviços funcionais dos servidores públicos e estagiários da Prefeitura Municipal de Betim. O portal substitui fluxos descentralizados por um ambiente digital unificado, rápido e plenamente acessível.\n\n## ⚡ Principais Funcionalidades\n\n- [x] **Área do Servidor**: Central de benefícios (vale-transporte, plano de saúde, auxílios), previdência municipal, carreira e legislação.\n- [x] **Área de Estagiários**: Diretrizes de ingresso, cartilhas de orientação, modelos de avaliação de desempenho e formulários.\n- [x] **Folheador de Cartilhas & PDFs Interativo**: Leitura digital de cartilhas e manuais no próprio navegador, com navegação suave entre páginas.\n- [x] **Programa Selo Amigo do Servidor**: Canal para credenciamento e visualização de parceiros conveniados e benefícios exclusivos.\n- [x] **Acessibilidade Plena (WCAG 2.1 AA)**: Alto contraste, navegação por teclado e semântica acessível para leitores de tela.\n\n## 🛠️ Stack Tecnológica\n\n| Camada | Tecnologia | Propósito |\n| --- | --- | --- |\n| **Framework** | Next.js 16 & React 19 | App Router moderno e renderização híbrida |\n| **Linguagem** | TypeScript 5 | Tipagem estática robusta em todo o ciclo de vida |\n| **Estilização** | Tailwind CSS | Sistema visual institucional ágil e consistente |\n| **Runtime / Deploy** | Cloudflare Workers & OpenNext | Execução serverless de baixíssima latência na borda |\n| **Mídia & Documentos** | PDF.js & Embla Carousel | Carrosséis de destaque e renderização de documentos |\n\n---\nDesenvolvido por **Danilo Ribeiro** pela **Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta**.`
+  },
+  {
+    id: 'portal-plano-diretor-betim',
+    title: 'Portal da Revisão do Plano Diretor',
+    category: 'GovTech & Urbanismo Digital',
+    role: 'Desenvolvedor Front-end',
+    statusBadge: 'Oficial · Em Produção',
+    shortDesc: 'Portal público para a revisão participativa do Plano Diretor de Betim, combinando mapas interativos com dados geoespaciais, cronograma e relatórios.',
+    description: 'Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta. Solução digital voltada à transparência e participação democrática da população e órgãos técnicos no processo de revisão urbanística de Betim. Desenvolvido em arquitetura one page de alta performance com Next.js e React 19, integra visualizador geoespacial interativo baseado em OpenLayers para consulta de camadas de macrozoneamento, sistema viário e bacias hidrográficas, além de cronograma dinâmico de audiências públicas e biblioteca de produtos técnicos.',
+    tags: ['Next.js 16', 'React 19', 'TypeScript', 'Tailwind CSS 4', 'OpenLayers (GIS)', 'Cloudflare Workers', 'GovTech', 'Urbanismo'],
+    metrics: 'Mapas interativos geoespaciais e cronograma participativo em arquitetura one-page otimizada',
+    featured: true,
+    accentColor: '#059669',
+    media: [
+      {
+        id: 'plano-home',
+        kind: 'image',
+        src: './assets/portfolio/plano-diretor-01-home.png',
+        alt: 'Página inicial do Portal do Plano Diretor de Betim com apresentação institucional e atalhos de participação.',
+        caption: 'Início: apresentação da revisão do Plano Diretor e canais de participação popular.'
+      },
+      {
+        id: 'plano-mapa',
+        kind: 'image',
+        src: './assets/portfolio/plano-diretor-02-mapa.png',
+        alt: 'Visualizador interativo de mapas territoriais e camadas urbanas com OpenLayers.',
+        caption: 'Mapas e Dados: visualizador interativo com camadas de zoneamento, bacias e sistema viário.'
+      },
+      {
+        id: 'plano-cronograma',
+        kind: 'image',
+        src: './assets/portfolio/plano-diretor-03-cronograma.png',
+        alt: 'Cronograma interativo das etapas da revisão com indicação de marco operacional atual.',
+        caption: 'Cronograma da revisão: linha do tempo das etapas e encontros participativos.'
+      },
+      {
+        id: 'plano-documentos',
+        kind: 'image',
+        src: './assets/portfolio/plano-diretor-04-documentos.png',
+        alt: 'Central de produtos, diagnósticos e relatórios técnicos da revisão urbanística.',
+        caption: 'Produtos e Relatórios: acervo de documentos técnicos, atas de audiências e minutas.'
+      },
+      {
+        id: 'plano-mobile',
+        kind: 'image',
+        src: './assets/portfolio/plano-diretor-05-mobile.png',
+        alt: 'Navegação do Portal do Plano Diretor em tela de smartphone.',
+        caption: 'Interface one-page responsiva com navegação simplificada por âncoras.'
+      }
+    ],
+    stats: [
+      { label: 'Geotecnologia', value: 'Mapas com OpenLayers', icon: 'map' },
+      { label: 'Participação', value: 'Agenda & Cronograma', icon: 'calendar_today' },
+      { label: 'Arquitetura', value: 'Next.js 16 + React 19', icon: 'layers' },
+      { label: 'Desempenho', value: 'One-page na Borda Edge', icon: 'bolt' }
+    ],
+    highlights: [
+      'Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta.',
+      'Visualizador geoespacial interativo integrado com OpenLayers, permitindo alternância de camadas e análise territorial.',
+      'Cronograma participativo das etapas de revisão com sinalização visual de marco operacional em andamento.',
+      'Biblioteca aberta de produtos técnicos, diagnósticos municipais, cartilhas explicativas e minutas de lei.',
+      'Arquitetura one-page ultrarrápida com navegação fluida por âncoras e responsividade completa.'
+    ],
+    architecture: {
+      overview: 'Aplicação web Next.js 16 (App Router) e React 19 com arquitetura one-page orientada a seções, integrando biblioteca de geoprocessamento OpenLayers para renderização de dados geoespaciais em canvas vetorial e empacotamento com OpenNext.',
+      flow: [
+        'Acesso do munícipe à landing page otimizada com navegação por âncoras temáticas',
+        'Inicialização assíncrona do mapa OpenLayers com renderização de camadas de zoneamento e dados públicos',
+        'Acompanhamento do cronograma e etapas de revisão com status atualizado',
+        'Consulta e download de documentos técnicos, cartilhas e relatórios de cada fase',
+        'Integração isolada e segura de agenda de audiências e formulários participativos'
+      ],
+      security: [
+        'Incorporação de elementos externos (agenda pública) com sandbox estrito',
+        'Distribuição via CDN com isolamento de serviços e políticas restritivas de conteúdo',
+        'Arquitetura estática e sob demanda segura sem exposição de bancos de dados internos'
+      ]
+    },
+    readme: `# Portal do Plano Diretor de Betim\n\n> Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta.\n\n> Portal público para a revisão democrática e participativa do Plano Diretor Municipal de Betim.\n\n## 📌 Visão Geral & Impacto Social\n\nO **Plano Diretor** é o instrumento fundamental que orienta o desenvolvimento urbano, a sustentabilidade, o uso e ocupação do solo e a infraestrutura do município para os próximos 10 anos. Este portal foi construído para assegurar transparência pública, aproximar a população das decisões urbanísticas e viabilizar o acesso a dados territoriais e relatórios técnicos.\n\n## ⚡ Principais Funcionalidades\n\n- [x] **Visualizador Geoespacial (SIG/GIS)**: Mapa interativo construído com OpenLayers, permitindo ao cidadão e aos especialistas consultar camadas de macrozoneamento, bacias hidrográficas, regiões e sistema viário.\n- [x] **Cronograma & Linha do Tempo**: Acompanhamento claro de cada etapa da revisão (da fase preparatória às minutas de lei), com marcador de status operacional atual.\n- [x] **Repositório de Produtos & Relatórios**: Acesso público e download de diagnósticos, planos de comunicação, atas e cadernos temáticos.\n- [x] **Agenda de Audiências e Encontros**: Divulgação centralizada de datas, locais e transmissões das audiências públicas em todas as regionais de Betim.\n- [x] **Experiência One-Page Fluida**: Navegação instantânea com âncoras, layout acessível e otimizado para dispositivos móveis.\n\n## 🛠️ Stack Tecnológica\n\n| Camada | Tecnologia | Propósito |\n| --- | --- | --- |\n| **Framework** | Next.js 16 & React 19 | Renderização moderna de alta performance |\n| **Geoprocessamento** | OpenLayers (OL) | Visualização vetorial e raster de mapas territoriais |\n| **Linguagem** | TypeScript 5 | Tipagem estática ponta a ponta |\n| **Estilização** | Tailwind CSS 4 & Radix UI | Interface limpa, acessível e responsiva |\n| **Borda / Deploy** | Cloudflare Workers & OpenNext | Distribuição global com carregamento instantâneo |\n\n---\nDesenvolvido por **Danilo Ribeiro** pela **Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta**.`
+  },
+  {
     id: 'ecofinance',
     title: 'EcoFinance',
     category: 'Fintech & Gestão Pessoal',
