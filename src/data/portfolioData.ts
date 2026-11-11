@@ -21,7 +21,7 @@ export const PERSONAL_INFO: PersonalInfo = {
   location: 'Betim - MG, Brasil',
   github: 'https://github.com/Ooliveiradev',
   linkedin: 'https://www.linkedin.com/in/danilo-oliveira-127b3126a',
-  availability: 'Disponível para Estágio & Posições em Tecnologia (Segunda a sexta até 18h)',
+  availability: '',
   links: [],
   photo: '',
   resumeUrl: '',
