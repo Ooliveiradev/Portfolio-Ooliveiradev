@@ -6,6 +6,16 @@
   </p>
 
   <p>
+    <a href="https://ooliveiradev.github.io/Portfolio-Ooliveiradev/">
+      <img src="https://img.shields.io/badge/Acessar_Portfólio_Online-38bdf8?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Acessar Portfólio Online" />
+    </a>
+  </p>
+
+  <p>
+    🌐 <strong>Produção:</strong> <a href="https://ooliveiradev.github.io/Portfolio-Ooliveiradev/"><strong>https://ooliveiradev.github.io/Portfolio-Ooliveiradev/</strong></a>
+  </p>
+
+  <p>
     <a href="https://github.com/Ooliveiradev/Portfolio-Ooliveiradev/blob/main/LICENSE">
       <img src="https://img.shields.io/badge/license-MIT-38bdf8?style=flat-square" alt="MIT License" />
     </a>
@@ -121,6 +131,64 @@ Abaixo estão todos os requisitos e funcionalidades arquitetados e entregues no 
   - Filtro passa-baixa de 24dB modulado por um oscilador LFO ultra lento de $0.04\text{Hz}$ (~25 segundos por ciclo), simulando a respiração do cosmos.
 
 ---
+
+## 💼 Projetos em Destaque na Ilha de Projetos
+
+Explore os projetos integrados no universo 3D e disponíveis para inspeção técnica e visual:
+
+| Projeto | Categoria | Destaques Técnicos | Atuação / Contexto |
+|---|---|---|---|
+| 🏛️ **[Portal do Servidor Municipal](#-portal-do-servidor-municipal-de-betim)** | GovTech & Setor Público | Next.js 16, React 19, TypeScript, Tailwind, Cloudflare Workers, PDF.js, WCAG 2.1 AA | Desenvolvido pela Fundação Beta - Betim |
+| 🗺️ **[Portal do Plano Diretor](#-portal-da-revisão-do-plano-diretor-de-betim)** | GovTech & Urbanismo Digital | Next.js 16, React 19, OpenLayers (GIS), Tailwind CSS 4, Cloudflare Workers | Desenvolvido pela Fundação Beta - Betim |
+| 📐 **[QuantIA (Protótipo)](#-quantia-protótipo)** | IA Aplicada & Engenharia Civil | Google Gemini Multimodal, Next.js 16, Supabase, Zod, Vitest, Playwright | Automação preditiva de orçamentos |
+| 💰 **[EcoFinance](#-ecofinance)** | Fintech & Gestão Pessoal | TypeScript, Next.js, Cloud Firestore, Expo (React Native), OCR local | Gerenciador financeiro pessoal |
+| 🚀 **[Portfólio Cósmico 3D](#-portfólio-cósmico-3d)** | Web 3D & Creative Dev | Three.js, React Three Fiber, Rapier 3D WASM, Web Audio API procedural | Experiência gamificada espacial |
+| 🥗 **[NutriLife](#-nutrilife)** | Saúde & Nutrição | HTML5, CSS3, JavaScript ES6+, Firebase Authentication & Firestore | Calculadora de IMC e portal |
+
+---
+
+### Detalhamento dos Projetos
+
+#### 🏛️ Portal do Servidor Municipal de Betim
+> *Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta.*
+- **Objetivo**: Centralizar e modernizar a comunicação institucional, consultas funcionais, diretrizes de estágio e serviços do funcionalismo público da Prefeitura Municipal de Betim.
+- **Destaques**:
+  - Folheador interativo digital de manuais e cartilhas oficiais em PDF (*page-flip*) diretamente no navegador via PDF.js.
+  - Central de serviços organizada por seções dedicadas: servidores, estagiários, oportunidades e parceiros.
+  - Programa *Selo Amigo do Servidor* com rede de parceiros conveniados e benefícios exclusivos.
+  - Conformidade estrita com normas de acessibilidade pública **WCAG 2.1 Nível AA** (alto contraste, navegação por teclado e semântica completa).
+- **Stack**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Cloudflare Workers, OpenNext, PDF.js.
+
+#### 🗺️ Portal da Revisão do Plano Diretor de Betim
+> *Desenvolvido pela Fundação de Pesquisa Pública e Tecnologia Avançada do Município de Betim - Beta.*
+- **Objetivo**: Garantir transparência, participação democrática e acesso da população e de técnicos às etapas de revisão do Plano Diretor do município.
+- **Destaques**:
+  - Visualizador geoespacial interativo (**SIG / OpenLayers**) com alternância dinâmica de camadas (macrozoneamento, bacias hidrográficas, regiões e malha viária).
+  - Cronograma transparente das etapas participativas com sinalização de marco operacional atual (*"Estamos aqui!"*).
+  - Acervo digital público de diagnósticos territoriais, cadernos temáticos, atas de audiências públicas e minutas de lei.
+  - Interface *one-page* ágil e acessível com navegação instantânea por âncoras.
+- **Stack**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, OpenLayers (GIS), Cloudflare Workers, OpenNext, Radix UI.
+
+#### 📐 QuantIA (Protótipo)
+- **Objetivo**: Extração visual inteligente de cotas, cômodos e acabamentos a partir de pranchas arquitetônicas em PDF utilizando IA multimodal.
+- **Destaques**: Motor determinístico de cálculo de argamassa e rejunte por m² com agente auditor autônomo para conferência de consistência.
+- **Stack**: Next.js 16, React 19, TypeScript, Google Gemini 2.0 Flash/Pro, Supabase PostgreSQL, Zod, Vitest, Playwright.
+
+#### 💰 EcoFinance
+- **Objetivo**: Gerenciador financeiro pessoal com planejamento mensal e separação rigorosa entre competência e caixa.
+- **Destaques**: Cartões e faturas sem contagem dupla, importação com revisão segura de extratos (OFX, CSV, XLSX, PDF e OCR local) e app Expo.
+- **Stack**: TypeScript, Next.js, Cloud Firestore, Expo, Vitest, Playwright, Vercel.
+
+#### 🚀 Portfólio Cósmico 3D
+- **Objetivo**: Apresentação de portfólio profissional em um universo 3D interativo gamificado.
+- **Destaques**: Física Rapier 3D com drift e aceleração vetorial, iluminação de estúdio calibrada, 5 ilhas orbitais em tempo real, circuito Time Trial e áudio procedural via Web Audio API.
+- **Stack**: Three.js, React Three Fiber, Rapier 3D, TypeScript, Tailwind CSS v4, Motion.
+
+#### 🥗 NutriLife
+- **Objetivo**: Plataforma informativa sobre hábitos saudáveis e nutrição.
+- **Destaques**: Calculadora de IMC com validação imediata, classificação e recomendações, integrada a um blog temático com Firebase.
+- **Stack**: HTML5, CSS3, JavaScript (ES6+), Firebase.
+
 
 ## 🏗️ Arquitetura do Repositório
 
@@ -336,7 +404,7 @@ Veja [o diagnóstico, os limites e o roteiro de validação](docs/PERFORMANCE.md
 - [ ] Personalização de skins e cores para o chassi e jatos do foguete na oficina.
 - [x] Suporte a áudio espacial 3D posicional via `PannerNode` em torno de cada ilha e do Sol.
 - [ ] Conquistas adicionais com integração à API do GitHub (exibições de commits reais em tempo real).
-- [ ] Localização de idiomas (i18n): Português / Inglês.
+- [x] Localização de idiomas (i18n): Português / Inglês.
 
 ---
 
